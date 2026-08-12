@@ -105,14 +105,18 @@ function KolDetail() {
           </div>
           <p className="text-sm text-muted-foreground">{kol.name}</p>
           <div className="num mt-1 flex flex-wrap items-center gap-3 text-[10px] tracking-widest uppercase">
-            <a
-              href={kol.x}
-              target="_blank"
-              rel="noreferrer"
-              className="text-gold-light hover:underline"
-            >
-              {kol.handle}
-            </a>
+            {kol.x ? (
+              <a
+                href={kol.x}
+                target="_blank"
+                rel="noreferrer"
+                className="text-gold-light hover:underline"
+              >
+                {kol.handle}
+              </a>
+            ) : (
+              <span className="text-muted-foreground">{kol.handle}</span>
+            )}
             <button
               type="button"
               onClick={() => navigator.clipboard?.writeText(kol.wallet)}

@@ -595,7 +595,7 @@ const FLAT = Array.from({ length: 90 }, () => 0);
 
 export const KOLS: Kol[] = SEEDS.map((s) => ({
   id: s.id,
-  handle: s.handle,
+  handle: s.handle || `${s.wallet.slice(0, 4)}...${s.wallet.slice(-4)}`,
   name: s.name,
   ticker: s.ticker,
   wallet: s.wallet,
