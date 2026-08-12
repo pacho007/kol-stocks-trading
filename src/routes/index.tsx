@@ -35,18 +35,19 @@ const STEPS = [
   {
     n: "01",
     title: "Traders get listed",
-    body: "Every listing is a verified on-chain wallet. Win rate, realized PnL, size and hold time are indexed live — no self-reported screenshots.",
+    body: "Every listing is a verified on-chain wallet. Win rate, realized PnL, size and hold time are tracked all session — no self-reported screenshots.",
   },
   {
     n: "02",
-    title: "The desk prices them",
-    body: "A performance score marks each book to market every few seconds. Green trades bid the stock up, blowups take it out at the offer.",
+    title: "The desk prices them daily",
+    body: "Books are reviewed once a day at the close. The session's on-chain performance sets the next open — green days gap the stock up, blowups gap it down.",
   },
   {
     n: "03",
-    title: "You take the other side",
-    body: "Buy fractional shares of the operator, not the coin they are farming. Instant fills, no lockup, exit whenever the edge fades.",
+    title: "You trade the session",
+    body: "Buy fractional shares of the operator, not the coin they are farming, while the market is open. Orders placed after the bell fill at the next open.",
   },
+
 ];
 
 function Landing() {
