@@ -221,6 +221,8 @@ function Landing() {
               </div>
             ))}
           </section>
+
+          <DocsDeck />
         </main>
 
         {/* right rail */}
