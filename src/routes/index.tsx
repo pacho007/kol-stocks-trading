@@ -90,7 +90,7 @@ function Landing() {
             <span className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Markets</span>
             <span className="num text-[10px] tracking-widest text-up">{KOLS.length} LIVE</span>
           </div>
-          <div className="max-h-[34rem] overflow-y-auto">
+          <div className="overflow-y-auto">
             {rail.map((k) => {
               const up = k.change24h >= 0;
               return (
@@ -191,6 +191,19 @@ function Landing() {
             </div>
           </section>
 
+          {/* index thesis */}
+          <section className="rise panel grid gap-px overflow-hidden bg-border sm:grid-cols-3" style={{ animationDelay: "280ms" }}>
+            {[
+              ["Verified books only", "Every listing is tied to a real on-chain wallet. Nothing is self-reported, nothing is editable after the close."],
+              ["Priced on skill", "Share prices track realized PnL, win rate, size and hold time — not follower counts or engagement."],
+              ["Scout early", "Traders list small. Find the operator before the timeline does and hold the stock through the run."],
+            ].map(([title, body]) => (
+              <div key={title} className="bg-card px-4 py-4">
+                <p className="text-sm font-semibold">{title}</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{body}</p>
+              </div>
+            ))}
+          </section>
         </main>
 
         {/* right rail */}
