@@ -7,7 +7,6 @@ import { Sparkline } from "@/components/sparkline";
 import { TickerTape } from "@/components/ticker-tape";
 import { ConnectWalletButton } from "@/components/site-header";
 import { KOLS, fmtCompact, fmtPct, perfScore } from "@/lib/kols";
-import { useMarket } from "@/lib/market-store";
 import heroBanner from "@/assets/hero-banner.jpg";
 
 export const Route = createFileRoute("/")({
@@ -51,15 +50,12 @@ const STEPS = [
 ];
 
 function Landing() {
-  const { prices, positions, cash } = useMarket();
   const rail = [...KOLS].sort((a, b) => b.marketCap - a.marketCap);
   const top = [...KOLS].sort((a, b) => b.change24h - a.change24h).slice(0, 4);
   const board = [...KOLS].sort((a, b) => perfScore(b) - perfScore(a)).slice(0, 6);
   const totalCap = KOLS.reduce((s, k) => s + k.marketCap, 0);
   const totalVol = KOLS.reduce((s, k) => s + k.volume24h, 0);
   const avgWin = Math.round(KOLS.reduce((s, k) => s + k.winRate, 0) / KOLS.length);
-  const holdings = positions.reduce((s, p) => s + p.shares * (prices[p.id] ?? 0), 0);
-  const equity = cash + holdings;
 
   return (
     <div>
@@ -162,24 +158,24 @@ function Landing() {
             </div>
           </section>
 
-          {/* metrics strip */}
+          {/* index metrics strip */}
           <section className="rise panel overflow-hidden" style={{ animationDelay: "220ms" }}>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border px-4 py-2.5">
-              <span className="text-[10px] tracking-[0.22em] uppercase text-foreground">Your desk</span>
+              <span className="text-[10px] tracking-[0.22em] uppercase text-foreground">The index</span>
               <span className="num text-[10px] tracking-widest text-muted-foreground">
-                {positions.length} HOLDINGS · SETTLES AT DAILY CLOSE
+                {KOLS.length} TRADERS LISTED · PRICED ON ON-CHAIN PERFORMANCE
               </span>
               <Link
-                to="/portfolio"
+                to="/market"
                 className="num ml-auto text-[10px] tracking-widest uppercase text-primary hover:underline"
               >
-                Open portfolio ↗
+                Browse market ↗
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-px bg-border md:grid-cols-4">
               {[
-                ["Account equity", `$${equity.toFixed(2)}`, "cash + holdings"],
-                ["Deployed", `$${holdings.toFixed(2)}`, "mark to market"],
+                ["Index market cap", `$${(totalCap / 1_000_000).toFixed(2)}M`, "all listed traders"],
+                ["Session volume", `$${(totalVol / 1_000).toFixed(0)}K`, "shares traded today"],
                 ["Avg index win rate", `${avgWin}%`, "across all listings"],
                 ["Best 24h", fmtPct(top[0]?.change24h ?? 0), `$${top[0]?.ticker ?? "—"} leading`],
               ].map(([label, value, sub]) => (
@@ -191,6 +187,7 @@ function Landing() {
               ))}
             </div>
           </section>
+
         </main>
 
         {/* right rail */}
@@ -210,13 +207,13 @@ function Landing() {
             ))}
           </div>
           <div className="panel px-4 py-4">
-            <p className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Awaiting fills</p>
+            <p className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Next reprice</p>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Nothing queued. Each trader's book is reviewed once a day and repriced at the close — connect a
-              wallet to take a position before the bell.
+              Every trader's book is scored once a day. Winning sessions mark their stock up at the close, losing
+              sessions mark it down — that's the whole game.
             </p>
-
           </div>
+
         </aside>
       </div>
 
