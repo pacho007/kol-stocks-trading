@@ -57,7 +57,9 @@ function Landing() {
   const { prices } = useMarket();
   const session = useSession();
   const featured = ["cupsey", "sebastian", "pain", "loopier", "cented", "flames", "nyhrox", "parsix", "pr6sper"];
+  const demoted = ["j6tdxv"]; // duplicate "Pain" account, always last
   const rank = (k: (typeof KOLS)[number]) => {
+    if (demoted.includes(k.id)) return featured.length + 1;
     const n = k.name.toLowerCase().replace(/[^a-z0-9]/g, "");
     const i = featured.findIndex((f) => n === f || n.startsWith(f));
     return i === -1 ? featured.length : i;
