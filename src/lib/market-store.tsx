@@ -11,7 +11,7 @@ import {
 import { KOLS } from "./kols";
 
 export type Position = { id: string; shares: number; entry: number };
-export type Trade = { id: string; side: "buy" | "sell"; shares: number; price: number; at: number };
+export type Trade = { id: string; side: "buy" as const | "sell"; shares: number; price: number; at: number };
 
 type Ctx = {
   prices: Record<string, number>;
@@ -67,10 +67,11 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       setPrices((prev) => {
         const next: Record<string, number> = { ...prev };
         for (const k of KOLS) {
-          const base = BASE[k.id];
-          const drift = (base - prev[k.id]) * 0.02;
+          const base = BASE[k.id] ?? 1;
+          const cur = prev[k.id] ?? base;
+          const drift = (base - cur) * 0.02;
           const jitter = (Math.random() - 0.5) * base * 0.006;
-          next[k.id] = Math.max(base * 0.4, Number((prev[k.id] + drift + jitter).toFixed(2)));
+          next[k.id] = Math.max(base * 0.4, Number((cur + drift + jitter).toFixed(2)));
         }
         return next;
       });
@@ -80,7 +81,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
 
   const buy = useCallback(
     (id: string, shares: number) => {
-      const price = prices[id];
+      const price = prices[id] ?? BASE[id] ?? 0;
       setCash((c) => Math.max(0, c - price * shares));
       setPositions((p) => {
         const found = p.find((x) => x.id === id);
@@ -90,21 +91,21 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           x.id === id ? { ...x, shares: total, entry: (x.entry * x.shares + price * shares) / total } : x,
         );
       });
-      setTrades((t) => [{ id, side: "buy", shares, price, at: Date.now() }, ...t].slice(0, 50));
+      setTrades((t) => [{ id, side: "buy" as const, shares, price, at: Date.now() }, ...t].slice(0, 50));
     },
     [prices],
   );
 
   const sell = useCallback(
     (id: string, shares: number) => {
-      const price = prices[id];
+      const price = prices[id] ?? BASE[id] ?? 0;
       setPositions((p) =>
         p
           .map((x) => (x.id === id ? { ...x, shares: x.shares - shares } : x))
           .filter((x) => x.shares > 0.0001),
       );
       setCash((c) => c + price * shares);
-      setTrades((t) => [{ id, side: "sell", shares, price, at: Date.now() }, ...t].slice(0, 50));
+      setTrades((t) => [{ id, side: "sell" as const, shares, price, at: Date.now() }, ...t].slice(0, 50));
     },
     [prices],
   );
