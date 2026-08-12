@@ -105,7 +105,7 @@ function Landing() {
             <span className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Markets</span>
             <span className="num text-[10px] tracking-widest text-up">{KOLS.length} TRADERS</span>
           </div>
-          <div className="overflow-y-auto">
+          <div className="max-h-[36rem] overflow-y-auto">
             {rail.map((k) => {
               const up = k.change24h >= 0;
               return (
