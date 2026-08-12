@@ -17,7 +17,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "SHARPS lists on-chain crypto traders as tradable stocks. Their live performance is their share price. Scout talent early, buy shares, ride the PnL.",
+          "SHARPS lists on-chain crypto traders as tradable stocks. Their daily performance sets their share price, with market hours and a daily close. Scout talent early, buy shares, ride the PnL.",
       },
       { property: "og:title", content: "SHARPS — Invest in Crypto Traders Like Stocks" },
       {
