@@ -3,6 +3,7 @@ import { Wallet, Menu } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useMarket } from "@/lib/market-store";
+import { useSession } from "@/hooks/use-session";
 
 const NAV = [
   { to: "/market", label: "Market" },
@@ -43,6 +44,7 @@ export function ConnectWalletButton({ full = false }: { full?: boolean }) {
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
+  const session = useSession();
 
   return (
     <header className="sticky top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4">
