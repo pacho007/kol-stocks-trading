@@ -129,11 +129,14 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <MarketProvider>
-        <div className="flex min-h-screen flex-col">
-          <SiteHeader />
-          <main className="flex-1">
+        <div className="relative flex min-h-screen flex-col">
+          <div className="absolute inset-x-0 top-0 z-50">
+            <SiteHeader />
+          </div>
+          <main className="flex-1 pt-[4.75rem]">
             <Outlet />
           </main>
+
           <SiteFooter />
         </div>
         <Toaster position="bottom-right" />
