@@ -211,13 +211,13 @@ function Landing() {
             ))}
           </div>
           <div className="panel px-4 py-4">
-            <p className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Awaiting fills</p>
+            <p className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Next reprice</p>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Nothing queued. Each trader's book is reviewed once a day and repriced at the close — connect a
-              wallet to take a position before the bell.
+              Every trader's book is scored once a day. Winning sessions mark their stock up at the close, losing
+              sessions mark it down — that's the whole game.
             </p>
-
           </div>
+
         </aside>
       </div>
 
