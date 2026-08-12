@@ -31,7 +31,9 @@
   --color-up: var(--up);
   --color-down: var(--down);
   --color-surface: var(--surface);
+  --color-gold-light: var(--gold-light);
   --color-grid: var(--grid);
+
   --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
