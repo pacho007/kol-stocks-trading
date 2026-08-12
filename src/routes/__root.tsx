@@ -78,13 +78,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "SHARPS — Invest in Crypto Traders Like Stocks" },
+      { title: "SHARPS · Invest in Crypto Traders Like Stocks" },
       {
         name: "description",
         content:
           "SHARPS turns on-chain crypto traders into tradable stocks. Their performance is their share price.",
       },
-      { property: "og:title", content: "SHARPS — Invest in Crypto Traders Like Stocks" },
+      { property: "og:title", content: "SHARPS · Invest in Crypto Traders Like Stocks" },
       {
         property: "og:description",
         content: "Their on-chain performance is their share price.",

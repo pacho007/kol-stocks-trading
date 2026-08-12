@@ -19,7 +19,7 @@ export const Route = createFileRoute("/kol/$id")({
     if (!loaderData) {
       return { meta: [{ title: "Trader unavailable | SHARPS" }, { name: "robots", content: "noindex" }] };
     }
-    const title = `$${loaderData.ticker} · ${loaderData.name} — Trader Stock | SHARPS`;
+    const title = `$${loaderData.ticker} · ${loaderData.name} · Trader Stock | SHARPS`;
     return {
       meta: [
         { title },

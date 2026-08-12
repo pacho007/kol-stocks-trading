@@ -14,13 +14,13 @@ import heroBanner from "@/assets/hero-banner.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "SHARPS — Invest in Crypto Traders Like Stocks" },
+      { title: "SHARPS · Invest in Crypto Traders Like Stocks" },
       {
         name: "description",
         content:
           "SHARPS lists on-chain crypto traders as tradable stocks. Their daily performance sets their share price, with market hours and a daily close. Scout talent early, buy shares, ride the PnL.",
       },
-      { property: "og:title", content: "SHARPS — Invest in Crypto Traders Like Stocks" },
+      { property: "og:title", content: "SHARPS · Invest in Crypto Traders Like Stocks" },
       {
         property: "og:description",
         content: "Their on-chain performance is their share price. Buy the traders you believe in.",
@@ -36,12 +36,12 @@ const STEPS = [
   {
     n: "01",
     title: "Traders get listed",
-    body: "Every listing is a verified on-chain wallet. Win rate, realized PnL, size and hold time are tracked all session — no self-reported screenshots.",
+    body: "Every listing is a verified on-chain wallet. Win rate, realized PnL, size and hold time are tracked all session, no self-reported screenshots.",
   },
   {
     n: "02",
     title: "The desk prices them daily",
-    body: "Books are reviewed once a day at the close. The session's on-chain performance sets the next open — green days gap the stock up, blowups gap it down.",
+    body: "Books are reviewed once a day at the close. The session's on-chain performance sets the next open, green days gap the stock up, blowups gap it down.",
   },
   {
     n: "03",
@@ -180,7 +180,7 @@ function Landing() {
                 ["Index market cap", `$${(totalCap / 1_000_000).toFixed(2)}M`, "all listed traders"],
                 ["Session volume", `$${(totalVol / 1_000).toFixed(0)}K`, "shares traded today"],
                 ["Avg index win rate", `${avgWin}%`, "across all listings"],
-                ["Best 24h", fmtPct(top[0]?.change24h ?? 0), `$${top[0]?.ticker ?? "—"} leading`],
+                ["Best 24h", fmtPct(top[0]?.change24h ?? 0), `$${top[0]?.ticker ?? "-"} leading`],
               ].map(([label, value, sub]) => (
                 <div key={label} className="bg-card px-4 py-4">
                   <p className="text-[10px] tracking-[0.18em] uppercase text-muted-foreground">{label}</p>
@@ -195,7 +195,7 @@ function Landing() {
           <section className="rise panel grid gap-px overflow-hidden bg-border sm:grid-cols-3" style={{ animationDelay: "280ms" }}>
             {[
               ["Verified books only", "Every listing is tied to a real on-chain wallet. Nothing is self-reported, nothing is editable after the close."],
-              ["Priced on skill", "Share prices track realized PnL, win rate, size and hold time — not follower counts or engagement."],
+              ["Priced on skill", "Share prices track realized PnL, win rate, size and hold time, not follower counts or engagement."],
               ["Scout early", "Traders list small. Find the operator before the timeline does and hold the stock through the run."],
             ].map(([title, body]) => (
               <div key={title} className="bg-card px-4 py-4">
@@ -227,7 +227,7 @@ function Landing() {
             <SessionClock />
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
               Every trader's book is scored once a day. Winning sessions mark their stock up at the close, losing
-              sessions mark it down — that's the whole game.
+              sessions mark it down, that's the whole game.
             </p>
           </div>
 
@@ -327,7 +327,7 @@ function Landing() {
         <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
           <h2 className="text-3xl font-bold sm:text-5xl">Talent is the only asset that compounds.</h2>
           <p className="mx-auto mt-4 max-w-lg text-sm text-muted-foreground">
-            Stop chasing the coin. Buy the operator behind it — before the rest of the timeline figures out who
+            Stop chasing the coin. Buy the operator behind it, before the rest of the timeline figures out who
             they are.
           </p>
           <div className="mt-8 flex justify-center">

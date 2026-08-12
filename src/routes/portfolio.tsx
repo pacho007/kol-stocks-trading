@@ -9,13 +9,13 @@ import { useMarket } from "@/lib/market-store";
 export const Route = createFileRoute("/portfolio")({
   head: () => ({
     meta: [
-      { title: "Portfolio — Your Trader Holdings | SHARPS" },
+      { title: "Portfolio · Your Trader Holdings | SHARPS" },
       {
         name: "description",
         content:
           "Track your SHARPS holdings: shares held, average entry, live value and unrealized profit and loss across every trader you back.",
       },
-      { property: "og:title", content: "Portfolio — Your Trader Holdings | SHARPS" },
+      { property: "og:title", content: "Portfolio · Your Trader Holdings | SHARPS" },
       { property: "og:description", content: "Holdings, entry price, live value and P&L in one book." },
     ],
   }),
