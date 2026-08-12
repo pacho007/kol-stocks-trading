@@ -191,7 +191,7 @@ function Landing() {
           <div className="mt-8 flex justify-center">
             <Link
               to="/market"
-              className="glow inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-xs font-bold tracking-widest uppercase text-primary-foreground transition-all hover:brightness-110"
+              className="glow inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-xs font-bold tracking-widest uppercase text-primary-foreground transition-all hover:brightness-110"
             >
               Start trading
               <ArrowRight className="size-4" />

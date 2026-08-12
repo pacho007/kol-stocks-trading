@@ -26,7 +26,7 @@ export function ConnectWalletButton({ full = false }: { full?: boolean }) {
           });
         }
       }}
-      className={`group inline-flex items-center justify-center gap-2 rounded-md border px-3.5 py-2 text-xs font-semibold tracking-wide uppercase transition-all ${
+      className={`group inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-semibold tracking-wide uppercase transition-all ${
         full ? "w-full" : ""
       } ${
         connected

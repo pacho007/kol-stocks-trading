@@ -98,7 +98,7 @@ function Portfolio() {
           <p className="text-sm text-muted-foreground">No positions yet.</p>
           <Link
             to="/market"
-            className="glow mt-5 inline-flex rounded-md bg-primary px-5 py-2.5 text-[10px] font-bold tracking-widest uppercase text-primary-foreground"
+            className="glow mt-5 inline-flex rounded-xl bg-primary px-5 py-2.5 text-[10px] font-bold tracking-widest uppercase text-primary-foreground"
           >
             Browse the market
           </Link>
