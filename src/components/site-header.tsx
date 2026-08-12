@@ -45,62 +45,69 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
-        <Link to="/" className="group flex items-center gap-2.5">
-          <div className="gold-ring grid size-8 place-items-center rounded-lg p-px transition-transform duration-300 group-hover:rotate-6">
-            <span className="display grid size-full place-items-center rounded-[7px] bg-background text-[13px] font-extrabold text-gold-light">
-              S
-            </span>
-          </div>
-          <span className="display text-sm font-extrabold tracking-[0.3em] uppercase">Sharps</span>
-        </Link>
+    <header className="sticky top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4">
+      <div className="mx-auto max-w-[80rem]">
+        <div className="flex h-14 items-center gap-6 rounded-full border border-border bg-background/70 px-3 pr-2 shadow-[0_18px_45px_-28px_rgb(0_0_0/0.95)] backdrop-blur-xl sm:px-5 sm:pr-2.5">
+          <Link to="/" className="group flex items-center gap-2.5">
+            <div className="gold-ring grid size-7 place-items-center rounded-full p-px transition-transform duration-500 group-hover:rotate-[18deg]">
+              <span className="display grid size-full place-items-center rounded-full bg-background text-[12px] font-extrabold text-gold-light">
+                S
+              </span>
+            </div>
+            <span className="display text-[13px] font-extrabold tracking-[0.3em] uppercase">Sharps</span>
+          </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
-          {NAV.map((n) => (
-            <Link
-              key={n.to}
-              to={n.to}
-              className="relative rounded-lg px-3 py-1.5 text-xs font-semibold tracking-[0.12em] uppercase text-muted-foreground transition-colors hover:text-gold-light"
-              activeProps={{ className: "text-gold-light bg-primary/10" }}
+          <span className="hidden h-5 w-px bg-border md:block" />
+
+          <nav className="hidden items-center gap-0.5 md:flex">
+            {NAV.map((n) => (
+              <Link
+                key={n.to}
+                to={n.to}
+                className="relative rounded-full px-3.5 py-1.5 text-[11px] font-semibold tracking-[0.14em] uppercase text-muted-foreground transition-colors hover:text-gold-light"
+                activeProps={{ className: "text-gold-light bg-primary/10" }}
+              >
+                {n.label}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="ml-auto flex items-center gap-2.5">
+            <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-surface/50 px-3 py-1.5 sm:flex">
+              <span className="live-dot size-1.5 rounded-full bg-up" />
+              <span className="num text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
+                Markets Open
+              </span>
+            </div>
+            <ConnectWalletButton />
+            <button
+              className="grid size-9 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:text-gold-light md:hidden"
+              onClick={() => setOpen((v) => !v)}
+              aria-label="Menu"
             >
-              {n.label}
-            </Link>
-          ))}
-        </nav>
-
-
-        <div className="ml-auto flex items-center gap-3">
-          <div className="hidden items-center gap-2 sm:flex">
-            <span className="live-dot size-1.5 rounded-full bg-up" />
-            <span className="num text-[10px] tracking-widest uppercase text-muted-foreground">
-              Markets Open
-            </span>
+              <Menu className="size-4" />
+            </button>
           </div>
-          <ConnectWalletButton />
-          <button
-            className="md:hidden text-muted-foreground"
-            onClick={() => setOpen((v) => !v)}
-            aria-label="Menu"
-          >
-            <Menu className="size-5" />
-          </button>
         </div>
+
+        {open && (
+          <nav className="mt-2 flex flex-col rounded-2xl border border-border bg-background/90 px-4 py-2 backdrop-blur-xl md:hidden">
+            {NAV.map((n) => (
+              <Link
+                key={n.to}
+                to={n.to}
+                onClick={() => setOpen(false)}
+                className="py-2 text-[11px] font-semibold tracking-[0.14em] uppercase text-muted-foreground"
+              >
+                {n.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </div>
-      {open && (
-        <nav className="flex flex-col border-t border-border px-4 py-2 md:hidden">
-          {NAV.map((n) => (
-            <Link
-              key={n.to}
-              to={n.to}
-              onClick={() => setOpen(false)}
-              className="py-2 text-xs font-medium tracking-wide uppercase text-muted-foreground"
-            >
-              {n.label}
-            </Link>
-          ))}
-        </nav>
-      )}
+    </header>
+  );
+
     </header>
   );
 }
