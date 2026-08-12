@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as MarketRouteImport } from './routes/market'
+import { Route as PortfolioRouteImport } from './routes/portfolio'
+import { Route as KolIdRouteImport } from './routes/kol.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +30,53 @@ const MarketRoute = MarketRouteImport.update({
   path: '/market',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PortfolioRoute = PortfolioRouteImport.update({
+  id: '/portfolio',
+  path: '/portfolio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KolIdRoute = KolIdRouteImport.update({
+  id: '/kol/$id',
+  path: '/kol/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/leaderboard': typeof LeaderboardRoute
   '/market': typeof MarketRoute
+  '/portfolio': typeof PortfolioRoute
+  '/kol/$id': typeof KolIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/leaderboard': typeof LeaderboardRoute
   '/market': typeof MarketRoute
+  '/portfolio': typeof PortfolioRoute
+  '/kol/$id': typeof KolIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/leaderboard': typeof LeaderboardRoute
   '/market': typeof MarketRoute
+  '/portfolio': typeof PortfolioRoute
+  '/kol/$id': typeof KolIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/leaderboard' | '/market'
+  fullPaths: '/' | '/leaderboard' | '/market' | '/portfolio' | '/kol/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/leaderboard' | '/market'
-  id: '__root__' | '/' | '/leaderboard' | '/market'
+  to: '/' | '/leaderboard' | '/market' | '/portfolio' | '/kol/$id'
+  id: '__root__' | '/' | '/leaderboard' | '/market' | '/portfolio' | '/kol/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LeaderboardRoute: typeof LeaderboardRoute
   MarketRoute: typeof MarketRoute
+  PortfolioRoute: typeof PortfolioRoute
+  KolIdRoute: typeof KolIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +102,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/portfolio': {
+      id: '/portfolio'
+      path: '/portfolio'
+      fullPath: '/portfolio'
+      preLoaderRoute: typeof PortfolioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kol/$id': {
+      id: '/kol/$id'
+      path: '/kol/$id'
+      fullPath: '/kol/$id'
+      preLoaderRoute: typeof KolIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +123,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LeaderboardRoute: LeaderboardRoute,
   MarketRoute: MarketRoute,
+  PortfolioRoute: PortfolioRoute,
+  KolIdRoute: KolIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
