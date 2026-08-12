@@ -1,3 +1,4 @@
+import { useMarket } from "@/lib/market-store";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { AvatarMark } from "@/components/avatar-mark";
@@ -50,6 +51,7 @@ const STEPS = [
 ];
 
 function Landing() {
+  const { prices } = useMarket();
   const rail = [...KOLS].sort((a, b) => b.marketCap - a.marketCap);
   const top = [...KOLS].sort((a, b) => b.change24h - a.change24h).slice(0, 4);
   const board = [...KOLS].sort((a, b) => perfScore(b) - perfScore(a)).slice(0, 6);
