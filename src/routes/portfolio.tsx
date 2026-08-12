@@ -19,7 +19,7 @@ export const Route = createFileRoute("/portfolio")({
       { property: "og:description", content: "Holdings, entry price, live value and P&L in one book." },
     ],
   }),
-  component: Portfolio;
+  component: Portfolio,
 });
 
 function Portfolio() {
