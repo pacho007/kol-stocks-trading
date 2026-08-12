@@ -212,9 +212,10 @@ function Landing() {
           <div className="panel px-4 py-4">
             <p className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Awaiting fills</p>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Nothing queued. Prices tick live off simulated on-chain performance — connect a wallet to take
-              your first position.
+              Nothing queued. Each trader's book is reviewed once a day and repriced at the close — connect a
+              wallet to take a position before the bell.
             </p>
+
           </div>
         </aside>
       </div>
