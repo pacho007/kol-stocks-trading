@@ -109,7 +109,7 @@ function Landing() {
                   params={{ id: k.id }}
                   className="group flex items-center gap-2.5 border-b border-border/60 px-3 py-2.5 transition-colors last:border-0 hover:bg-accent/40"
                 >
-                  <AvatarMark gradient={k.avatar} label={k.ticker} size={28} />
+                  <AvatarMark gradient={k.avatar} label={k.ticker} src={k.image} size={28} />
                   <div className="min-w-0 flex-1">
                     <p className="num text-xs font-bold tracking-widest group-hover:text-primary">${k.ticker}</p>
                     <p className="truncate text-[10px] tracking-wider uppercase text-muted-foreground">
@@ -310,7 +310,7 @@ function Landing() {
                   className="flex items-center gap-4 border-b border-border bg-card px-4 py-3.5 transition-colors last:border-0 hover:bg-surface"
                 >
                   <span className="num w-6 text-sm text-muted-foreground">{i + 1}</span>
-                  <AvatarMark gradient={k.avatar} label={k.ticker} size={34} />
+                  <AvatarMark gradient={k.avatar} label={k.ticker} src={k.image} size={34} />
                   <div className="min-w-0">
                     <p className="num text-sm font-bold tracking-widest">${k.ticker}</p>
                     <p className="truncate text-xs text-muted-foreground">{k.handle}</p>

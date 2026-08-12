@@ -6,7 +6,7 @@ import { AvatarMark } from "@/components/avatar-mark";
 import { LivePrice } from "@/components/live-price";
 import { PriceChart } from "@/components/price-chart";
 import { ConnectWalletButton } from "@/components/site-header";
-import { getKol, fmtCompact, fmtPct, fmtUsd, perfScore } from "@/lib/kols";
+import { getKol, fmtCompact, fmtPct, fmtUsd, perfScore, shortWallet } from "@/lib/kols";
 import { useMarket } from "@/lib/market-store";
 
 export const Route = createFileRoute("/kol/$id")({
@@ -95,7 +95,7 @@ function KolDetail() {
       </Link>
 
       <div className="mt-6 flex flex-wrap items-center gap-4">
-        <AvatarMark gradient={kol.avatar} label={kol.ticker} size={64} />
+        <AvatarMark gradient={kol.avatar} label={kol.ticker} src={kol.image} size={64} />
         <div>
           <div className="flex items-center gap-3">
             <h1 className="num text-2xl font-bold tracking-widest">${kol.ticker}</h1>
@@ -103,9 +103,26 @@ function KolDetail() {
               {kol.chain}
             </span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {kol.name} · {kol.handle}
-          </p>
+          <p className="text-sm text-muted-foreground">{kol.name}</p>
+          <div className="num mt-1 flex flex-wrap items-center gap-3 text-[10px] tracking-widest uppercase">
+            <a
+              href={kol.x}
+              target="_blank"
+              rel="noreferrer"
+              className="text-gold-light hover:underline"
+            >
+              {kol.handle}
+            </a>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard?.writeText(kol.wallet)}
+              className="text-muted-foreground transition-colors hover:text-foreground"
+              title={kol.wallet}
+            >
+              {shortWallet(kol.wallet)}
+            </button>
+          </div>
+
         </div>
         <div className="ml-auto text-right">
           <LivePrice value={price} className="text-3xl font-bold" />

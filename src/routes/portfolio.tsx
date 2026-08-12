@@ -123,7 +123,7 @@ function Portfolio() {
                 <tr key={r.id} className="border-b border-border/70 bg-card last:border-0 hover:bg-surface">
                   <td className="px-4 py-3">
                     <Link to="/kol/$id" params={{ id: r.id }} className="flex items-center gap-3">
-                      <AvatarMark gradient={r.kol.avatar} label={r.kol.ticker} size={30} />
+                      <AvatarMark gradient={r.kol.avatar} label={r.kol.ticker} src={r.kol.image} size={30} />
                       <div>
                         <p className="num text-sm font-bold tracking-widest">${r.kol.ticker}</p>
                         <p className="text-xs text-muted-foreground">{r.kol.handle}</p>

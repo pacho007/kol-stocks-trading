@@ -19,7 +19,7 @@ export function KolCard({ kol, price, index = 0 }: { kol: Kol; price: number; in
         style={{ background: "color-mix(in oklab, var(--primary) 18%, transparent)" }}
       />
       <div className="relative flex items-start gap-3">
-        <AvatarMark gradient={kol.avatar} label={kol.ticker} />
+        <AvatarMark gradient={kol.avatar} label={kol.ticker} src={kol.image} />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="num text-sm font-bold tracking-widest transition-colors group-hover:text-gold-light">
