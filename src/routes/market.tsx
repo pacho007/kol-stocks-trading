@@ -13,13 +13,13 @@ import { useMarket } from "@/lib/market-store";
 export const Route = createFileRoute("/market")({
   head: () => ({
     meta: [
-      { title: "Market — All Listed Traders | SHARPS" },
+      { title: "Market · All Listed Traders | SHARPS" },
       {
         name: "description",
         content:
           "Browse every trader listed on SHARPS. Live share price, 24h change, market cap and volume for each on-chain KOL.",
       },
-      { property: "og:title", content: "Market — All Listed Traders | SHARPS" },
+      { property: "og:title", content: "Market · All Listed Traders | SHARPS" },
       {
         property: "og:description",
         content: "Live prices, gainers, losers and volume across all listed on-chain traders.",

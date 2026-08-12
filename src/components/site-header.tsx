@@ -108,7 +108,7 @@ export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-surface/40">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-8 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p className="num tracking-wide">SHARPS © 2026 — Simulated market. Not financial advice.</p>
+        <p className="num tracking-wide">SHARPS © 2026, Simulated market. Not financial advice.</p>
         <p className="num tracking-wide">Prices are mock data. Solana program wiring pending.</p>
       </div>
     </footer>

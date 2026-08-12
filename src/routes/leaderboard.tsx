@@ -9,13 +9,13 @@ import { useMarket } from "@/lib/market-store";
 export const Route = createFileRoute("/leaderboard")({
   head: () => ({
     meta: [
-      { title: "Leaderboard — Top Traders by Market Cap | SHARPS" },
+      { title: "Leaderboard · Top Traders by Market Cap | SHARPS" },
       {
         name: "description",
         content:
           "The SHARPS leaderboard ranks every listed on-chain trader by market cap and by performance score across win rate, PnL and volume.",
       },
-      { property: "og:title", content: "Leaderboard — Top Traders | SHARPS" },
+      { property: "og:title", content: "Leaderboard · Top Traders | SHARPS" },
       {
         property: "og:description",
         content: "Ranked by market cap and performance score. The tape doesn't lie.",
@@ -39,7 +39,7 @@ function Leaderboard() {
       <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Leaderboard</h1>
       <p className="mt-2 max-w-xl text-sm text-muted-foreground">
         Performance score blends win rate, 30d realized PnL, trade count and 24h move. No votes, no
-        vibes — just the tape.
+        vibes, just the tape.
       </p>
 
       <div className="mt-6 inline-flex rounded-lg border border-border bg-surface/70 p-0.5">
