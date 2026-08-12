@@ -17,7 +17,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "SHARPS lists on-chain crypto traders as tradable stocks. Their live performance is their share price. Scout talent early, buy shares, ride the PnL.",
+          "SHARPS lists on-chain crypto traders as tradable stocks. Their daily performance sets their share price, with market hours and a daily close. Scout talent early, buy shares, ride the PnL.",
       },
       { property: "og:title", content: "SHARPS — Invest in Crypto Traders Like Stocks" },
       {
@@ -35,18 +35,19 @@ const STEPS = [
   {
     n: "01",
     title: "Traders get listed",
-    body: "Every listing is a verified on-chain wallet. Win rate, realized PnL, size and hold time are indexed live — no self-reported screenshots.",
+    body: "Every listing is a verified on-chain wallet. Win rate, realized PnL, size and hold time are tracked all session — no self-reported screenshots.",
   },
   {
     n: "02",
-    title: "The desk prices them",
-    body: "A performance score marks each book to market every few seconds. Green trades bid the stock up, blowups take it out at the offer.",
+    title: "The desk prices them daily",
+    body: "Books are reviewed once a day at the close. The session's on-chain performance sets the next open — green days gap the stock up, blowups gap it down.",
   },
   {
     n: "03",
-    title: "You take the other side",
-    body: "Buy fractional shares of the operator, not the coin they are farming. Instant fills, no lockup, exit whenever the edge fades.",
+    title: "You trade the session",
+    body: "Buy fractional shares of the operator, not the coin they are farming, while the market is open. Orders placed after the bell fill at the next open.",
   },
+
 ];
 
 function Landing() {
@@ -67,7 +68,7 @@ function Landing() {
         <div className="mx-auto flex max-w-[110rem] flex-wrap items-center gap-x-6 gap-y-1 px-4 py-2 text-[10px] tracking-[0.18em] uppercase text-muted-foreground sm:px-6">
           <span className="flex items-center gap-2 text-primary">
             <span className="live-dot size-1.5 rounded-full bg-up" />
-            Desk open
+            Market open · closes 21:00 UTC
           </span>
           <span>
             Index cap <span className="num text-foreground">{fmtCompact(totalCap)}</span>
@@ -78,7 +79,7 @@ function Landing() {
           <span>
             Listings <span className="num text-foreground">{KOLS.length}</span>
           </span>
-          <span className="ml-auto hidden sm:inline">Season 1 · settlement simulated</span>
+          <span className="ml-auto hidden sm:inline">Season 1 · daily close settlement</span>
         </div>
       </div>
 
@@ -166,7 +167,7 @@ function Landing() {
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border px-4 py-2.5">
               <span className="text-[10px] tracking-[0.22em] uppercase text-foreground">Your desk</span>
               <span className="num text-[10px] tracking-widest text-muted-foreground">
-                {positions.length} HOLDINGS · SIM SETTLEMENT
+                {positions.length} HOLDINGS · SETTLES AT DAILY CLOSE
               </span>
               <Link
                 to="/portfolio"
@@ -211,9 +212,10 @@ function Landing() {
           <div className="panel px-4 py-4">
             <p className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Awaiting fills</p>
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Nothing queued. Prices tick live off simulated on-chain performance — connect a wallet to take
-              your first position.
+              Nothing queued. Each trader's book is reviewed once a day and repriced at the close — connect a
+              wallet to take a position before the bell.
             </p>
+
           </div>
         </aside>
       </div>
