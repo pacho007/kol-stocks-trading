@@ -210,11 +210,41 @@ function Landing() {
           </div>
           <div className="panel px-4 py-4">
             <p className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Next reprice</p>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            <SessionClock />
+            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
               Every trader's book is scored once a day. Winning sessions mark their stock up at the close, losing
               sessions mark it down — that's the whole game.
             </p>
           </div>
+
+          <div className="panel overflow-hidden">
+            <div className="border-b border-border px-3 py-2.5 text-[10px] tracking-[0.22em] uppercase text-muted-foreground">
+              Session tape
+            </div>
+            {[...KOLS]
+              .sort((a, b) => b.change24h - a.change24h)
+              .filter((_, i, arr) => i < 3 || i >= arr.length - 2)
+              .map((k) => (
+                <Link
+                  key={k.id}
+                  to="/kol/$id"
+                  params={{ id: k.id }}
+                  className="group flex items-center justify-between gap-3 border-b border-border/60 px-4 py-2.5 transition-colors last:border-0 hover:bg-accent/40"
+                >
+                  <div className="min-w-0">
+                    <p className="num text-xs font-bold tracking-widest group-hover:text-primary">${k.ticker}</p>
+                    <p className="truncate text-[10px] tracking-wider uppercase text-muted-foreground">{k.handle}</p>
+                  </div>
+                  <div className="text-right">
+                    <LivePrice value={prices[k.id] ?? k.price} className="text-xs" />
+                    <p className={`num text-[10px] ${k.change24h >= 0 ? "text-up" : "text-down"}`}>
+                      {fmtPct(k.change24h)}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+          </div>
+
 
         </aside>
       </div>
