@@ -56,7 +56,13 @@ const STEPS = [
 function Landing() {
   const { prices } = useMarket();
   const session = useSession();
-  const rail = [...KOLS].sort((a, b) => b.marketCap - a.marketCap);
+  const featured = ["cupsey", "sebastian", "pain", "loopier", "cented", "flames", "nyhrox", "parsix", "pr6sper"];
+  const rank = (k: (typeof KOLS)[number]) => {
+    const n = k.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const i = featured.findIndex((f) => n === f || n.startsWith(f));
+    return i === -1 ? featured.length : i;
+  };
+  const rail = [...KOLS].sort((a, b) => rank(a) - rank(b) || b.marketCap - a.marketCap);
   const top = [...KOLS].sort((a, b) => b.change24h - a.change24h).slice(0, 4);
   const board = [...KOLS].sort((a, b) => perfScore(b) - perfScore(a)).slice(0, 6);
   const totalCap = KOLS.reduce((s, k) => s + k.marketCap, 0);
@@ -99,7 +105,7 @@ function Landing() {
             <span className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Markets</span>
             <span className="num text-[10px] tracking-widest text-up">{KOLS.length} TRADERS</span>
           </div>
-          <div className="overflow-y-auto">
+          <div className="max-h-[36rem] overflow-y-auto">
             {rail.map((k) => {
               const up = k.change24h >= 0;
               return (
