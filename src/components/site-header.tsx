@@ -11,7 +11,13 @@ const NAV = [
   { to: "/portfolio", label: "Portfolio" },
 ] as const;
 
-export function ConnectWalletButton({ full = false }: { full?: boolean }) {
+export function ConnectWalletButton({
+  full = false,
+  size = "sm",
+}: {
+  full?: boolean;
+  size?: "sm" | "lg";
+}) {
   const { connected, connect, disconnect } = useMarket();
 
   return (
@@ -27,20 +33,20 @@ export function ConnectWalletButton({ full = false }: { full?: boolean }) {
           });
         }
       }}
-      className={`group inline-flex items-center justify-center gap-2 rounded-full border px-4 py-2 text-[11px] font-semibold tracking-[0.14em] uppercase transition-all duration-300 hover:-translate-y-px active:translate-y-0 ${
-        full ? "w-full" : ""
-      } ${
+      className={`group inline-flex items-center justify-center gap-2 rounded-lg border text-[11px] font-semibold tracking-[0.12em] uppercase transition-colors duration-200 ${
+        size === "lg" ? "h-12 px-6" : "h-9 px-4"
+      } ${full ? "w-full" : ""} ${
         connected
-          ? "border-up/40 bg-up/10 text-up hover:bg-up/15"
-          : "border-primary/40 bg-primary text-primary-foreground hover:brightness-110 glow sheen"
+          ? "border-up/30 bg-up/8 text-up hover:bg-up/14"
+          : "border-primary/25 bg-primary/[0.06] text-gold-light hover:border-primary/50 hover:bg-primary/12"
       }`}
     >
-      <Wallet className="size-3.5" />
+      <Wallet className="size-3.5 opacity-80" />
       {connected ? "7xKX…9fTq" : "Connect Wallet"}
     </button>
-
   );
 }
+
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
