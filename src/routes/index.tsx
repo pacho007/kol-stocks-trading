@@ -139,11 +139,9 @@ function Landing() {
             <div className="absolute inset-0 bg-[linear-gradient(100deg,var(--background)_18%,color-mix(in_oklab,var(--background)_72%,transparent)_52%,transparent_92%)]" />
             <div className="grid-bg absolute inset-0 opacity-40" />
             <div className="relative px-6 py-14 sm:px-10 sm:py-20 lg:py-24">
-              <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-background/70 px-3 py-1 text-[10px] tracking-[0.22em] uppercase text-primary backdrop-blur">
-                <span className="live-dot size-1.5 rounded-full bg-primary" /> On-chain talent exchange
-              </div>
               <h1
-                className="rise mt-5 max-w-2xl text-4xl leading-[0.98] font-extrabold sm:text-6xl"
+                className="rise max-w-2xl text-4xl leading-[0.98] font-extrabold sm:text-6xl"
+
                 style={{ animationDelay: "60ms" }}
               >
                 Invest in traders
