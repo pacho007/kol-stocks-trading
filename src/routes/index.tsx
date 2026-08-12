@@ -63,10 +63,10 @@ function Landing() {
             12 traders listed · Season 1 live
           </div>
 
-          <h1 className="rise mt-6 max-w-4xl text-4xl leading-[1.02] font-bold sm:text-6xl lg:text-7xl" style={{ animationDelay: "60ms" }}>
+          <h1 className="rise mt-6 max-w-4xl text-4xl leading-[1.02] font-extrabold sm:text-6xl lg:text-7xl" style={{ animationDelay: "60ms" }}>
             Invest in traders
             <br />
-            like stocks.
+            <span className="gold-text">like stocks.</span>
           </h1>
 
           <p className="rise mt-6 max-w-xl text-base text-muted-foreground sm:text-lg" style={{ animationDelay: "120ms" }}>
@@ -77,11 +77,12 @@ function Landing() {
           <div className="rise mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: "180ms" }}>
             <Link
               to="/market"
-              className="glow group inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 text-xs font-bold tracking-widest uppercase text-primary-foreground transition-all hover:brightness-110"
+              className="glow sheen group inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-xs font-extrabold tracking-[0.18em] uppercase text-primary-foreground transition-all hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98]"
             >
               Open the market
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </Link>
+
             <ConnectWalletButton />
           </div>
 
