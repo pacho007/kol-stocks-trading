@@ -160,13 +160,14 @@ function Landing() {
               <div className="rise mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: "180ms" }}>
                 <Link
                   to="/market"
-                  className="glow sheen group inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-xs font-extrabold tracking-[0.18em] uppercase text-primary-foreground transition-all hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98]"
+                  className="group inline-flex h-12 items-center gap-2.5 rounded-lg bg-primary px-6 text-[11px] font-bold tracking-[0.12em] uppercase text-primary-foreground transition-colors duration-200 hover:brightness-[1.06]"
                 >
                   Open the market
-                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+                  <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
-                <ConnectWalletButton />
+                <ConnectWalletButton size="lg" />
               </div>
+
             </div>
           </section>
 
