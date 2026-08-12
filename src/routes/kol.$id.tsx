@@ -48,15 +48,27 @@ function KolDetail() {
   const canSubmit =
     connected && shares > 0 && (side === "buy" ? cost <= cash : shares <= maxSell + 1e-9);
 
-  function submit() {
-    if (!connected) return toast.error("Connect a wallet first");
-    if (shares <= 0) return toast.error("Enter a share amount");
+  function submit(): void {
+    if (!connected) {
+      toast.error("Connect a wallet first");
+      return;
+    }
+    if (shares <= 0) {
+      toast.error("Enter a share amount");
+      return;
+    }
     if (side === "buy") {
-      if (cost > cash) return toast.error("Insufficient demo balance");
+      if (cost > cash) {
+        toast.error("Insufficient demo balance");
+        return;
+      }
       buy(kol.id, shares);
       toast.success(`Filled: bought ${shares} $${kol.ticker}`, { description: `@ ${fmtUsd(price)}` });
     } else {
-      if (shares > maxSell) return toast.error(`You only hold ${maxSell} shares`);
+      if (shares > maxSell) {
+        toast.error(`You only hold ${maxSell} shares`);
+        return;
+      }
       sell(kol.id, shares);
       toast.success(`Filled: sold ${shares} $${kol.ticker}`, { description: `@ ${fmtUsd(price)}` });
     }
