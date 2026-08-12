@@ -68,7 +68,7 @@ function Landing() {
         <div className="mx-auto flex max-w-[110rem] flex-wrap items-center gap-x-6 gap-y-1 px-4 py-2 text-[10px] tracking-[0.18em] uppercase text-muted-foreground sm:px-6">
           <span className="flex items-center gap-2 text-primary">
             <span className="live-dot size-1.5 rounded-full bg-up" />
-            Desk open
+            Market open · closes 21:00 UTC
           </span>
           <span>
             Index cap <span className="num text-foreground">{fmtCompact(totalCap)}</span>
