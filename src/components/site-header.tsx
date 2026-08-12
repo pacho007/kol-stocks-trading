@@ -74,9 +74,17 @@ export function SiteHeader() {
 
           <div className="ml-auto flex items-center gap-2.5">
             <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-surface/50 px-3 py-1.5 sm:flex">
-              <span className="live-dot size-1.5 rounded-full bg-up" />
+              <span
+                className={`size-1.5 rounded-full ${session?.marketOpen ? "live-dot bg-up" : "bg-down"}`}
+              />
               <span className="num text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
-                Markets Open
+                {session
+                  ? session.active.length
+                    ? `${session.active.map((s) => s.short).join(" / ")} Session`
+                    : session.marketOpen
+                      ? "Between Sessions"
+                      : "Markets Closed"
+                  : "Markets"}
               </span>
             </div>
             <ConnectWalletButton />
