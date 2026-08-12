@@ -57,13 +57,9 @@ export function SiteHeader() {
       <div className="mx-auto max-w-[80rem]">
         <div className="flex h-14 items-center gap-6 px-1 sm:px-2">
           <Link to="/" className="group flex items-center gap-2.5">
-            <div className="gold-ring grid size-7 place-items-center rounded-full p-px transition-transform duration-500 group-hover:rotate-[18deg]">
-              <span className="display grid size-full place-items-center rounded-full bg-background text-[12px] font-extrabold text-gold-light">
-                S
-              </span>
-            </div>
             <span className="display text-[13px] font-extrabold tracking-[0.3em] uppercase">Sharps</span>
           </Link>
+
 
           <span className="hidden h-5 w-px bg-border md:block" />
 
