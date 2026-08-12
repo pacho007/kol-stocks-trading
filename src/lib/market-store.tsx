@@ -11,7 +11,7 @@ import {
 import { KOLS } from "./kols";
 
 export type Position = { id: string; shares: number; entry: number };
-export type Trade = { id: string; side: "buy" as const | "sell"; shares: number; price: number; at: number };
+export type Trade = { id: string; side: "buy" | "sell"; shares: number; price: number; at: number };
 
 type Ctx = {
   prices: Record<string, number>;
