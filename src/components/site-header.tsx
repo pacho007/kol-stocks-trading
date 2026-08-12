@@ -26,17 +26,18 @@ export function ConnectWalletButton({ full = false }: { full?: boolean }) {
           });
         }
       }}
-      className={`group inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-semibold tracking-wide uppercase transition-all ${
+      className={`group inline-flex items-center justify-center gap-2 rounded-full border px-4 py-2 text-[11px] font-semibold tracking-[0.14em] uppercase transition-all duration-300 hover:-translate-y-px active:translate-y-0 ${
         full ? "w-full" : ""
       } ${
         connected
           ? "border-up/40 bg-up/10 text-up hover:bg-up/15"
-          : "border-primary/50 bg-primary text-primary-foreground hover:brightness-110 glow"
+          : "border-primary/40 bg-primary text-primary-foreground hover:brightness-110 glow sheen"
       }`}
     >
       <Wallet className="size-3.5" />
       {connected ? "7xKX…9fTq" : "Connect Wallet"}
     </button>
+
   );
 }
 
