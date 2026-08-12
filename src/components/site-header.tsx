@@ -63,18 +63,19 @@ export function SiteHeader() {
 
           <span className="hidden h-5 w-px bg-border md:block" />
 
-          <nav className="hidden items-center gap-0.5 md:flex">
+          <nav className="hidden items-center gap-2 md:flex">
             {NAV.map((n) => (
               <Link
                 key={n.to}
                 to={n.to}
-                className="relative rounded-full px-3.5 py-1.5 text-[11px] font-semibold tracking-[0.14em] uppercase text-muted-foreground transition-colors hover:text-gold-light"
-                activeProps={{ className: "text-gold-light bg-primary/10" }}
+                className="relative rounded-full border border-border/70 bg-surface/40 px-4 py-1.5 text-[11px] font-semibold tracking-[0.14em] uppercase text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/[0.06] hover:text-gold-light"
+                activeProps={{ className: "border-primary/45 bg-primary/10 text-gold-light" }}
               >
                 {n.label}
               </Link>
             ))}
           </nav>
+
 
           <div className="ml-auto flex items-center gap-2.5">
             <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-surface/50 px-3 py-1.5 sm:flex">
