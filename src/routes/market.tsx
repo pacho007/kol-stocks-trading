@@ -50,6 +50,7 @@ function Market() {
       (k) =>
         k.ticker.toLowerCase().includes(q.toLowerCase()) ||
         k.name.toLowerCase().includes(q.toLowerCase()) ||
+        k.wallet.toLowerCase().includes(q.toLowerCase()) ||
         k.handle.toLowerCase().includes(q.toLowerCase()),
     );
     const s = [...filtered];
