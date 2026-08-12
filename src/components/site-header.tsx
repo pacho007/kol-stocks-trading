@@ -78,7 +78,7 @@ export function SiteHeader() {
 
 
           <div className="ml-auto flex items-center gap-2.5">
-            <div className="hidden items-center gap-2 rounded-full border border-border/70 bg-surface/50 px-3 py-1.5 sm:flex">
+            <div className="hidden items-center gap-2 pr-1 sm:flex">
               <span
                 className={`size-1.5 rounded-full ${session?.marketOpen ? "live-dot bg-up" : "bg-down"}`}
               />
