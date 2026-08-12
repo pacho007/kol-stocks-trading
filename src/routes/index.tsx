@@ -79,7 +79,7 @@ function Landing() {
           <span>
             Listings <span className="num text-foreground">{KOLS.length}</span>
           </span>
-          <span className="ml-auto hidden sm:inline">Season 1 · settlement simulated</span>
+          <span className="ml-auto hidden sm:inline">Season 1 · daily close settlement</span>
         </div>
       </div>
 
