@@ -6,7 +6,7 @@ import { AvatarMark } from "@/components/avatar-mark";
 import { LivePrice } from "@/components/live-price";
 import { PriceChart } from "@/components/price-chart";
 import { ConnectWalletButton } from "@/components/site-header";
-import { getKol, fmtCompact, fmtPct, fmtUsd, perfScore } from "@/lib/kols";
+import { getKol, fmtCompact, fmtPct, fmtUsd, perfScore, shortWallet } from "@/lib/kols";
 import { useMarket } from "@/lib/market-store";
 
 export const Route = createFileRoute("/kol/$id")({
