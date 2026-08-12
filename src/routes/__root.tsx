@@ -129,11 +129,19 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <MarketProvider>
-        <div className="flex min-h-screen flex-col">
-          <SiteHeader />
-          <main className="flex-1">
+        <div className="relative flex min-h-screen flex-col">
+          <div
+            aria-hidden
+            className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[32rem] bg-[radial-gradient(60rem_22rem_at_50%_-8rem,color-mix(in_oklab,var(--primary)_14%,transparent),transparent_70%)]"
+          />
+          <div className="relative z-50">
+            <SiteHeader />
+          </div>
+          <main className="relative z-10 flex-1">
             <Outlet />
           </main>
+
+
           <SiteFooter />
         </div>
         <Toaster position="bottom-right" />
