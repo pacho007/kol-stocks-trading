@@ -65,9 +65,15 @@ function Landing() {
       {/* status strip */}
       <div className="border-b border-border bg-surface/40">
         <div className="mx-auto flex max-w-[110rem] flex-wrap items-center gap-x-6 gap-y-1 px-4 py-2 text-[10px] tracking-[0.18em] uppercase text-muted-foreground sm:px-6">
-          <span className="flex items-center gap-2 text-primary">
-            <span className="live-dot size-1.5 rounded-full bg-up" />
-            Market open · closes 21:00 UTC
+          <span className={`flex items-center gap-2 ${session?.marketOpen ? "text-primary" : "text-muted-foreground"}`}>
+            <span className={`size-1.5 rounded-full ${session?.marketOpen ? "live-dot bg-up" : "bg-down"}`} />
+            {session
+              ? session.active.length
+                ? `${session.active.map((s) => s.label).join(" + ")} open · NY close ${fmtUtc(DAY_CLOSE)} UTC`
+                : session.marketOpen
+                  ? `Between sessions · next open ${fmtUtc(session.next?.open ?? DAY_OPEN)} UTC`
+                  : `Markets closed · next open ${fmtUtc(DAY_OPEN)} UTC`
+              : `Sessions ${fmtUtc(DAY_OPEN)}-${fmtUtc(DAY_CLOSE)} UTC`}
           </span>
           <span>
             Index cap <span className="num text-foreground">{fmtCompact(totalCap)}</span>
