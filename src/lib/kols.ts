@@ -70,8 +70,12 @@ function makeSeries(price: number, change: number, index: number, points = 90) {
     v = v + drift + (rand() - 0.5) * vol;
     out.push(Math.max(v, start * 0.55));
   }
-  out[out.length - 1] = price;
-  return out.map((n) => Number(n.toFixed(2)));
+  const last = out[out.length - 1] ?? price;
+  const k = price / last;
+  return out.map((n, i) => {
+    const w = i / (points - 1);
+    return Number((n * (1 + (k - 1) * w)).toFixed(2));
+  });
 }
 
 export const KOLS: Kol[] = SEEDS.map((s, i) => ({
