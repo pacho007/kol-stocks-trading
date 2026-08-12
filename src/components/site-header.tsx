@@ -47,7 +47,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4">
       <div className="mx-auto max-w-[80rem]">
-        <div className="flex h-14 items-center gap-6 rounded-full border border-border bg-background/70 px-3 pr-2 shadow-[0_18px_45px_-28px_rgb(0_0_0/0.95)] backdrop-blur-xl sm:px-5 sm:pr-2.5">
+        <div className="flex h-14 items-center gap-6 px-1 sm:px-2">
           <Link to="/" className="group flex items-center gap-2.5">
             <div className="gold-ring grid size-7 place-items-center rounded-full p-px transition-transform duration-500 group-hover:rotate-[18deg]">
               <span className="display grid size-full place-items-center rounded-full bg-background text-[12px] font-extrabold text-gold-light">
