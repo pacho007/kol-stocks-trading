@@ -7,6 +7,7 @@ import { KolCard } from "@/components/kol-card";
 import { LivePrice } from "@/components/live-price";
 import { Sparkline } from "@/components/sparkline";
 import { TickerTape } from "@/components/ticker-tape";
+import { DocsDeck } from "@/components/docs-deck";
 import { ConnectWalletButton } from "@/components/site-header";
 import { KOLS, fmtCompact, fmtPct, perfScore } from "@/lib/kols";
 import heroBanner from "@/assets/hero-banner.jpg";
