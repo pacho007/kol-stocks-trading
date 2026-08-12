@@ -97,7 +97,7 @@ function Landing() {
         <aside className="rise panel order-2 overflow-hidden lg:order-1">
           <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
             <span className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Markets</span>
-            <span className="num text-[10px] tracking-widest text-up">{KOLS.length} LIVE</span>
+            <span className="num text-[10px] tracking-widest text-up">{KOLS.length} TRADERS</span>
           </div>
           <div className="overflow-y-auto">
             {rail.map((k) => {
