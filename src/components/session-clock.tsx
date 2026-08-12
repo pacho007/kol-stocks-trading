@@ -34,7 +34,7 @@ export function SessionClock() {
               />
               <span className={live ? "text-foreground" : "text-muted-foreground"}>{s.label}</span>
               <span className="num ml-auto text-muted-foreground">
-                {fmtUtc(s.open)}–{fmtUtc(s.close)}
+                {fmtUtc(s.open)}-{fmtUtc(s.close)}
               </span>
             </div>
           );
