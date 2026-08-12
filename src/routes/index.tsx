@@ -162,24 +162,24 @@ function Landing() {
             </div>
           </section>
 
-          {/* metrics strip */}
+          {/* index metrics strip */}
           <section className="rise panel overflow-hidden" style={{ animationDelay: "220ms" }}>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border px-4 py-2.5">
-              <span className="text-[10px] tracking-[0.22em] uppercase text-foreground">Your desk</span>
+              <span className="text-[10px] tracking-[0.22em] uppercase text-foreground">The index</span>
               <span className="num text-[10px] tracking-widest text-muted-foreground">
-                {positions.length} HOLDINGS · SETTLES AT DAILY CLOSE
+                {KOLS.length} TRADERS LISTED · PRICED ON ON-CHAIN PERFORMANCE
               </span>
               <Link
-                to="/portfolio"
+                to="/market"
                 className="num ml-auto text-[10px] tracking-widest uppercase text-primary hover:underline"
               >
-                Open portfolio ↗
+                Browse market ↗
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-px bg-border md:grid-cols-4">
               {[
-                ["Account equity", `$${equity.toFixed(2)}`, "cash + holdings"],
-                ["Deployed", `$${holdings.toFixed(2)}`, "mark to market"],
+                ["Index market cap", `$${(totalCap / 1_000_000).toFixed(2)}M`, "all listed traders"],
+                ["Session volume", `$${(totalVol / 1_000).toFixed(0)}K`, "shares traded today"],
                 ["Avg index win rate", `${avgWin}%`, "across all listings"],
                 ["Best 24h", fmtPct(top[0]?.change24h ?? 0), `$${top[0]?.ticker ?? "—"} leading`],
               ].map(([label, value, sub]) => (
@@ -191,6 +191,7 @@ function Landing() {
               ))}
             </div>
           </section>
+
         </main>
 
         {/* right rail */}
