@@ -103,9 +103,26 @@ function KolDetail() {
               {kol.chain}
             </span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {kol.name} · {kol.handle}
-          </p>
+          <p className="text-sm text-muted-foreground">{kol.name}</p>
+          <div className="num mt-1 flex flex-wrap items-center gap-3 text-[10px] tracking-widest uppercase">
+            <a
+              href={kol.x}
+              target="_blank"
+              rel="noreferrer"
+              className="text-gold-light hover:underline"
+            >
+              {kol.handle}
+            </a>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard?.writeText(kol.wallet)}
+              className="text-muted-foreground transition-colors hover:text-foreground"
+              title={kol.wallet}
+            >
+              {shortWallet(kol.wallet)}
+            </button>
+          </div>
+
         </div>
         <div className="ml-auto text-right">
           <LivePrice value={price} className="text-3xl font-bold" />
