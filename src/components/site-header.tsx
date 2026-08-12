@@ -107,9 +107,6 @@ export function SiteHeader() {
       </div>
     </header>
   );
-
-    </header>
-  );
 }
 
 export function SiteFooter() {
