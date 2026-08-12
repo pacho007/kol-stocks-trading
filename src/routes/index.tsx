@@ -102,12 +102,13 @@ function Landing() {
       {/* dashboard */}
       <div className="mx-auto grid max-w-[110rem] gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[17rem_minmax(0,1fr)_20rem]">
         {/* left rail */}
-        <aside className="rise panel order-2 overflow-hidden lg:order-1">
+        <aside className="rise panel order-2 self-start overflow-hidden lg:order-1 lg:sticky lg:top-24">
           <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
             <span className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Markets</span>
             <span className="num text-[10px] tracking-widest text-up">{KOLS.length} TRADERS</span>
           </div>
-          <div className="max-h-[36rem] overflow-y-auto">
+          <div className="max-h-[36rem] overflow-y-auto overscroll-contain">
+
             {rail.map((k) => {
               const up = k.change24h >= 0;
               return (
