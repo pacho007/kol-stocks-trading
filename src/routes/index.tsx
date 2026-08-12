@@ -7,7 +7,6 @@ import { Sparkline } from "@/components/sparkline";
 import { TickerTape } from "@/components/ticker-tape";
 import { ConnectWalletButton } from "@/components/site-header";
 import { KOLS, fmtCompact, fmtPct, perfScore } from "@/lib/kols";
-import { useMarket } from "@/lib/market-store";
 import heroBanner from "@/assets/hero-banner.jpg";
 
 export const Route = createFileRoute("/")({
@@ -51,15 +50,12 @@ const STEPS = [
 ];
 
 function Landing() {
-  const { prices, positions, cash } = useMarket();
   const rail = [...KOLS].sort((a, b) => b.marketCap - a.marketCap);
   const top = [...KOLS].sort((a, b) => b.change24h - a.change24h).slice(0, 4);
   const board = [...KOLS].sort((a, b) => perfScore(b) - perfScore(a)).slice(0, 6);
   const totalCap = KOLS.reduce((s, k) => s + k.marketCap, 0);
   const totalVol = KOLS.reduce((s, k) => s + k.volume24h, 0);
   const avgWin = Math.round(KOLS.reduce((s, k) => s + k.winRate, 0) / KOLS.length);
-  const holdings = positions.reduce((s, p) => s + p.shares * (prices[p.id] ?? 0), 0);
-  const equity = cash + holdings;
 
   return (
     <div>
