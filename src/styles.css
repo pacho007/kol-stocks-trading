@@ -31,8 +31,11 @@
   --color-up: var(--up);
   --color-down: var(--down);
   --color-surface: var(--surface);
+  --color-gold-light: var(--gold-light);
   --color-grid: var(--grid);
-  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --color-chart-1: var(--up);
   --color-chart-2: var(--down);
@@ -40,39 +43,43 @@
 }
 
 :root {
-  --radius: 0.35rem;
-  --background: oklch(0.16 0.012 250);
-  --foreground: oklch(0.96 0.005 250);
-  --surface: oklch(0.2 0.014 250);
-  --card: oklch(0.195 0.014 250);
-  --card-foreground: oklch(0.96 0.005 250);
-  --popover: oklch(0.2 0.014 250);
-  --popover-foreground: oklch(0.96 0.005 250);
-  --primary: oklch(0.87 0.2 122);
-  --primary-foreground: oklch(0.18 0.03 140);
-  --secondary: oklch(0.26 0.016 250);
-  --secondary-foreground: oklch(0.95 0.005 250);
-  --muted: oklch(0.24 0.014 250);
-  --muted-foreground: oklch(0.66 0.017 250);
-  --accent: oklch(0.28 0.02 250);
-  --accent-foreground: oklch(0.96 0.005 250);
-  --destructive: oklch(0.62 0.22 22);
-  --destructive-foreground: oklch(0.98 0.005 250);
-  --border: oklch(0.29 0.016 250);
-  --input: oklch(0.29 0.016 250);
-  --ring: oklch(0.87 0.2 122);
-  --up: oklch(0.82 0.2 145);
-  --down: oklch(0.67 0.22 22);
-  --grid: oklch(0.26 0.014 250);
-  --shadow-glow: 0 0 0 1px color-mix(in oklab, var(--primary) 28%, transparent),
-    0 12px 44px -18px color-mix(in oklab, var(--primary) 60%, transparent);
+  --radius: 0.75rem;
+  --background: oklch(0.155 0 0);
+  --foreground: oklch(0.97 0 0);
+  --surface: oklch(0.205 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.97 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.97 0 0);
+  --primary: oklch(0.745 0.105 88);
+  --primary-foreground: oklch(0.155 0 0);
+  --gold-light: oklch(0.885 0.085 92);
+  --secondary: oklch(0.245 0.004 90);
+  --secondary-foreground: oklch(0.96 0 0);
+  --muted: oklch(0.235 0.003 90);
+  --muted-foreground: oklch(0.68 0.006 90);
+  --accent: oklch(0.26 0.008 90);
+  --accent-foreground: oklch(0.97 0 0);
+  --destructive: oklch(0.62 0.2 20);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.745 0.105 88 / 0.14);
+  --input: oklch(0.745 0.105 88 / 0.18);
+  --ring: oklch(0.745 0.105 88);
+  --up: oklch(0.78 0.16 155);
+  --down: oklch(0.66 0.2 18);
+  --grid: oklch(0.745 0.105 88 / 0.07);
+  --shadow-glow: 0 0 60px -18px color-mix(in oklab, var(--primary) 45%, transparent);
+  --shadow-vault: 0 0 50px -12px rgb(201 168 76 / 0.12), 0 24px 60px -32px rgb(0 0 0 / 0.9);
   --gradient-hero: radial-gradient(
       110% 80% at 50% -10%,
-      color-mix(in oklab, var(--primary) 12%, transparent) 0%,
-      transparent 60%
+      color-mix(in oklab, var(--primary) 10%, transparent) 0%,
+      transparent 62%
     ),
-    linear-gradient(180deg, oklch(0.19 0.016 250) 0%, var(--background) 70%);
+    linear-gradient(180deg, oklch(0.19 0.006 90) 0%, var(--background) 72%);
+  --gradient-gold: linear-gradient(135deg, var(--primary), var(--gold-light));
+  --gradient-panel: linear-gradient(180deg, oklch(0.215 0.004 90), oklch(0.175 0.002 90));
 }
+
 
 @layer base {
   * {
@@ -90,8 +97,16 @@
   h1,
   h2,
   h3 {
+    font-family: var(--font-display);
     letter-spacing: -0.03em;
   }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 30%, transparent);
+  }
+}
+
+@utility display {
+  font-family: var(--font-display);
 }
 
 @utility num {
@@ -114,6 +129,47 @@
 @utility glow {
   box-shadow: var(--shadow-glow);
 }
+
+@utility panel {
+  background: var(--gradient-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-vault);
+}
+
+@utility gold-text {
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility gold-ring {
+  background: var(--gradient-gold);
+}
+
+@utility sheen {
+  position: relative;
+  overflow: hidden;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      110deg,
+      transparent 30%,
+      color-mix(in oklab, var(--gold-light) 22%, transparent) 48%,
+      transparent 62%
+    );
+    transform: translateX(-120%);
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  &:hover::before {
+    transform: translateX(120%);
+  }
+}
+
 
 @utility scanline {
   position: relative;

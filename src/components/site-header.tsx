@@ -26,7 +26,7 @@ export function ConnectWalletButton({ full = false }: { full?: boolean }) {
           });
         }
       }}
-      className={`group inline-flex items-center justify-center gap-2 rounded-md border px-3.5 py-2 text-xs font-semibold tracking-wide uppercase transition-all ${
+      className={`group inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-semibold tracking-wide uppercase transition-all ${
         full ? "w-full" : ""
       } ${
         connected
@@ -44,13 +44,15 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4 sm:px-6">
-        <Link to="/" className="flex items-center gap-2">
-          <div className="grid size-7 place-items-center rounded-sm bg-primary">
-            <span className="num text-[13px] font-bold text-primary-foreground">S</span>
+    <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
+        <Link to="/" className="group flex items-center gap-2.5">
+          <div className="gold-ring grid size-8 place-items-center rounded-lg p-px transition-transform duration-300 group-hover:rotate-6">
+            <span className="display grid size-full place-items-center rounded-[7px] bg-background text-[13px] font-extrabold text-gold-light">
+              S
+            </span>
           </div>
-          <span className="text-sm font-bold tracking-[0.28em] uppercase">Sharps</span>
+          <span className="display text-sm font-extrabold tracking-[0.3em] uppercase">Sharps</span>
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
@@ -58,13 +60,14 @@ export function SiteHeader() {
             <Link
               key={n.to}
               to={n.to}
-              className="rounded-md px-3 py-1.5 text-xs font-medium tracking-wide uppercase text-muted-foreground transition-colors hover:text-foreground"
-              activeProps={{ className: "text-foreground bg-secondary" }}
+              className="relative rounded-lg px-3 py-1.5 text-xs font-semibold tracking-[0.12em] uppercase text-muted-foreground transition-colors hover:text-gold-light"
+              activeProps={{ className: "text-gold-light bg-primary/10" }}
             >
               {n.label}
             </Link>
           ))}
         </nav>
+
 
         <div className="ml-auto flex items-center gap-3">
           <div className="hidden items-center gap-2 sm:flex">

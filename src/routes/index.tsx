@@ -63,10 +63,10 @@ function Landing() {
             12 traders listed · Season 1 live
           </div>
 
-          <h1 className="rise mt-6 max-w-4xl text-4xl leading-[1.02] font-bold sm:text-6xl lg:text-7xl" style={{ animationDelay: "60ms" }}>
+          <h1 className="rise mt-6 max-w-4xl text-4xl leading-[1.02] font-extrabold sm:text-6xl lg:text-7xl" style={{ animationDelay: "60ms" }}>
             Invest in traders
             <br />
-            like stocks.
+            <span className="gold-text">like stocks.</span>
           </h1>
 
           <p className="rise mt-6 max-w-xl text-base text-muted-foreground sm:text-lg" style={{ animationDelay: "120ms" }}>
@@ -77,15 +77,16 @@ function Landing() {
           <div className="rise mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: "180ms" }}>
             <Link
               to="/market"
-              className="glow group inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 text-xs font-bold tracking-widest uppercase text-primary-foreground transition-all hover:brightness-110"
+              className="glow sheen group inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-xs font-extrabold tracking-[0.18em] uppercase text-primary-foreground transition-all hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98]"
             >
               Open the market
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
             </Link>
+
             <ConnectWalletButton />
           </div>
 
-          <dl className="rise mt-14 grid max-w-3xl grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4" style={{ animationDelay: "240ms" }}>
+          <dl className="rise mt-14 grid max-w-3xl grid-cols-2 gap-px overflow-hidden panel bg-border sm:grid-cols-4" style={{ animationDelay: "240ms" }}>
             {[
               ["Index mkt cap", fmtCompact(totalCap)],
               ["24h volume", fmtCompact(totalVol)],
@@ -105,7 +106,7 @@ function Landing() {
 
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
         <SectionHead kicker="How it works" title="Three steps. No thesis required." />
-        <div className="mt-10 grid gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-3">
+        <div className="mt-10 grid gap-px overflow-hidden panel bg-border md:grid-cols-3">
           {STEPS.map((s, i) => (
             <div key={s.title} className="group bg-card p-7 transition-colors hover:bg-surface">
               <div className="flex items-center justify-between">
@@ -149,7 +150,7 @@ function Landing() {
           </Link>
         </div>
 
-        <div className="mt-8 overflow-hidden rounded-lg border border-border">
+        <div className="mt-8 overflow-hidden panel">
           {board.map((k, i) => {
             const up = k.change24h >= 0;
             return (
@@ -190,7 +191,7 @@ function Landing() {
           <div className="mt-8 flex justify-center">
             <Link
               to="/market"
-              className="glow inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-xs font-bold tracking-widest uppercase text-primary-foreground transition-all hover:brightness-110"
+              className="glow inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-xs font-bold tracking-widest uppercase text-primary-foreground transition-all hover:brightness-110"
             >
               Start trading
               <ArrowRight className="size-4" />

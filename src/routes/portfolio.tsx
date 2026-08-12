@@ -73,13 +73,13 @@ function Portfolio() {
         </div>
         <button
           onClick={reset}
-          className="num rounded-md border border-border px-3 py-2 text-[10px] tracking-widest uppercase text-muted-foreground hover:text-foreground"
+          className="num rounded-lg border border-border px-3 py-2 text-[10px] tracking-widest uppercase text-muted-foreground hover:text-foreground"
         >
           Reset demo book
         </button>
       </div>
 
-      <dl className="mt-8 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
+      <dl className="mt-8 grid gap-px overflow-hidden panel bg-border sm:grid-cols-4">
         {[
           ["Total equity", fmtUsd(equity), ""],
           ["Holdings value", fmtUsd(holdings), ""],
@@ -98,13 +98,13 @@ function Portfolio() {
           <p className="text-sm text-muted-foreground">No positions yet.</p>
           <Link
             to="/market"
-            className="glow mt-5 inline-flex rounded-md bg-primary px-5 py-2.5 text-[10px] font-bold tracking-widest uppercase text-primary-foreground"
+            className="glow mt-5 inline-flex rounded-xl bg-primary px-5 py-2.5 text-[10px] font-bold tracking-widest uppercase text-primary-foreground"
           >
             Browse the market
           </Link>
         </div>
       ) : (
-        <div className="mt-8 overflow-x-auto rounded-lg border border-border">
+        <div className="mt-8 overflow-x-auto panel">
           <table className="w-full min-w-[820px]">
             <thead>
               <tr className="border-b border-border bg-surface/60 text-left">
@@ -157,7 +157,7 @@ function Portfolio() {
           <h2 className="num text-[10px] tracking-[0.3em] uppercase text-muted-foreground">
             Recent fills
           </h2>
-          <div className="mt-3 overflow-hidden rounded-lg border border-border">
+          <div className="mt-3 overflow-hidden panel">
             {trades.slice(0, 8).map((t, i) => (
               <div
                 key={`${t.at}-${i}`}

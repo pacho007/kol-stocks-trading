@@ -74,7 +74,7 @@ function Market() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-surface/70 px-3 py-2">
               <Search className="size-3.5 text-muted-foreground" />
               <input
                 value={q}
@@ -83,7 +83,7 @@ function Market() {
                 className="num w-44 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
               />
             </div>
-            <div className="flex rounded-md border border-border bg-card p-0.5">
+            <div className="flex rounded-lg border border-border bg-surface/70 p-0.5">
               {(["grid", "list"] as const).map((v) => (
                 <button
                   key={v}
@@ -123,7 +123,7 @@ function Market() {
             ))}
           </div>
         ) : (
-          <div className="mt-8 overflow-x-auto rounded-lg border border-border">
+          <div className="mt-8 overflow-x-auto panel">
             <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="border-b border-border bg-surface/60 text-left">

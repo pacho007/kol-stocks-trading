@@ -9,10 +9,15 @@ export function AvatarMark({
 }) {
   return (
     <div
-      className="flex shrink-0 items-center justify-center rounded-md border border-border/60 text-[0.7em] font-bold tracking-tight text-background"
-      style={{ background: gradient, width: size, height: size, fontSize: size * 0.34 }}
+      className="shrink-0 rounded-full p-px"
+      style={{ background: gradient, width: size, height: size }}
     >
-      {label.slice(0, 3).toUpperCase()}
+      <div
+        className="num flex h-full w-full items-center justify-center rounded-full bg-background font-bold tracking-tight text-gold-light"
+        style={{ fontSize: size * 0.3 }}
+      >
+        {label.slice(0, 3).toUpperCase()}
+      </div>
     </div>
   );
 }

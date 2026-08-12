@@ -11,28 +11,35 @@ export function KolCard({ kol, price, index = 0 }: { kol: Kol; price: number; in
     <Link
       to="/kol/$id"
       params={{ id: kol.id }}
-      className="rise group relative flex flex-col gap-4 overflow-hidden rounded-lg border border-border bg-card p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50"
+      className="rise sheen group relative flex flex-col gap-4 overflow-hidden panel p-5 transition-all duration-300 hover:-translate-y-1 hover:border-primary/45"
       style={{ animationDelay: `${Math.min(index, 12) * 45}ms` }}
     >
-      <div className="flex items-start gap-3">
+      <div
+        className="pointer-events-none absolute -top-16 -right-16 size-40 rounded-full opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100"
+        style={{ background: "color-mix(in oklab, var(--primary) 18%, transparent)" }}
+      />
+      <div className="relative flex items-start gap-3">
         <AvatarMark gradient={kol.avatar} label={kol.ticker} />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="num text-sm font-bold tracking-widest">${kol.ticker}</span>
-            <span className="rounded-sm border border-border px-1.5 py-px text-[9px] tracking-widest uppercase text-muted-foreground">
+            <span className="num text-sm font-bold tracking-widest transition-colors group-hover:text-gold-light">
+              ${kol.ticker}
+            </span>
+            <span className="rounded-full border border-border px-2 py-px text-[9px] tracking-widest uppercase text-muted-foreground">
               {kol.chain}
             </span>
           </div>
           <p className="truncate text-xs text-muted-foreground">{kol.handle}</p>
         </div>
         <span
-          className={`num ml-auto rounded-sm px-1.5 py-0.5 text-xs font-semibold ${
+          className={`num ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${
             up ? "bg-up/12 text-up" : "bg-down/12 text-down"
           }`}
         >
           {fmtPct(kol.change24h)}
         </span>
       </div>
+
 
       <Sparkline data={kol.series} up={up} className="h-12 w-full" />
 

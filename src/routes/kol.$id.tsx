@@ -118,7 +118,7 @@ function KolDetail() {
       <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">{kol.bio}</p>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_340px]">
-        <div className="rise overflow-hidden rounded-lg border border-border bg-card">
+        <div className="rise overflow-hidden panel">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <p className="num text-[10px] tracking-widest uppercase text-muted-foreground">
               Share price · 90h
@@ -144,8 +144,8 @@ function KolDetail() {
         </div>
 
         <div className="rise flex flex-col gap-4" style={{ animationDelay: "90ms" }}>
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="flex rounded-md border border-border p-0.5">
+          <div className="panel p-4">
+            <div className="flex rounded-lg border border-border p-0.5">
               {(["buy", "sell"] as const).map((s) => (
                 <button
                   key={s}
@@ -170,7 +170,7 @@ function KolDetail() {
               value={amount}
               inputMode="decimal"
               onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-              className="num mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2.5 text-lg outline-none focus:border-primary/60"
+              className="num mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-lg outline-none focus:border-primary/60"
             />
             <div className="mt-2 flex gap-1.5">
               {[1, 5, 10, 25].map((n) => (
@@ -213,7 +213,7 @@ function KolDetail() {
             )}
           </div>
 
-          <div className="rounded-lg border border-border bg-card p-4">
+          <div className="panel p-4">
             <div className="flex items-center gap-2">
               <Users className="size-4 text-primary" />
               <p className="text-[10px] tracking-widest uppercase text-muted-foreground">Holders</p>
@@ -225,7 +225,7 @@ function KolDetail() {
           </div>
 
           {position && (
-            <div className="rounded-lg border border-primary/40 bg-primary/5 p-4">
+            <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
               <p className="text-[10px] tracking-widest uppercase text-muted-foreground">
                 Your position
               </p>

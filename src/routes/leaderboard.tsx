@@ -42,7 +42,7 @@ function Leaderboard() {
         vibes — just the tape.
       </p>
 
-      <div className="mt-6 inline-flex rounded-md border border-border bg-card p-0.5">
+      <div className="mt-6 inline-flex rounded-lg border border-border bg-surface/70 p-0.5">
         {(
           [
             ["cap", "By market cap"],
@@ -67,7 +67,7 @@ function Leaderboard() {
             key={k.id}
             to="/kol/$id"
             params={{ id: k.id }}
-            className="rise relative overflow-hidden rounded-lg border border-border bg-card p-5 transition-all hover:-translate-y-1 hover:border-primary/50"
+            className="rise relative overflow-hidden panel p-5 transition-all hover:-translate-y-1 hover:border-primary/50"
             style={{ animationDelay: `${i * 70}ms` }}
           >
             <span className="num absolute top-3 right-4 text-5xl font-bold text-foreground/5">
@@ -86,7 +86,7 @@ function Leaderboard() {
         ))}
       </div>
 
-      <div className="mt-8 overflow-x-auto rounded-lg border border-border">
+      <div className="mt-8 overflow-x-auto panel">
         <table className="w-full min-w-[820px]">
           <thead>
             <tr className="border-b border-border bg-surface/60 text-left">
