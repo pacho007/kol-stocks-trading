@@ -85,7 +85,7 @@ function Landing() {
             <ConnectWalletButton />
           </div>
 
-          <dl className="rise mt-14 grid max-w-3xl grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4" style={{ animationDelay: "240ms" }}>
+          <dl className="rise mt-14 grid max-w-3xl grid-cols-2 gap-px overflow-hidden panel bg-border sm:grid-cols-4" style={{ animationDelay: "240ms" }}>
             {[
               ["Index mkt cap", fmtCompact(totalCap)],
               ["24h volume", fmtCompact(totalVol)],
@@ -105,7 +105,7 @@ function Landing() {
 
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
         <SectionHead kicker="How it works" title="Three steps. No thesis required." />
-        <div className="mt-10 grid gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-3">
+        <div className="mt-10 grid gap-px overflow-hidden panel bg-border md:grid-cols-3">
           {STEPS.map((s, i) => (
             <div key={s.title} className="group bg-card p-7 transition-colors hover:bg-surface">
               <div className="flex items-center justify-between">
@@ -149,7 +149,7 @@ function Landing() {
           </Link>
         </div>
 
-        <div className="mt-8 overflow-hidden rounded-lg border border-border">
+        <div className="mt-8 overflow-hidden panel">
           {board.map((k, i) => {
             const up = k.change24h >= 0;
             return (

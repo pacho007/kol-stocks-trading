@@ -11,7 +11,7 @@ export function KolCard({ kol, price, index = 0 }: { kol: Kol; price: number; in
     <Link
       to="/kol/$id"
       params={{ id: kol.id }}
-      className="rise group relative flex flex-col gap-4 overflow-hidden rounded-lg border border-border bg-card p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50"
+      className="rise group relative flex flex-col gap-4 overflow-hidden panel p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/50"
       style={{ animationDelay: `${Math.min(index, 12) * 45}ms` }}
     >
       <div className="flex items-start gap-3">
