@@ -97,8 +97,16 @@
   h1,
   h2,
   h3 {
+    font-family: var(--font-display);
     letter-spacing: -0.03em;
   }
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 30%, transparent);
+  }
+}
+
+@utility display {
+  font-family: var(--font-display);
 }
 
 @utility num {
@@ -121,6 +129,47 @@
 @utility glow {
   box-shadow: var(--shadow-glow);
 }
+
+@utility panel {
+  background: var(--gradient-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-vault);
+}
+
+@utility gold-text {
+  background: var(--gradient-gold);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility gold-ring {
+  background: var(--gradient-gold);
+}
+
+@utility sheen {
+  position: relative;
+  overflow: hidden;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      110deg,
+      transparent 30%,
+      color-mix(in oklab, var(--gold-light) 22%, transparent) 48%,
+      transparent 62%
+    );
+    transform: translateX(-120%);
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  &:hover::before {
+    transform: translateX(120%);
+  }
+}
+
 
 @utility scanline {
   position: relative;
