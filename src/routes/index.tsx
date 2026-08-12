@@ -1,3 +1,4 @@
+import { SessionClock } from "@/components/session-clock";
 import { useMarket } from "@/lib/market-store";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
@@ -89,7 +90,7 @@ function Landing() {
             <span className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Markets</span>
             <span className="num text-[10px] tracking-widest text-up">{KOLS.length} LIVE</span>
           </div>
-          <div className="max-h-[34rem] overflow-y-auto">
+          <div className="overflow-y-auto">
             {rail.map((k) => {
               const up = k.change24h >= 0;
               return (
@@ -190,6 +191,19 @@ function Landing() {
             </div>
           </section>
 
+          {/* index thesis */}
+          <section className="rise panel grid gap-px overflow-hidden bg-border sm:grid-cols-3" style={{ animationDelay: "280ms" }}>
+            {[
+              ["Verified books only", "Every listing is tied to a real on-chain wallet. Nothing is self-reported, nothing is editable after the close."],
+              ["Priced on skill", "Share prices track realized PnL, win rate, size and hold time — not follower counts or engagement."],
+              ["Scout early", "Traders list small. Find the operator before the timeline does and hold the stock through the run."],
+            ].map(([title, body]) => (
+              <div key={title} className="bg-card px-4 py-4">
+                <p className="text-sm font-semibold">{title}</p>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{body}</p>
+              </div>
+            ))}
+          </section>
         </main>
 
         {/* right rail */}
@@ -210,11 +224,41 @@ function Landing() {
           </div>
           <div className="panel px-4 py-4">
             <p className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Next reprice</p>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            <SessionClock />
+            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
               Every trader's book is scored once a day. Winning sessions mark their stock up at the close, losing
               sessions mark it down — that's the whole game.
             </p>
           </div>
+
+          <div className="panel overflow-hidden">
+            <div className="border-b border-border px-3 py-2.5 text-[10px] tracking-[0.22em] uppercase text-muted-foreground">
+              Session tape
+            </div>
+            {[...KOLS]
+              .sort((a, b) => b.change24h - a.change24h)
+              .filter((_, i, arr) => i < 3 || i >= arr.length - 2)
+              .map((k) => (
+                <Link
+                  key={k.id}
+                  to="/kol/$id"
+                  params={{ id: k.id }}
+                  className="group flex items-center justify-between gap-3 border-b border-border/60 px-4 py-2.5 transition-colors last:border-0 hover:bg-accent/40"
+                >
+                  <div className="min-w-0">
+                    <p className="num text-xs font-bold tracking-widest group-hover:text-primary">${k.ticker}</p>
+                    <p className="truncate text-[10px] tracking-wider uppercase text-muted-foreground">{k.handle}</p>
+                  </div>
+                  <div className="text-right">
+                    <LivePrice value={prices[k.id] ?? k.price} className="text-xs" />
+                    <p className={`num text-[10px] ${k.change24h >= 0 ? "text-up" : "text-down"}`}>
+                      {fmtPct(k.change24h)}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+          </div>
+
 
         </aside>
       </div>
