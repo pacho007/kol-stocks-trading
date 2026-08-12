@@ -73,7 +73,7 @@ function Leaderboard() {
             <span className="num absolute top-3 right-4 text-5xl font-bold text-foreground/5">
               {i + 1}
             </span>
-            <AvatarMark gradient={k.avatar} label={k.ticker} size={48} />
+            <AvatarMark gradient={k.avatar} label={k.ticker} src={k.image} size={48} />
             <p className="num mt-4 text-lg font-bold tracking-widest">${k.ticker}</p>
             <p className="text-xs text-muted-foreground">{k.handle}</p>
             <div className="mt-4 flex items-end justify-between">
@@ -110,7 +110,7 @@ function Leaderboard() {
                   <td className="num px-4 py-3 text-sm text-muted-foreground">{i + 1}</td>
                   <td className="px-4 py-3">
                     <Link to="/kol/$id" params={{ id: k.id }} className="flex items-center gap-3">
-                      <AvatarMark gradient={k.avatar} label={k.ticker} size={30} />
+                      <AvatarMark gradient={k.avatar} label={k.ticker} src={k.image} size={30} />
                       <div>
                         <p className="num text-sm font-bold tracking-widest">${k.ticker}</p>
                         <p className="text-xs text-muted-foreground">{k.handle}</p>

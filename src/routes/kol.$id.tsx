@@ -95,7 +95,7 @@ function KolDetail() {
       </Link>
 
       <div className="mt-6 flex flex-wrap items-center gap-4">
-        <AvatarMark gradient={kol.avatar} label={kol.ticker} size={64} />
+        <AvatarMark gradient={kol.avatar} label={kol.ticker} src={kol.image} size={64} />
         <div>
           <div className="flex items-center gap-3">
             <h1 className="num text-2xl font-bold tracking-widest">${kol.ticker}</h1>
