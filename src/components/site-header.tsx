@@ -1,0 +1,243 @@
+import { Link } from "@tanstack/react-router";
+import { Wallet, Menu, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletReadyState } from "@solana/wallet-adapter-base";
+import { useMarket } from "@/lib/market-store";
+import { useSession } from "@/hooks/use-session";
+import { SOLANA_CLUSTER } from "@/lib/solana/connection";
+
+const NAV = [
+  { to: "/market", label: "Market" },
+  { to: "/leaderboard", label: "Leaderboard" },
+  { to: "/portfolio", label: "Portfolio" },
+  { to: "/docs", label: "Docs" },
+] as const;
+
+/** Truncated base58 address, e.g. "7xKX…9fTq" — same format the old fake
+ * button used, now sourced from a real connected PublicKey. */
+function shortAddress(base58: string) {
+  return `${base58.slice(0, 4)}…${base58.slice(-4)}`;
+}
+
+export function ConnectWalletButton({
+  full = false,
+  size = "sm",
+}: {
+  full?: boolean;
+  size?: "sm" | "lg";
+}) {
+  const { wallets, wallet, publicKey, connected, connecting, select, disconnect } = useWallet();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  // select() is enough on its own — WalletProvider connects automatically
+  // once a wallet is selected (this is the same pattern
+  // @solana/wallet-adapter-react-ui's own WalletModal uses). Calling
+  // connect() immediately after select() in the same handler would race
+  // against React's state update anyway, since `wallet` wouldn't be set yet.
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setPickerOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [pickerOpen]);
+
+  const installedWallets = wallets.filter((w) => w.readyState === WalletReadyState.Installed);
+
+  if (connected && publicKey) {
+    return (
+      <button
+        onClick={() => {
+          disconnect().catch(() => {});
+          toast("Wallet disconnected");
+        }}
+        className={`group inline-flex items-center justify-center gap-2 rounded-lg border text-[11px] font-semibold tracking-[0.12em] uppercase transition-colors duration-200 ${
+          size === "lg" ? "h-12 px-6" : "h-9 px-4"
+        } ${full ? "w-full" : ""} border-up/30 bg-up/8 text-up hover:bg-up/14`}
+        title={`${wallet?.adapter.name ?? "Wallet"} · ${SOLANA_CLUSTER} · click to disconnect`}
+      >
+        <Wallet className="size-3.5 opacity-80" />
+        {shortAddress(publicKey.toBase58())}
+      </button>
+    );
+  }
+
+  return (
+    <div className={`relative ${full ? "w-full" : ""}`} ref={pickerRef}>
+      <button
+        onClick={() => {
+          if (installedWallets.length === 1 && installedWallets[0]) {
+            select(installedWallets[0].adapter.name);
+          } else {
+            setPickerOpen((v) => !v);
+          }
+        }}
+        disabled={connecting}
+        className={`group inline-flex items-center justify-center gap-2 rounded-lg border text-[11px] font-semibold tracking-[0.12em] uppercase transition-colors duration-200 disabled:opacity-60 ${
+          size === "lg" ? "h-12 px-6" : "h-9 px-4"
+        } ${full ? "w-full" : ""} border-primary/25 bg-primary/[0.06] text-gold-light hover:border-primary/50 hover:bg-primary/12`}
+      >
+        <Wallet className="size-3.5 opacity-80" />
+        {connecting ? "Connecting…" : "Connect Wallet"}
+        {installedWallets.length > 1 && <ChevronDown className="size-3 opacity-60" />}
+      </button>
+
+      {pickerOpen && (
+        <div className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-xl border border-border bg-background/95 py-1 shadow-xl backdrop-blur-xl">
+          {installedWallets.length === 0 ? (
+            <p className="px-3 py-2 text-[11px] text-muted-foreground">
+              No Solana wallet detected. Install Phantom or Solflare.
+            </p>
+          ) : (
+            installedWallets.map((w) => (
+              <button
+                key={w.adapter.name}
+                onClick={() => {
+                  select(w.adapter.name);
+                  setPickerOpen(false);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[11px] font-medium text-foreground hover:bg-primary/10"
+              >
+                {w.adapter.icon && <img src={w.adapter.icon} alt="" className="size-4" />}
+                {w.adapter.name}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function SiteHeader() {
+  const [open, setOpen] = useState(false);
+  const session = useSession();
+
+  return (
+    <header className="sticky top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4">
+      <div className="mx-auto max-w-[80rem]">
+        <div className="flex h-14 items-center gap-6 px-1 sm:px-2">
+          <Link to="/" className="group flex items-center gap-2.5">
+            <span className="display text-[13px] font-extrabold tracking-[0.3em] uppercase">
+              Sharps
+            </span>
+          </Link>
+
+          <span className="hidden h-5 w-px bg-border md:block" />
+
+          <nav className="hidden items-center gap-2 md:flex">
+            {NAV.map((n) => (
+              <Link
+                key={n.to}
+                to={n.to}
+                className="relative rounded-full border border-border/70 bg-surface/40 px-4 py-1.5 text-[11px] font-semibold tracking-[0.14em] uppercase text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/[0.06] hover:text-gold-light"
+                activeProps={{ className: "border-primary/45 bg-primary/10 text-gold-light" }}
+              >
+                {n.label}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="ml-auto flex items-center gap-2.5">
+            <OracleStatus />
+            <div className="hidden items-center gap-2 pr-1 sm:flex">
+              <span
+                className={`size-1.5 rounded-full ${session?.marketOpen ? "live-dot bg-up" : "bg-down"}`}
+              />
+              <span className="num text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
+                {session
+                  ? session.active.length
+                    ? `${session.active.map((s) => s.short).join(" / ")} Session`
+                    : session.marketOpen
+                      ? "Between Sessions"
+                      : "Markets Closed"
+                  : "Markets"}
+              </span>
+            </div>
+            <ConnectWalletButton />
+            <button
+              className="grid size-9 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:text-gold-light md:hidden"
+              onClick={() => setOpen((v) => !v)}
+              aria-label="Menu"
+            >
+              <Menu className="size-4" />
+            </button>
+          </div>
+        </div>
+
+        {open && (
+          <nav className="mt-2 flex flex-col rounded-2xl border border-border bg-background/90 px-4 py-2 backdrop-blur-xl md:hidden">
+            {NAV.map((n) => (
+              <Link
+                key={n.to}
+                to={n.to}
+                onClick={() => setOpen(false)}
+                className="py-2 text-[11px] font-semibold tracking-[0.14em] uppercase text-muted-foreground"
+              >
+                {n.label}
+              </Link>
+            ))}
+          </nav>
+        )}
+      </div>
+    </header>
+  );
+}
+
+export function SiteFooter() {
+  return (
+    <footer className="border-t border-border bg-surface/40">
+      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-8 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <p className="num tracking-wide">SHARPS © 2026, {SOLANA_CLUSTER}. Not financial advice.</p>
+        <p className="num tracking-wide">
+          Displayed price is a quote, not a guaranteed redemption value — sell payouts are capped by
+          each listing&apos;s available on-chain balance.
+        </p>
+      </div>
+    </footer>
+  );
+}
+
+function OracleStatus() {
+  const { lastUpdated } = useMarket();
+  const [, tick] = useState(0);
+  // re-render every 10s so the "x ago" stays fresh
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 10000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!lastUpdated) {
+    return (
+      <div className="hidden items-center gap-2 sm:flex">
+        <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+        <span className="num text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
+          Oracle offline
+        </span>
+      </div>
+    );
+  }
+
+  const secs = Math.max(0, Math.floor((Date.now() - new Date(lastUpdated).getTime()) / 1000));
+  const ago =
+    secs < 60
+      ? `${secs}s ago`
+      : secs < 3600
+        ? `${Math.floor(secs / 60)}m ago`
+        : `${Math.floor(secs / 3600)}h ago`;
+  const fresh = secs < 25 * 60; // feed refreshes ~20m; green if within window
+
+  return (
+    <div className="hidden items-center gap-2 sm:flex" title={`Oracle last updated ${ago}`}>
+      <span className={`size-1.5 rounded-full ${fresh ? "live-dot bg-up" : "bg-down"}`} />
+      <span className="num text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
+        Oracle {ago}
+      </span>
+    </div>
+  );
+}
