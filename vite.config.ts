@@ -5,9 +5,40 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
-const pkgFile = (p: string) => fileURLToPath(new URL(`./node_modules/${p}`, import.meta.url));
+const require = createRequire(import.meta.url);
+
+/**
+ * Several Solana deps (rpc-websockets, @solana/codecs and its sub-packages)
+ * only publish "browser" and "node" export conditions. Under the Cloudflare
+ * /workerd condition set the bundler can't resolve them at all, which fails
+ * the build. Resolve those packages to their browser entry (web standard APIs
+ * only, safe on both Node and workerd).
+ */
+function solanaBrowserEntries() {
+  const shouldPatch = (id: string) =>
+    id === "rpc-websockets" || id.startsWith("@solana/codecs");
+
+  return {
+    name: "solana-browser-entries",
+    enforce: "pre" as const,
+    resolveId(id: string) {
+      if (!shouldPatch(id)) return null;
+      try {
+        const pkgJsonPath = require.resolve(`${id}/package.json`);
+        const pkg = require(pkgJsonPath) as {
+          exports?: { browser?: { import?: string } };
+        };
+        const browserEntry = pkg.exports?.browser?.import;
+        if (!browserEntry) return null;
+        return pkgJsonPath.replace(/package\.json$/, browserEntry.replace(/^\.\//, ""));
+      } catch {
+        return null;
+      }
+    },
+  };
+}
 
 export default defineConfig({
   tanstackStart: {
@@ -15,26 +46,13 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // Cloudflare Workers' `workerd` runtime can't resolve rpc-websockets or
-  // @solana/codecs (both real deps of @solana/web3.js / wallet-adapter).
-  // Prefer Node hosting, but platform builds can still force the Cloudflare
-  // preset, so also alias those two packages to their browser builds (web
-  // standard APIs only) which resolve under every condition set.
+  // Prefer Node hosting (full support for the Solana deps); the plugin above
+  // keeps the build working when the platform force-pins the Cloudflare preset.
   nitro: { preset: "node-server" },
   vite: {
-    resolve: {
-      alias: [
-        {
-          find: /^rpc-websockets$/,
-          replacement: pkgFile("rpc-websockets/dist/index.browser.mjs"),
-        },
-        {
-          find: /^@solana\/codecs$/,
-          replacement: pkgFile("@solana/codecs/dist/index.browser.mjs"),
-        },
-      ],
-    },
+    plugins: [solanaBrowserEntries()],
   },
 });
+
 
 
