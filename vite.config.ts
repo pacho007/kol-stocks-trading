@@ -5,30 +5,57 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-
-// Several Solana deps (rpc-websockets, @solana/codecs*) only publish "browser"
-// and "node" export conditions. Under the Cloudflare/workerd condition set the
-// bundler can't resolve them at all, so add "browser" (web standard APIs only,
-// safe on both Node and workerd) as a fallback condition for the server build.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join, resolve as resolvePath } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const BROWSER_ONLY_PKGS = ["rpc-websockets", "@solana/codecs", "@solana/codecs-numbers", "@solana/codecs-strings"];
+/**
+ * Several Solana deps (rpc-websockets, @solana/codecs*) only publish "browser"
+ * and "node" export conditions. Under the Cloudflare/workerd condition set the
+ * bundler cannot resolve them at all and the build fails. Resolve those
+ * packages to their browser entry (web standard APIs only, safe on both Node
+ * and workerd), walking the importer's own node_modules chain so nested copies
+ * keep their matching version.
+ */
+const rootDir = fileURLToPath(new URL("./", import.meta.url));
 
-const browserAliases = BROWSER_ONLY_PKGS.flatMap((name) => {
-  const dir = fileURLToPath(new URL(`./node_modules/${name}/`, import.meta.url));
-  const pkg = JSON.parse(readFileSync(`${dir}package.json`, "utf8")) as {
-    exports?: { browser?: { import?: string } };
-  };
-  const entry = pkg.exports?.browser?.import;
-  if (!entry) return [];
-  return [
-    {
-      find: new RegExp(`^${name.replace(/[/\\^$*+?.()|[\]{}]/g, "\\$&")}$`),
-      replacement: dir + entry.replace(/^\.\//, ""),
+const isBrowserOnlyPkg = (id: string) =>
+  id === "rpc-websockets" || /^@solana\/codecs(-[a-z-]+)?$/.test(id);
+
+function findPkgDir(id: string, importer?: string) {
+  let dir = importer ? dirname(importer) : rootDir;
+  for (let i = 0; i < 20; i++) {
+    const candidate = join(dir, "node_modules", id);
+    if (existsSync(join(candidate, "package.json"))) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  const fallback = join(rootDir, "node_modules", id);
+  return existsSync(join(fallback, "package.json")) ? fallback : null;
+}
+
+function solanaBrowserEntries() {
+  return {
+    name: "solana-browser-entries",
+    enforce: "pre" as const,
+    resolveId(id: string, importer?: string) {
+      if (!isBrowserOnlyPkg(id)) return null;
+      const pkgDir = findPkgDir(id, importer);
+      if (!pkgDir) return null;
+      try {
+        const pkg = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8")) as {
+          exports?: { browser?: { import?: string } };
+        };
+        const entry = pkg.exports?.browser?.import;
+        if (!entry) return null;
+        return resolvePath(pkgDir, entry);
+      } catch {
+        return null;
+      }
     },
-  ];
-});
+  };
+}
 
 export default defineConfig({
   tanstackStart: {
@@ -36,10 +63,10 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // Prefer Node hosting (full support for the Solana deps); the conditions
-  // above keep the build working if the platform force-pins Cloudflare.
+  // Prefer Node hosting (full support for the Solana deps); the plugin above
+  // keeps the build working if the platform force-pins Cloudflare.
   nitro: { preset: "node-server" },
   vite: {
-    resolve: { alias: browserAliases },
+    plugins: [solanaBrowserEntries()],
   },
 });
