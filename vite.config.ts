@@ -10,14 +10,25 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 // and "node" export conditions. Under the Cloudflare/workerd condition set the
 // bundler can't resolve them at all, so add "browser" (web standard APIs only,
 // safe on both Node and workerd) as a fallback condition for the server build.
-const SERVER_CONDITIONS = [
-  "workerd",
-  "worker",
-  "browser",
-  "module",
-  "import",
-  "default",
-];
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const BROWSER_ONLY_PKGS = ["rpc-websockets", "@solana/codecs", "@solana/codecs-numbers"];
+
+const browserAliases = BROWSER_ONLY_PKGS.flatMap((name) => {
+  const dir = fileURLToPath(new URL(`./node_modules/${name}/`, import.meta.url));
+  const pkg = JSON.parse(readFileSync(`${dir}package.json`, "utf8")) as {
+    exports?: { browser?: { import?: string } };
+  };
+  const entry = pkg.exports?.browser?.import;
+  if (!entry) return [];
+  return [
+    {
+      find: new RegExp(`^${name.replace(/[/\\^$*+?.()|[\]{}]/g, "\\$&")}$`),
+      replacement: dir + entry.replace(/^\.\//, ""),
+    },
+  ];
+});
 
 export default defineConfig({
   tanstackStart: {
@@ -29,6 +40,6 @@ export default defineConfig({
   // above keep the build working if the platform force-pins Cloudflare.
   nitro: { preset: "node-server" },
   vite: {
-    ssr: { resolve: { conditions: SERVER_CONDITIONS, externalConditions: SERVER_CONDITIONS } },
+    resolve: { alias: browserAliases },
   },
 });
