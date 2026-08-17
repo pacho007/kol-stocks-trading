@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 const rootDir = fileURLToPath(new URL("./", import.meta.url));
 
 const isBrowserOnlyPkg = (id: string) =>
-  id === "rpc-websockets" || /^@solana\/codecs(-[a-z-]+)?$/.test(id);
+  id === "rpc-websockets" || /^@solana\/[a-z0-9-]+$/.test(id);
 
 function findPkgDir(id: string, importer?: string) {
   let dir = importer ? dirname(importer) : rootDir;
