@@ -5,9 +5,8 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-import { createRequire } from "node:module";
-
-const require = createRequire(import.meta.url);
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 /**
  * Several Solana deps (rpc-websockets, @solana/codecs*) only publish "browser"
@@ -24,22 +23,28 @@ const BROWSER_ONLY_PKGS = [
   "@solana/codecs-data-structures",
 ];
 
+const pkgDir = (name: string) =>
+  fileURLToPath(new URL(`./node_modules/${name}/`, import.meta.url));
+
 const browserAliases = BROWSER_ONLY_PKGS.flatMap((name) => {
   try {
-    const pkgJsonPath = require.resolve(`${name}/package.json`);
-    const pkg = require(pkgJsonPath) as { exports?: { browser?: { import?: string } } };
+    const dir = pkgDir(name);
+    const pkg = JSON.parse(readFileSync(`${dir}package.json`, "utf8")) as {
+      exports?: { browser?: { import?: string } };
+    };
     const entry = pkg.exports?.browser?.import;
     if (!entry) return [];
     return [
       {
         find: new RegExp(`^${name.replace(/[/\\^$*+?.()|[\]{}]/g, "\\$&")}$`),
-        replacement: pkgJsonPath.replace(/package\.json$/, entry.replace(/^\.\//, "")),
+        replacement: dir + entry.replace(/^\.\//, ""),
       },
     ];
   } catch {
     return [];
   }
 });
+
 
 export default defineConfig({
   tanstackStart: {
