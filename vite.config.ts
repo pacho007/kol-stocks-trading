@@ -13,7 +13,7 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const BROWSER_ONLY_PKGS = ["rpc-websockets", "@solana/codecs", "@solana/codecs-numbers"];
+const BROWSER_ONLY_PKGS = ["rpc-websockets", "@solana/codecs", "@solana/codecs-numbers", "@solana/codecs-strings"];
 
 const browserAliases = BROWSER_ONLY_PKGS.flatMap((name) => {
   const dir = fileURLToPath(new URL(`./node_modules/${name}/`, import.meta.url));
