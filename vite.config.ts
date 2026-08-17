@@ -10,35 +10,36 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 
 /**
- * Several Solana deps (rpc-websockets, @solana/codecs and its sub-packages)
- * only publish "browser" and "node" export conditions. Under the Cloudflare
- * /workerd condition set the bundler can't resolve them at all, which fails
- * the build. Resolve those packages to their browser entry (web standard APIs
- * only, safe on both Node and workerd).
+ * Several Solana deps (rpc-websockets, @solana/codecs*) only publish "browser"
+ * and "node" export conditions, so a Cloudflare/workerd condition set can't
+ * resolve them at all and the build fails. Alias them to their browser entry
+ * (web standard APIs only, safe on Node and workerd alike).
  */
-function solanaBrowserEntries() {
-  const shouldPatch = (id: string) =>
-    id === "rpc-websockets" || id.startsWith("@solana/codecs");
+const BROWSER_ONLY_PKGS = [
+  "rpc-websockets",
+  "@solana/codecs",
+  "@solana/codecs-core",
+  "@solana/codecs-numbers",
+  "@solana/codecs-strings",
+  "@solana/codecs-data-structures",
+];
 
-  return {
-    name: "solana-browser-entries",
-    enforce: "pre" as const,
-    resolveId(id: string) {
-      if (!shouldPatch(id)) return null;
-      try {
-        const pkgJsonPath = require.resolve(`${id}/package.json`);
-        const pkg = require(pkgJsonPath) as {
-          exports?: { browser?: { import?: string } };
-        };
-        const browserEntry = pkg.exports?.browser?.import;
-        if (!browserEntry) return null;
-        return pkgJsonPath.replace(/package\.json$/, browserEntry.replace(/^\.\//, ""));
-      } catch {
-        return null;
-      }
-    },
-  };
-}
+const browserAliases = BROWSER_ONLY_PKGS.flatMap((name) => {
+  try {
+    const pkgJsonPath = require.resolve(`${name}/package.json`);
+    const pkg = require(pkgJsonPath) as { exports?: { browser?: { import?: string } } };
+    const entry = pkg.exports?.browser?.import;
+    if (!entry) return [];
+    return [
+      {
+        find: new RegExp(`^${name.replace(/[/\\^$*+?.()|[\]{}]/g, "\\$&")}$`),
+        replacement: pkgJsonPath.replace(/package\.json$/, entry.replace(/^\.\//, "")),
+      },
+    ];
+  } catch {
+    return [];
+  }
+});
 
 export default defineConfig({
   tanstackStart: {
@@ -46,13 +47,14 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // Prefer Node hosting (full support for the Solana deps); the plugin above
-  // keeps the build working when the platform force-pins the Cloudflare preset.
+  // Prefer Node hosting (full support for the Solana deps); the aliases above
+  // keep the build working when the platform force-pins the Cloudflare preset.
   nitro: { preset: "node-server" },
   vite: {
-    plugins: [solanaBrowserEntries()],
+    resolve: { alias: browserAliases },
   },
 });
+
 
 
 
