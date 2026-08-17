@@ -20,6 +20,23 @@ export default defineConfig({
   // still force-pins Cloudflare via LOVABLE_NITRO_PRESET regardless of this
   // override (see this package's own doc comment) — if this app is deployed
   // through Lovable's own CI rather than self-hosted, that will need
-  // resolving separately (e.g. self-host the server instead).
   nitro: { preset: "node-server" },
+  // Platform builds can still force the workerd/Cloudflare preset, whose export
+  // conditions these two packages don't publish. Point them at their browser
+  // builds (web-standard APIs only) so resolution succeeds either way.
+  vite: {
+    resolve: {
+      alias: [
+        {
+          find: /^rpc-websockets$/,
+          replacement: "/dev-server/node_modules/rpc-websockets/dist/index.browser.mjs",
+        },
+        {
+          find: /^@solana\/codecs$/,
+          replacement: "/dev-server/node_modules/@solana/codecs/dist/index.browser.mjs",
+        },
+      ],
+    },
+  },
 });
+
