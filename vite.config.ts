@@ -5,46 +5,19 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 
-/**
- * Several Solana deps (rpc-websockets, @solana/codecs*) only publish "browser"
- * and "node" export conditions, so a Cloudflare/workerd condition set can't
- * resolve them at all and the build fails. Alias them to their browser entry
- * (web standard APIs only, safe on Node and workerd alike).
- */
-const BROWSER_ONLY_PKGS = [
-  "rpc-websockets",
-  "@solana/codecs",
-  "@solana/codecs-core",
-  "@solana/codecs-numbers",
-  "@solana/codecs-strings",
-  "@solana/codecs-data-structures",
+// Several Solana deps (rpc-websockets, @solana/codecs*) only publish "browser"
+// and "node" export conditions. Under the Cloudflare/workerd condition set the
+// bundler can't resolve them at all, so add "browser" (web standard APIs only,
+// safe on both Node and workerd) as a fallback condition for the server build.
+const SERVER_CONDITIONS = [
+  "workerd",
+  "worker",
+  "browser",
+  "module",
+  "import",
+  "default",
 ];
-
-const pkgDir = (name: string) =>
-  fileURLToPath(new URL(`./node_modules/${name}/`, import.meta.url));
-
-const browserAliases = BROWSER_ONLY_PKGS.flatMap((name) => {
-  try {
-    const dir = pkgDir(name);
-    const pkg = JSON.parse(readFileSync(`${dir}package.json`, "utf8")) as {
-      exports?: { browser?: { import?: string } };
-    };
-    const entry = pkg.exports?.browser?.import;
-    if (!entry) return [];
-    return [
-      {
-        find: new RegExp(`^${name.replace(/[/\\^$*+?.()|[\]{}]/g, "\\$&")}$`),
-        replacement: dir + entry.replace(/^\.\//, ""),
-      },
-    ];
-  } catch {
-    return [];
-  }
-});
-
 
 export default defineConfig({
   tanstackStart: {
@@ -52,14 +25,10 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // Prefer Node hosting (full support for the Solana deps); the aliases above
-  // keep the build working when the platform force-pins the Cloudflare preset.
+  // Prefer Node hosting (full support for the Solana deps); the conditions
+  // above keep the build working if the platform force-pins Cloudflare.
   nitro: { preset: "node-server" },
   vite: {
-    resolve: { alias: browserAliases },
+    ssr: { resolve: { conditions: SERVER_CONDITIONS, externalConditions: SERVER_CONDITIONS } },
   },
 });
-
-
-
-
