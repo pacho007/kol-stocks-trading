@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Start-Sleep -Seconds *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(wsl -d Ubuntu -- bash -lc 'which *)",
+      "PowerShell(wsl -d Ubuntu -- bash -lc 'export PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin\"; solana balance *)",
+      "PowerShell(wsl -d Ubuntu -- bash -lc 'export PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin\"; solana account *)",
+      "PowerShell(wsl -d Ubuntu -- bash -lc 'export PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin\"; solana --version*)",
+      "PowerShell(wsl -d Ubuntu -- bash -lc 'export PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$HOME/.cargo/bin:$HOME/.local/share/solana/install/active_release/bin\"; solana rent *)",
+      "PowerShell(wsl -d Ubuntu -- bash -lc 'git -C ~/kol-stocks-repo status*)",
+      "PowerShell(wsl -d Ubuntu -- bash -lc 'git -C ~/kol-stocks-repo log*)",
+      "PowerShell(wsl -d Ubuntu -- bash -lc 'git -C ~/kol-stocks-repo diff*)",
+      "PowerShell(wsl -d Ubuntu -- bash -lc 'git -C ~/kol-stocks-repo branch*)",
+      "PowerShell(wsl -d Ubuntu -- bash -lc 'git -C ~/kol-stocks-repo remote*)"
+    ]
+  }
+}

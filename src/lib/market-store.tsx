@@ -68,6 +68,7 @@ type Ctx = {
   scores: Record<string, number>;
   history: Record<string, PricePoint[]>;
   metrics: Record<string, KolMetrics>;
+  onChainListings: Record<string, OnChainListing>;
   backingPerShare: Record<string, number>;
   live: boolean;
   connected: boolean;
@@ -491,6 +492,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       prices,
       scores,
       metrics,
+      onChainListings,
       history,
       backingPerShare,
       live,
@@ -518,6 +520,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       prices,
       scores,
       metrics,
+      onChainListings,
       history,
       backingPerShare,
       live,
@@ -554,9 +557,11 @@ export function useMarket() {
  *  - changePct: move since the $0.01 equal open (so day-one = 0%)
  */
 export function useKolStats(id: string) {
-  const { prices, scores, metrics } = useMarket();
+  const { prices, scores, metrics, onChainListings } = useMarket();
   const price = prices[id] ?? OPEN_PRICE_USD;
-  const score = scores[id] ?? 50;
+  // Prefer the score actually pushed on-chain by the oracle; scores.json is a
+  // periodically-republished snapshot and can lag behind on-chain updates.
+  const score = onChainListings[id]?.score ?? scores[id] ?? 50;
   const marketCapUsd = price * 10_000_000; // SHARES_PER_LISTING
   const changePct = ((price - OPEN_PRICE_USD) / OPEN_PRICE_USD) * 100;
   const m = metrics[id];

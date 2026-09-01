@@ -31,8 +31,10 @@ dist-ssr
 *.sln
 *.sw?
 
-# Claude Code local tooling config — not part of the product
-.claude/
+# Claude Code — settings.json is project-shared config and is committed;
+# only the personal/machine-specific override file and runtime state are excluded.
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # Environment-specific — see .env.example for the shape
 .env

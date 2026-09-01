@@ -79,7 +79,10 @@ async function loadFullListings(): Promise<ListingInput[] | null> {
   return null;
 }
 
-const CHUNK_SIZE = Number(process.env.ONCHAIN_CHUNK_SIZE ?? 15);
+// 15 update_price instructions per tx measured at 1383 bytes on a real
+// devnet run — over Solana's 1232-byte legacy tx limit, so every chunk
+// failed outright. 10 is a conservative reduction pending a re-measurement.
+const CHUNK_SIZE = Number(process.env.ONCHAIN_CHUNK_SIZE ?? 10);
 const SEND_GAP_MS = Number(process.env.ONCHAIN_SEND_GAP_MS ?? 400);
 const MAX_TX_RETRIES = Number(process.env.ONCHAIN_TX_RETRIES ?? 5);
 const PRIORITY_FEE_MICROLAMPORTS = process.env.PRIORITY_FEE_MICROLAMPORTS
@@ -266,6 +269,16 @@ async function main() {
         ? `Using FULL list from app source (${listings.length} wallets).`
         : `App source not found; falling back to SAMPLE (${listings.length} wallets).`,
     );
+  }
+
+  // Optional slice for running the full list in smaller, resumable batches
+  // (e.g. a shell/host that kills long-running processes) — BATCH_START is
+  // an index into `listings`, BATCH_COUNT how many to take from there.
+  if (process.env.BATCH_START != null || process.env.BATCH_COUNT != null) {
+    const start = Number(process.env.BATCH_START ?? 0);
+    const count = Number(process.env.BATCH_COUNT ?? listings.length - start);
+    listings = listings.slice(start, start + count);
+    console.log(`Batch slice: [${start}, ${start + count}) — ${listings.length} wallets this run.`);
   }
 
   await once(program, connection, authority, listings);
