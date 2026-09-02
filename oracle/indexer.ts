@@ -34,7 +34,7 @@ import { scoreCohort, scoreToAnchor, applyRateCap, BASE_PRICE, type RawMetrics }
  * would take the whole EVM pipeline down over a credential it never uses.
  * HeliusPnlProvider itself throws if actually called without a key.
  */
-const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
+const HELIUS_API_KEY = process.env["HELIUS_API_KEY"];
 
 function requireHeliusKey(): string {
   if (!HELIUS_API_KEY) {
@@ -154,7 +154,11 @@ async function fetchWalletTxs(wallet: string): Promise<HeliusTx[]> {
     if (!Array.isArray(batch) || batch.length === 0) break;
 
     out.push(...batch);
+    // batch.length === 0 broke out above, so there is always a last element;
+    // TypeScript cannot narrow that across the early return, hence the check
+    // rather than a bare assertion.
     const last = batch[batch.length - 1];
+    if (!last) break;
     before = (last as { signature?: string }).signature;
 
     // stop once we've paged past the scoring window
@@ -380,13 +384,17 @@ export async function runOracle(
 
   // Concurrency-limited batching so hundreds of wallets don't hammer Helius.
   // CONCURRENCY simultaneous requests; tune down if you hit rate limits.
-  const CONCURRENCY = Number(process.env.INDEXER_CONCURRENCY ?? 4);
+  const CONCURRENCY = Number(process.env["INDEXER_CONCURRENCY"] ?? 4);
   const raw: RawMetrics[] = new Array(listings.length);
   let done = 0;
 
   async function worker(startIdx: number) {
     for (let i = startIdx; i < listings.length; i += CONCURRENCY) {
-      const { id, wallet } = listings[i];
+      // Bounded by the loop condition; the guard is for the type checker,
+      // which cannot tie i < listings.length to the element being present.
+      const listing = listings[i];
+      if (!listing) continue;
+      const { id, wallet } = listing;
       try {
         const m = await provider.metrics(wallet);
         raw[i] = { ...m, id };

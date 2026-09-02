@@ -142,10 +142,15 @@ export function scoreCohort(cohort: RawMetrics[]): ScoredMetrics[] {
       };
     }
 
-    const pnlPct = percentile(pnl[i], pnl);
-    const winPct = percentile(win[i], win);
-    const volPct = percentile(vol[i], vol);
-    const tradesPct = percentile(trd[i], trd);
+    // pnl/win/vol/trd are each built by mapping over this same cohort, so
+    // index i is always present in all four. Defaulting to 0 rather than
+    // asserting keeps a malformed cohort from throwing mid-scoring run: a
+    // wallet would score low, which is visible, instead of taking down the
+    // whole cycle and leaving every price stale.
+    const pnlPct = percentile(pnl[i] ?? 0, pnl);
+    const winPct = percentile(win[i] ?? 0, win);
+    const volPct = percentile(vol[i] ?? 0, vol);
+    const tradesPct = percentile(trd[i] ?? 0, trd);
 
     const composite =
       WEIGHTS.pnl * pnlPct +

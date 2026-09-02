@@ -25,7 +25,7 @@
 import type { RawMetrics } from "./score.js";
 import type { PnlProvider } from "./indexer.js";
 
-const BASE_URL = process.env.BLOCKSCOUT_URL ?? "https://robinhoodchain.blockscout.com";
+const BASE_URL = process.env["BLOCKSCOUT_URL"] ?? "https://robinhoodchain.blockscout.com";
 
 /**
  * Blockscout sits behind Cloudflare and returns an interstitial challenge to
@@ -37,7 +37,7 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36";
 
 /** Bound work per wallet so one hyperactive address can't stall a whole cycle. */
-const MAX_PAGES = Number(process.env.BLOCKSCOUT_MAX_PAGES ?? 6);
+const MAX_PAGES = Number(process.env["BLOCKSCOUT_MAX_PAGES"] ?? 6);
 /**
  * Blockscout's public API rate-limits aggressively. This gap is applied
  * before EVERY request including retries (see `pace()`), and the whole
@@ -65,10 +65,10 @@ const MAX_PAGES = Number(process.env.BLOCKSCOUT_MAX_PAGES ?? 6);
  * buy, and neither leaves score correctness dependent on someone else's
  * unmetered goodwill.
  */
-const MIN_GAP_MS = Number(process.env.BLOCKSCOUT_GAP_MS ?? 1000);
+const MIN_GAP_MS = Number(process.env["BLOCKSCOUT_GAP_MS"] ?? 1000);
 
 /** Only trades AFTER this point count — mirrors indexer.ts's LAUNCH GATE. */
-const LAUNCH_TS = Number(process.env.LAUNCH_TS ?? 0);
+const LAUNCH_TS = Number(process.env["LAUNCH_TS"] ?? 0);
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

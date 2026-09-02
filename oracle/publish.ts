@@ -67,7 +67,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  */
 const APP_PUBLIC = resolve(__dirname, "../public/scores.json");
 const OUT_TARGETS = [APP_PUBLIC];
-const REFRESH_MIN = Number(process.env.REFRESH_MIN ?? 20); // 20 min default — sane for ~558 wallets; override with REFRESH_MIN=n
+const REFRESH_MIN = Number(process.env["REFRESH_MIN"] ?? 20); // 20 min default — sane for ~558 wallets; override with REFRESH_MIN=n
 
 /**
  * Listings. Full list by default; set SAMPLE=1 to test on 3 wallets first:
@@ -92,7 +92,7 @@ async function fetchNativePriceUsd(): Promise<number> {
   const sources: Array<() => Promise<number | null>> = [
     // Blockscout (same explorer the PnL indexer uses — already chain-native)
     async () => {
-      const base = process.env.BLOCKSCOUT_URL ?? "https://robinhoodchain.blockscout.com";
+      const base = process.env["BLOCKSCOUT_URL"] ?? "https://robinhoodchain.blockscout.com";
       const r = await fetch(`${base}/api/v2/stats`, {
         headers: {
           "User-Agent":
@@ -135,12 +135,39 @@ async function fetchNativePriceUsd(): Promise<number> {
   return FALLBACK;
 }
 
+/** One closed position — evidence behind a score, not an input to it. */
+type PublishedClose = {
+  symbol: string;
+  pnl: number;
+  proceeds: number;
+  ts: number;
+  multiple: number | null;
+};
+
+/**
+ * The shape of one row in scores.json, and therefore the contract the frontend
+ * and listing_metrics both read.
+ *
+ * topWins/topLosses/breakdown/confidence were being written here but were
+ * missing from this type, so nothing checked that the writer and the readers
+ * agreed. They only surfaced once oracle/ was added to tsconfig — until then
+ * the type quietly described a smaller object than the code actually emitted.
+ */
 type PublishedRow = {
   id: string;
   score: number;
   priceUsd: number;
   marketCapUsd: number;
-  metrics: { realizedPnlEth: number; winRate: number; volumeEth: number; trades: number };
+  metrics: {
+    realizedPnlEth: number;
+    winRate: number;
+    volumeEth: number;
+    trades: number;
+    topWins: PublishedClose[];
+    topLosses: PublishedClose[];
+  };
+  breakdown: { pnlPct: number; winPct: number; volPct: number; tradesPct: number };
+  confidence: number;
 };
 
 type Published = {
@@ -232,8 +259,8 @@ async function once(): Promise<void> {
  * RLS entirely — server-side only, never in a VITE_ var.
  */
 async function publishMetricsToSupabase(published: Published): Promise<void> {
-  const url = process.env.SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = process.env["SUPABASE_URL"];
+  const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
   if (!url || !serviceKey) {
     console.log(
       "Supabase not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY) — " +
@@ -281,7 +308,7 @@ async function main() {
   const watch = process.argv.includes("--watch");
 
   // Resolve which wallets to index.
-  if (process.env.SAMPLE === "1") {
+  if (process.env["SAMPLE"] === "1") {
     listings = SAMPLE_LISTINGS;
     console.log(`Using SAMPLE list (${listings.length} wallets).`);
   } else {

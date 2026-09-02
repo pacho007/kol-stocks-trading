@@ -61,7 +61,7 @@ const robinhoodTestnet = defineChain({
   name: "Robinhood Chain Testnet",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: { http: [process.env.ROBINHOOD_RPC_URL ?? "https://rpc.testnet.chain.robinhood.com"] },
+    default: { http: [process.env["ROBINHOOD_RPC_URL"] ?? "https://rpc.testnet.chain.robinhood.com"] },
   },
 });
 
@@ -70,7 +70,7 @@ const robinhoodMainnet = defineChain({
   name: "Robinhood Chain",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: { http: [process.env.ROBINHOOD_RPC_URL ?? "https://rpc.mainnet.chain.robinhood.com"] },
+    default: { http: [process.env["ROBINHOOD_RPC_URL"] ?? "https://rpc.mainnet.chain.robinhood.com"] },
   },
 });
 
@@ -106,15 +106,15 @@ async function loadFullListings(): Promise<ListingInput[] | null> {
 // so batches can be much larger than push-onchain.ts's CHUNK_SIZE=10 — the
 // real constraint here is the block gas limit, not calldata size. 50 is a
 // conservative starting point pending a real gas measurement on testnet.
-const CHUNK_SIZE = Number(process.env.ONCHAIN_CHUNK_SIZE ?? 50);
-const SEND_GAP_MS = Number(process.env.ONCHAIN_SEND_GAP_MS ?? 400);
-const MAX_TX_RETRIES = Number(process.env.ONCHAIN_TX_RETRIES ?? 5);
-const REFRESH_MIN = Number(process.env.REFRESH_MIN ?? 20);
+const CHUNK_SIZE = Number(process.env["ONCHAIN_CHUNK_SIZE"] ?? 50);
+const SEND_GAP_MS = Number(process.env["ONCHAIN_SEND_GAP_MS"] ?? 400);
+const MAX_TX_RETRIES = Number(process.env["ONCHAIN_TX_RETRIES"] ?? 5);
+const REFRESH_MIN = Number(process.env["REFRESH_MIN"] ?? 20);
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function loadOracleAuthority(): Hex {
-  const key = process.env.ORACLE_AUTHORITY_PRIVATE_KEY;
+  const key = process.env["ORACLE_AUTHORITY_PRIVATE_KEY"];
   if (!key) {
     console.error(
       "Missing ORACLE_AUTHORITY_PRIVATE_KEY. Set it to a key that is ONLY ever used\n" +
@@ -245,14 +245,14 @@ async function main() {
   const privateKey = loadOracleAuthority();
   const account = privateKeyToAccount(privateKey);
 
-  const marketAddressStr = process.env.MARKET_ADDRESS;
+  const marketAddressStr = process.env["MARKET_ADDRESS"];
   if (!marketAddressStr) {
     console.error("Missing MARKET_ADDRESS (the deployed SharpsMarket contract address).");
     process.exit(1);
   }
   const marketAddress = marketAddressStr as Address;
 
-  const isMainnet = process.env.ROBINHOOD_NETWORK === "mainnet";
+  const isMainnet = process.env["ROBINHOOD_NETWORK"] === "mainnet";
   const chain = isMainnet ? robinhoodMainnet : robinhoodTestnet;
 
   const publicClient = createPublicClient({ chain, transport: http() });
@@ -261,6 +261,41 @@ async function main() {
   console.log(`Network: ${chain.name} (chain id ${chain.id})`);
   console.log(`Oracle authority: ${account.address}`);
   console.log(`Market: ${marketAddress}`);
+
+  // Preflight, here rather than in a wrapper script, so it holds however this
+  // is invoked — shell, scheduler, or CI.
+  const deployedCode = await publicClient.getBytecode({ address: marketAddress });
+  if (!deployedCode || deployedCode === "0x") {
+    console.error(`No contract deployed at ${marketAddress}. Check MARKET_ADDRESS.`);
+    process.exit(1);
+  }
+
+  // updatePrice/batchUpdatePrice are onlyOracle, so the wrong key does not fail
+  // once — it reverts every chunk in turn, after spending gas discovering that.
+  const onChainOracle = (await publicClient.readContract({
+    address: marketAddress,
+    abi: marketAbi,
+    functionName: "oracleAuthority",
+  })) as Address;
+  if (onChainOracle.toLowerCase() !== account.address.toLowerCase()) {
+    console.error(
+      `This key is not the contract's oracle authority.\n` +
+        `  contract expects: ${onChainOracle}\n` +
+        `  key derives to:   ${account.address}\n` +
+        `Every batch would revert.`,
+    );
+    process.exit(1);
+  }
+
+  const balance = await publicClient.getBalance({ address: account.address });
+  if (balance === 0n) {
+    console.error(
+      `Oracle wallet ${account.address} has no ETH and cannot sign.\n` +
+        `Fund it: bash evm/fund-oracle.sh`,
+    );
+    process.exit(1);
+  }
+  console.log(`Oracle balance: ${Number(balance) / 1e18} ETH`);
 
   let listings: ListingInput[];
   const full = await loadFullListings();
@@ -271,9 +306,9 @@ async function main() {
   listings = full;
   console.log(`Using FULL list from app source (${listings.length} wallets).`);
 
-  if (process.env.BATCH_START != null || process.env.BATCH_COUNT != null) {
-    const start = Number(process.env.BATCH_START ?? 0);
-    const count = Number(process.env.BATCH_COUNT ?? listings.length - start);
+  if (process.env["BATCH_START"] != null || process.env["BATCH_COUNT"] != null) {
+    const start = Number(process.env["BATCH_START"] ?? 0);
+    const count = Number(process.env["BATCH_COUNT"] ?? listings.length - start);
     listings = listings.slice(start, start + count);
     console.log(`Batch slice: [${start}, ${start + count}) — ${listings.length} wallets this run.`);
   }
