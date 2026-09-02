@@ -1,4 +1,3 @@
-import "../lib/buffer-polyfill";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -14,7 +13,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { MarketProvider } from "@/lib/market-store";
-import { SolanaWalletProvider } from "@/lib/solana/wallet-provider";
+import { MarketFeedProvider } from "@/lib/market-feed";
+import { EvmWalletProvider } from "@/lib/evm/wallet-provider";
 import { SiteHeader, SiteFooter } from "@/components/site-header";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -131,7 +131,11 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SolanaWalletProvider>
+      <EvmWalletProvider>
+        {/* Shared, real-time market feed (Supabase) — must wrap MarketProvider,
+            which reads price history from it so every client charts the same
+            data instead of each browser recording its own. */}
+        <MarketFeedProvider>
         <MarketProvider>
           <div className="relative flex min-h-screen flex-col">
             <div
@@ -149,7 +153,8 @@ function RootComponent() {
           </div>
           <Toaster position="bottom-right" />
         </MarketProvider>
-      </SolanaWalletProvider>
+        </MarketFeedProvider>
+      </EvmWalletProvider>
     </QueryClientProvider>
   );
 }

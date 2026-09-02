@@ -42,6 +42,12 @@ export type ScoredMetrics = RawMetrics & {
     volPct: number;
     tradesPct: number;
   };
+  /**
+   * 0..1 — how much of the raw percentile blend actually landed in `score`,
+   * vs. being shrunk toward the neutral midpoint. Low for small trade
+   * counts, approaching 1 as trades grows. See `sampleConfidence`.
+   */
+  confidence: number;
 };
 
 /** Equal opening price for every listing. All divergence is earned. */
@@ -52,8 +58,28 @@ export const WEIGHTS = {
   pnl: 0.5, // realized PnL is the strongest signal of skill
   win: 0.2, // consistency
   vol: 0.15, // conviction / activity, but capped so whales don't dominate
-  trades: 0.15, // sample size — protects against 1-lucky-trade listings
+  trades: 0.15, // rewards activity, but is NOT the sample-size safeguard —
+  // see SAMPLE_SIZE_PRIOR/sampleConfidence below for that. A wallet with 1
+  // trade could still get a high tradesPct percentile if the rest of the
+  // cohort is also thin; this weight alone can't protect against a single
+  // lucky trade dominating a score, which is why confidence-shrinkage below
+  // exists as a separate mechanism.
 } as const;
+
+/**
+ * Confidence weight for a wallet's raw percentile blend, based on trade
+ * count: trades / (trades + SAMPLE_SIZE_PRIOR). 0 at trades=0 (moot — the
+ * fresh-start rule below already pins those to 50), ~0.05 at 1 trade, 0.5 at
+ * SAMPLE_SIZE_PRIOR trades, asymptotically -> 1 as trades grows. Used to
+ * shrink `composite` toward the neutral midpoint (0.5) for low-sample-size
+ * wallets, so a single lucky (or unlucky) trade can only nudge a score, not
+ * swing it — only a sustained track record earns the full percentile.
+ */
+export const SAMPLE_SIZE_PRIOR = 20;
+
+function sampleConfidence(trades: number): number {
+  return trades / (trades + SAMPLE_SIZE_PRIOR);
+}
 
 /**
  * Max fraction the *effective* score is allowed to move toward its new
@@ -95,6 +121,7 @@ export function scoreCohort(cohort: RawMetrics[]): ScoredMetrics[] {
         ...c,
         score: 50,
         breakdown: { pnlPct: 0.5, winPct: 0.5, volPct: 0.5, tradesPct: 0.5 },
+        confidence: 0,
       };
     }
 
@@ -109,10 +136,18 @@ export function scoreCohort(cohort: RawMetrics[]): ScoredMetrics[] {
       WEIGHTS.vol * volPct +
       WEIGHTS.trades * tradesPct;
 
+    // Shrink toward the neutral midpoint (0.5) for low-sample-size wallets —
+    // see sampleConfidence's doc comment. A wallet with 1 trade lands very
+    // close to 50 regardless of how extreme that single trade was; a wallet
+    // with dozens of trades gets close to their raw percentile.
+    const confidence = sampleConfidence(c.trades);
+    const shrunkComposite = 0.5 + (composite - 0.5) * confidence;
+
     return {
       ...c,
-      score: Math.round(composite * 100),
+      score: Math.round(shrunkComposite * 100),
       breakdown: { pnlPct, winPct, volPct, tradesPct },
+      confidence,
     };
   });
 }

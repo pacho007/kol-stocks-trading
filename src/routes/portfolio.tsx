@@ -26,8 +26,8 @@ export const Route = createFileRoute("/portfolio")({
 });
 
 function Portfolio() {
-  const { connected, solBalance, solPriceUsd, positions, trades, prices, reset } = useMarket();
-  const cashUsd = solBalance * solPriceUsd;
+  const { connected, nativeBalance, nativePriceUsd, positions, trades, prices, reset } = useMarket();
+  const cashUsd = nativeBalance * nativePriceUsd;
 
   const rows = positions
     .map((p) => {
@@ -93,7 +93,7 @@ function Portfolio() {
         {[
           ["Total equity", fmtUsd(equity), ""],
           ["Holdings value", fmtUsd(holdings), ""],
-          ["Wallet balance", `${solBalance.toFixed(4)} SOL`, ""],
+          ["Wallet balance", `${nativeBalance.toFixed(4)} ETH`, ""],
           [
             "Unrealized P&L",
             hasUnknownCostBasis ? `${fmtUsd(pnl)}+` : fmtUsd(pnl),

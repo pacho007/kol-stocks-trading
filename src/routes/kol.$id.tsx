@@ -2,22 +2,22 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Users } from "lucide-react";
 import { toast } from "sonner";
-import * as anchor from "@coral-xyz/anchor";
-import { PublicKey } from "@solana/web3.js";
-import { useConnection } from "@solana/wallet-adapter-react";
+import type { Address } from "viem";
 import { AvatarMark } from "@/components/avatar-mark";
 import { LivePrice } from "@/components/live-price";
 import { PriceChart } from "@/components/price-chart";
 import { ConnectWalletButton } from "@/components/site-header";
 import { getKol, fmtCompact, fmtPct, fmtUsd, perfScore, shortWallet } from "@/lib/kols";
 import { useMarket, useKolStats } from "@/lib/market-store";
-import { getProgram, fetchListing, fetchBackingPerShareLamports } from "@/lib/solana/program";
+import { fetchBackingPerShareWad } from "@/lib/evm/market";
+import { getPublicClient } from "@/lib/evm/chain";
 
-/** AnchorError carries the program's own error message; anything else (a
- * wallet rejection, a network error) falls back to its plain message. */
+/** viem surfaces a contract revert's decoded reason on `shortMessage`;
+ * anything else (a wallet rejection, a network error) falls back to its plain
+ * message. */
 function describeTradeError(e: unknown): string {
-  const err = e as { error?: { errorMessage?: string } } | undefined;
-  if (err?.error?.errorMessage) return err.error.errorMessage;
+  const err = e as { shortMessage?: string } | undefined;
+  if (err?.shortMessage) return err.shortMessage;
   if (e instanceof Error) return e.message;
   return "Trade failed";
 }
@@ -50,9 +50,16 @@ export const Route = createFileRoute("/kol/$id")({
 function KolDetail() {
   const { id } = Route.useParams();
   const kol = getKol(id)!;
-  const { connection } = useConnection();
-  const { prices, connected, solBalance, solPriceUsd, marketOpen, positions, buyWithSol, sell } =
-    useMarket();
+  const {
+    prices,
+    connected,
+    nativeBalance,
+    nativePriceUsd,
+    marketOpen,
+    positions,
+    buyWithNative,
+    sell,
+  } = useMarket();
   const price = prices[kol.id] ?? kol.price;
   const {
     score: liveScore,
@@ -66,24 +73,24 @@ function KolDetail() {
   const up = changePct >= 0;
   const position = positions.find((p) => p.id === kol.id);
   const [side, setSide] = useState<"buy" | "sell">("buy");
-  // Machine B: on BUY the amount is SOL to spend; on SELL it's shares to sell.
+  // on BUY the amount is ETH to spend; on SELL it's shares to sell.
   const [amount, setAmount] = useState("1");
   const [pending, setPending] = useState(false);
 
   // Backing per share — what a sell ACTUALLY pays once a listing is
-  // undercollateralized (see anchor/.../sell.rs). Shown alongside the
+  // undercollateralized (see SharpsMarket.sol's sell()). Shown alongside the
   // quoted price so a haircut is never a surprise.
   const [backingUsd, setBackingUsd] = useState<number | null>(null);
   useEffect(() => {
     let alive = true;
+    const client = getPublicClient();
     const pull = async () => {
       try {
-        const kolWallet = new PublicKey(kol.wallet);
-        const listing = await fetchListing(getProgram(connection), kolWallet);
-        if (!listing || !alive) return;
-        const rentExemptMin = await connection.getMinimumBalanceForRentExemption(0);
-        const backingSol = await fetchBackingPerShareLamports(connection, listing, rentExemptMin);
-        if (alive) setBackingUsd((backingSol / anchor.web3.LAMPORTS_PER_SOL) * solPriceUsd);
+        const wad = await fetchBackingPerShareWad(client, kol.wallet as Address);
+        if (!alive) return;
+        // backingPerShareWad returns 0 when nothing is outstanding — that's
+        // "no backing to report yet", not "backing is zero", so show "—".
+        setBackingUsd(wad === 0n ? null : (Number(wad) / 1e18) * nativePriceUsd);
       } catch {
         if (alive) setBackingUsd(null);
       }
@@ -94,25 +101,25 @@ function KolDetail() {
       alive = false;
       clearInterval(t);
     };
-  }, [kol.wallet, connection, solPriceUsd]);
+  }, [kol.wallet, nativePriceUsd]);
 
   const amt = Math.max(0, Number(amount) || 0);
   const maxSell = position?.shares ?? 0;
 
-  // buy: spend `amt` SOL -> derive shares at current price (an ESTIMATE —
+  // buy: spend `amt` ETH -> derive shares at current price (an ESTIMATE —
   // the actual fill, reported post-trade below, can differ slightly since
   // price genuinely moves on-chain between quote and confirm)
-  const derivedShares = price > 0 ? Math.floor((amt * solPriceUsd) / price) : 0;
-  // sell: `amt` shares -> SOL proceeds at the QUOTED price — the actual
+  const derivedShares = price > 0 ? Math.floor((amt * nativePriceUsd) / price) : 0;
+  // sell: `amt` shares -> ETH proceeds at the QUOTED price — the actual
   // payout is min(this, pro-rata vault backing); see backingUsd above.
-  const sellProceedsSol = (amt * price) / solPriceUsd;
+  const sellProceedsNative = (amt * price) / nativePriceUsd;
 
   const canSubmit =
     connected &&
     marketOpen &&
     !pending &&
     amt > 0 &&
-    (side === "buy" ? amt <= solBalance && derivedShares > 0 : amt <= maxSell + 1e-9);
+    (side === "buy" ? amt <= nativeBalance && derivedShares > 0 : amt <= maxSell + 1e-9);
 
   async function submit(): Promise<void> {
     if (!connected) {
@@ -124,19 +131,19 @@ function KolDetail() {
       return;
     }
     if (amt <= 0) {
-      toast.error(side === "buy" ? "Enter an amount of SOL" : "Enter a share amount");
+      toast.error(side === "buy" ? "Enter an amount of ETH" : "Enter a share amount");
       return;
     }
     setPending(true);
     try {
       if (side === "buy") {
-        if (amt > solBalance) {
-          toast.error("Insufficient SOL balance");
+        if (amt > nativeBalance) {
+          toast.error("Insufficient ETH balance");
           return;
         }
-        const result = await buyWithSol(kol.id, amt);
+        const result = await buyWithNative(kol.id, amt);
         toast.success(`Filled: bought ${result.shares.toLocaleString()} $${kol.ticker}`, {
-          description: `${result.solSpent.toFixed(4)} SOL spent`,
+          description: `${result.nativeSpent.toFixed(4)} ETH spent`,
         });
       } else {
         if (amt > maxSell) {
@@ -145,7 +152,7 @@ function KolDetail() {
         }
         const result = await sell(kol.id, amt);
         toast.success(`Filled: sold ${result.shares.toLocaleString()} $${kol.ticker}`, {
-          description: `${result.solOut.toFixed(4)} SOL received`,
+          description: `${result.nativeOut.toFixed(4)} ETH received`,
         });
       }
     } catch (e) {
@@ -157,9 +164,9 @@ function KolDetail() {
 
   const stats = [
     ["Win rate", winRate != null ? `${Math.round(winRate * 100)}%` : "—"],
-    ["PnL (SOL)", realizedPnlSol != null ? realizedPnlSol.toFixed(2) : "—"],
+    ["PnL (ETH)", realizedPnlSol != null ? realizedPnlSol.toFixed(2) : "—"],
     ["Trades", trades != null ? String(trades) : "—"],
-    ["Volume (SOL)", volumeSol != null ? volumeSol.toFixed(1) : "—"],
+    ["Volume (ETH)", volumeSol != null ? volumeSol.toFixed(1) : "—"],
     ["Since open", fmtPct(changePct)],
     ["Market cap", fmtCompact(liveCap)],
     ["Perf score", String(liveScore)],
@@ -267,7 +274,7 @@ function KolDetail() {
             </div>
 
             <label className="mt-4 block text-[10px] tracking-widest uppercase text-muted-foreground">
-              {side === "buy" ? "SOL to spend" : "Shares to sell"}
+              {side === "buy" ? "ETH to spend" : "Shares to sell"}
             </label>
             <input
               value={amount}
@@ -297,11 +304,11 @@ function KolDetail() {
               {side === "buy" ? (
                 <>
                   <Row label="Est. shares received" value={derivedShares.toLocaleString()} />
-                  <Row label="SOL balance" value={`${solBalance.toFixed(3)} SOL`} />
+                  <Row label="ETH balance" value={`${nativeBalance.toFixed(3)} ETH`} />
                 </>
               ) : (
                 <>
-                  <Row label="Est. SOL proceeds" value={`${sellProceedsSol.toFixed(3)} SOL`} />
+                  <Row label="Est. ETH proceeds" value={`${sellProceedsNative.toFixed(3)} ETH`} />
                   <Row label="Your shares" value={maxSell.toLocaleString()} />
                 </>
               )}

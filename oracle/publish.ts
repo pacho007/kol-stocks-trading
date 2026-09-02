@@ -20,7 +20,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runOracle, type ListingInput } from "./indexer.js";
-import { RpcPnlProvider } from "./rpc-provider.js";
+import { EvmPnlProvider } from "./evm-pnl-provider.js";
 import { scoreToPriceUsd, SHARES_PER_LISTING } from "./pricing.js";
 
 /**
@@ -74,39 +74,51 @@ const REFRESH_MIN = Number(process.env.REFRESH_MIN ?? 20); // 20 min default —
  *   SAMPLE=1 npx tsx oracle/publish.ts
  */
 const SAMPLE_LISTINGS: ListingInput[] = [
-  { id: "cented", wallet: "CyaE1VxvBrahnPWkqm5VsdCvyS2QmNht2UFrKJHga54o" },
-  { id: "cupsey", wallet: "2fg5QD1eD7rzNNCsvnhmXFm5hqNgwTTG8p7kQ6f3rx6f" },
-  { id: "orangie", wallet: "DuQabFqdC9eeBULVa7TTdZYxe8vK8ct5DZr4Xcf7docy" },
+  { id: "bd6b8d", wallet: "0xbd6b8d8fa94f7307840252548549b56a33c98054" }, // Cooker.hl
+  { id: "d03353", wallet: "0xd03353d8a531a7b05509f35fadef3e042188bdb5" }, // nyhrox
+  { id: "434616", wallet: "0x4346169036c8d32c422df027e5f46e55b489d2ee" }, // BBA
 ];
 
 let listings: ListingInput[] = SAMPLE_LISTINGS; // resolved in main()
 
-/** Live SOL/USD price, trying several public feeds before falling back. */
-async function fetchSolPriceUsd(): Promise<number> {
-  const FALLBACK = 150;
+/**
+ * Live native-coin (ETH) USD price for Robinhood Chain, trying several public
+ * feeds before falling back. This is display-only — every trade is priced and
+ * settled in wei by the contract — but a stale number here still misprices
+ * every USD figure in the UI, so it's worth fetching rather than hardcoding.
+ */
+async function fetchNativePriceUsd(): Promise<number> {
+  const FALLBACK = 2400;
   const sources: Array<() => Promise<number | null>> = [
+    // Blockscout (same explorer the PnL indexer uses — already chain-native)
+    async () => {
+      const base = process.env.BLOCKSCOUT_URL ?? "https://robinhoodchain.blockscout.com";
+      const r = await fetch(`${base}/api/v2/stats`, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36",
+          Accept: "application/json",
+        },
+      });
+      if (!r.ok) return null;
+      const j = (await r.json()) as { coin_price?: string };
+      const p = Number(j.coin_price);
+      return p > 0 ? p : null;
+    },
     // Coinbase spot
     async () => {
-      const r = await fetch("https://api.coinbase.com/v2/prices/SOL-USD/spot");
+      const r = await fetch("https://api.coinbase.com/v2/prices/ETH-USD/spot");
       if (!r.ok) return null;
       const j = (await r.json()) as { data?: { amount?: string } };
       const p = Number(j.data?.amount);
       return p > 0 ? p : null;
     },
-    // Jupiter lite
-    async () => {
-      const r = await fetch("https://lite-api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112");
-      if (!r.ok) return null;
-      const j = (await r.json()) as { data?: Record<string, { price?: string | number }> };
-      const p = Number(j.data?.["So11111111111111111111111111111111111111112"]?.price);
-      return p > 0 ? p : null;
-    },
     // Coingecko
     async () => {
-      const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd");
+      const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
       if (!r.ok) return null;
-      const j = (await r.json()) as { solana?: { usd?: number } };
-      const p = Number(j.solana?.usd);
+      const j = (await r.json()) as { ethereum?: { usd?: number } };
+      const p = Number(j.ethereum?.usd);
       return p > 0 ? p : null;
     },
   ];
@@ -131,7 +143,7 @@ type PublishedRow = {
 
 type Published = {
   updatedAt: string;
-  solPriceUsd: number;
+  nativePriceUsd: number;
   sharesPerListing: number;
   rows: PublishedRow[];
 };
@@ -140,13 +152,13 @@ type Published = {
 let prevAnchors: Record<string, number> = {};
 
 async function once(): Promise<void> {
-  const solPriceUsd = await fetchSolPriceUsd();
-  const rows = await runOracle(listings, RpcPnlProvider, prevAnchors);
+  const nativePriceUsd = await fetchNativePriceUsd();
+  const rows = await runOracle(listings, EvmPnlProvider, prevAnchors);
   prevAnchors = Object.fromEntries(rows.map((r) => [r.id, r.targetAnchor]));
 
   const published: Published = {
     updatedAt: new Date().toISOString(),
-    solPriceUsd,
+    nativePriceUsd,
     sharesPerListing: SHARES_PER_LISTING,
     rows: rows.map((r) => {
       const priceUsd = scoreToPriceUsd(r.score);
@@ -172,7 +184,7 @@ async function once(): Promise<void> {
   }
   const top = published.rows.filter((r) => r.score !== 50).sort((a, b) => b.score - a.score).slice(0, 8);
   console.log(
-    `\nSOL $${solPriceUsd.toFixed(2)} · wrote ${published.rows.length} scores -> ${OUT_TARGETS.join(", ")}` +
+    `\nETH $${nativePriceUsd.toFixed(2)} · wrote ${published.rows.length} scores -> ${OUT_TARGETS.join(", ")}` +
       (top.length
         ? `\n  movers:\n` +
           top.map((r) => `    ${r.id.padEnd(10)} score ${String(r.score).padStart(3)}  $${r.priceUsd.toFixed(4)}`).join("\n")

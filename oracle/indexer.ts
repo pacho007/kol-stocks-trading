@@ -31,14 +31,25 @@ import {
 // Config
 // ---------------------------------------------------------------------------
 
+/**
+ * Helius is SOLANA-ONLY and is now just one possible PnL provider — the app
+ * runs on Robinhood Chain, where oracle/blockscout-provider.ts supplies
+ * metrics instead. So a missing key is NOT fatal at import time any more:
+ * this module also exports the chain-agnostic scoring orchestration
+ * (runOracle/scoreCohort) that the EVM path depends on, and hard-exiting here
+ * would take the whole EVM pipeline down over a credential it never uses.
+ * HeliusPnlProvider itself throws if actually called without a key.
+ */
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
-if (!HELIUS_API_KEY) {
-  console.error(
-    "Missing HELIUS_API_KEY. Set it in your environment:\n" +
-      "  HELIUS_API_KEY=xxxx npx tsx oracle/indexer.ts\n" +
-      "Never hardcode it, never commit it, never expose it to the browser.",
-  );
-  process.exit(1);
+
+function requireHeliusKey(): string {
+  if (!HELIUS_API_KEY) {
+    throw new Error(
+      "HeliusPnlProvider needs HELIUS_API_KEY (Solana only). On Robinhood Chain " +
+        "use EvmPnlProvider (oracle/evm-pnl-provider.ts) instead.",
+    );
+  }
+  return HELIUS_API_KEY;
 }
 
 const HELIUS_BASE = "https://api.helius.xyz/v0";
@@ -131,7 +142,7 @@ async function fetchWalletTxs(wallet: string): Promise<HeliusTx[]> {
   for (let page = 0; page < 20; page++) {
     const url =
       `${HELIUS_BASE}/addresses/${wallet}/transactions` +
-      `?api-key=${HELIUS_API_KEY}&limit=100` +
+      `?api-key=${requireHeliusKey()}&limit=100` +
       (before ? `&before=${before}` : "");
 
     const res = await fetch(url);

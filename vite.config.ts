@@ -5,57 +5,6 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve as resolvePath } from "node:path";
-import { fileURLToPath } from "node:url";
-
-/**
- * Several Solana deps (rpc-websockets, @solana/codecs*) only publish "browser"
- * and "node" export conditions. Under the Cloudflare/workerd condition set the
- * bundler cannot resolve them at all and the build fails. Resolve those
- * packages to their browser entry (web standard APIs only, safe on both Node
- * and workerd), walking the importer's own node_modules chain so nested copies
- * keep their matching version.
- */
-const rootDir = fileURLToPath(new URL("./", import.meta.url));
-
-const isBrowserOnlyPkg = (id: string) =>
-  id === "rpc-websockets" || /^@solana\/[a-z0-9-]+$/.test(id);
-
-function findPkgDir(id: string, importer?: string) {
-  let dir = importer ? dirname(importer) : rootDir;
-  for (let i = 0; i < 20; i++) {
-    const candidate = join(dir, "node_modules", id);
-    if (existsSync(join(candidate, "package.json"))) return candidate;
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  const fallback = join(rootDir, "node_modules", id);
-  return existsSync(join(fallback, "package.json")) ? fallback : null;
-}
-
-function solanaBrowserEntries() {
-  return {
-    name: "solana-browser-entries",
-    enforce: "pre" as const,
-    resolveId(id: string, importer?: string) {
-      if (!isBrowserOnlyPkg(id)) return null;
-      const pkgDir = findPkgDir(id, importer);
-      if (!pkgDir) return null;
-      try {
-        const pkg = JSON.parse(readFileSync(join(pkgDir, "package.json"), "utf8")) as {
-          exports?: { browser?: { import?: string } };
-        };
-        const entry = pkg.exports?.browser?.import;
-        if (!entry) return null;
-        return resolvePath(pkgDir, entry);
-      } catch {
-        return null;
-      }
-    },
-  };
-}
 
 export default defineConfig({
   tanstackStart: {
@@ -63,10 +12,14 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // Prefer Node hosting (full support for the Solana deps); the plugin above
-  // keeps the build working if the platform force-pins Cloudflare.
-  nitro: { preset: "node-server" },
-  vite: {
-    plugins: [solanaBrowserEntries()],
-  },
+  // Cloudflare's `workerd` runtime is the Lovable deploy target. The previous
+  // `node-server` override existed only because @solana/web3.js and
+  // wallet-adapter pulled in rpc-websockets / @solana/codecs, neither of which
+  // publishes a workerd export condition. Those dependencies are gone — the
+  // app is on Robinhood Chain via viem now, which is fetch-based and runs on
+  // workerd unmodified — so the override is no longer needed and Lovable's
+  // default preset applies.
+  //
+  // Keep it that way: adding a dependency that needs Node built-ins (fs,
+  // native addons) will break the deploy, not just local dev.
 });

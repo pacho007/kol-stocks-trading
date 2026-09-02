@@ -2,11 +2,10 @@ import { Link } from "@tanstack/react-router";
 import { Wallet, Menu, ChevronDown } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { WalletReadyState } from "@solana/wallet-adapter-base";
 import { useMarket } from "@/lib/market-store";
 import { useSession } from "@/hooks/use-session";
-import { SOLANA_CLUSTER } from "@/lib/solana/connection";
+import { useEvmWallet } from "@/lib/evm/wallet-provider";
+import { ACTIVE_CHAIN } from "@/lib/evm/chain";
 
 const NAV = [
   { to: "/market", label: "Market" },
@@ -15,10 +14,9 @@ const NAV = [
   { to: "/docs", label: "Docs" },
 ] as const;
 
-/** Truncated base58 address, e.g. "7xKX…9fTq" — same format the old fake
- * button used, now sourced from a real connected PublicKey. */
-function shortAddress(base58: string) {
-  return `${base58.slice(0, 4)}…${base58.slice(-4)}`;
+/** Truncated hex address, e.g. "0x7xKX…9fTq", from the connected EVM wallet. */
+function shortAddress(addr: string) {
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
 export function ConnectWalletButton({
@@ -28,15 +26,19 @@ export function ConnectWalletButton({
   full?: boolean;
   size?: "sm" | "lg";
 }) {
-  const { wallets, wallet, publicKey, connected, connecting, select, disconnect } = useWallet();
+  const {
+    wallets,
+    selected,
+    address,
+    connected,
+    connecting,
+    wrongChain,
+    connect,
+    disconnect,
+    switchChain,
+  } = useEvmWallet();
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
-
-  // select() is enough on its own — WalletProvider connects automatically
-  // once a wallet is selected (this is the same pattern
-  // @solana/wallet-adapter-react-ui's own WalletModal uses). Calling
-  // connect() immediately after select() in the same handler would race
-  // against React's state update anyway, since `wallet` wouldn't be set yet.
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -47,32 +49,53 @@ export function ConnectWalletButton({
     return () => document.removeEventListener("mousedown", onClick);
   }, [pickerOpen]);
 
-  const installedWallets = wallets.filter((w) => w.readyState === WalletReadyState.Installed);
-
-  if (connected && publicKey) {
+  // On EVM the wallet is only usable on the right network — surface that as
+  // its own state rather than letting a trade fail deep in the contract call.
+  if (connected && address && wrongChain) {
     return (
       <button
         onClick={() => {
-          disconnect().catch(() => {});
+          switchChain().catch(() => toast.error("Could not switch network"));
+        }}
+        className={`group inline-flex items-center justify-center gap-2 rounded-lg border text-[11px] font-semibold tracking-[0.12em] uppercase transition-colors duration-200 ${
+          size === "lg" ? "h-12 px-6" : "h-9 px-4"
+        } ${full ? "w-full" : ""} border-down/40 bg-down/10 text-down hover:bg-down/16`}
+        title={`Wrong network — click to switch to ${ACTIVE_CHAIN.name}`}
+      >
+        <Wallet className="size-3.5 opacity-80" />
+        Wrong network
+      </button>
+    );
+  }
+
+  if (connected && address) {
+    return (
+      <button
+        onClick={() => {
+          disconnect();
           toast("Wallet disconnected");
         }}
         className={`group inline-flex items-center justify-center gap-2 rounded-lg border text-[11px] font-semibold tracking-[0.12em] uppercase transition-colors duration-200 ${
           size === "lg" ? "h-12 px-6" : "h-9 px-4"
         } ${full ? "w-full" : ""} border-up/30 bg-up/8 text-up hover:bg-up/14`}
-        title={`${wallet?.adapter.name ?? "Wallet"} · ${SOLANA_CLUSTER} · click to disconnect`}
+        title={`${selected?.info.name ?? "Wallet"} · ${ACTIVE_CHAIN.name} · click to disconnect`}
       >
         <Wallet className="size-3.5 opacity-80" />
-        {shortAddress(publicKey.toBase58())}
+        {shortAddress(address)}
       </button>
     );
   }
+
+  const installedWallets = wallets;
 
   return (
     <div className={`relative ${full ? "w-full" : ""}`} ref={pickerRef}>
       <button
         onClick={() => {
           if (installedWallets.length === 1 && installedWallets[0]) {
-            select(installedWallets[0].adapter.name);
+            connect(installedWallets[0]).catch(() => {
+              /* user rejected the wallet prompt */
+            });
           } else {
             setPickerOpen((v) => !v);
           }
@@ -91,20 +114,22 @@ export function ConnectWalletButton({
         <div className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-xl border border-border bg-background/95 py-1 shadow-xl backdrop-blur-xl">
           {installedWallets.length === 0 ? (
             <p className="px-3 py-2 text-[11px] text-muted-foreground">
-              No Solana wallet detected. Install Phantom or Solflare.
+              No EVM wallet detected. Install MetaMask or Rabby.
             </p>
           ) : (
             installedWallets.map((w) => (
               <button
-                key={w.adapter.name}
+                key={w.info.rdns}
                 onClick={() => {
-                  select(w.adapter.name);
+                  connect(w).catch(() => {
+                    /* user rejected the wallet prompt */
+                  });
                   setPickerOpen(false);
                 }}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-[11px] font-medium text-foreground hover:bg-primary/10"
               >
-                {w.adapter.icon && <img src={w.adapter.icon} alt="" className="size-4" />}
-                {w.adapter.name}
+                {w.info.icon && <img src={w.info.icon} alt="" className="size-4" />}
+                {w.info.name}
               </button>
             ))
           )}
@@ -193,7 +218,7 @@ export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-surface/40">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-8 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p className="num tracking-wide">SHARPS © 2026, {SOLANA_CLUSTER}. Not financial advice.</p>
+        <p className="num tracking-wide">SHARPS © 2026, {ACTIVE_CHAIN.name}. Not financial advice.</p>
         <p className="num tracking-wide">
           Displayed price is a quote, not a guaranteed redemption value — sell payouts are capped by
           each listing&apos;s available on-chain balance.
