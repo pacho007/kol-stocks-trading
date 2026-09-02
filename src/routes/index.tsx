@@ -108,9 +108,9 @@ function Splash() {
           data-text="SHARPS."
           style={{
             animationDelay: "0.2s",
-            fontFamily: '"Space Grotesk", ui-sans-serif, system-ui, sans-serif',
-            fontWeight: 700,
-            letterSpacing: "0.06em",
+            fontFamily: 'Nunito, "Space Grotesk", ui-sans-serif, system-ui, sans-serif',
+            fontWeight: 900,
+            letterSpacing: "0.02em",
             lineHeight: 0.95,
             fontSize: "clamp(3.25rem, 14vw, 12rem)",
           }}
