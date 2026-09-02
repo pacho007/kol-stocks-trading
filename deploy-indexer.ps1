@@ -1,11 +1,11 @@
-# deploy-indexer.ps1 - ship the price indexer and point it at the deployed market.
+# deploy-indexer.ps1 — ship the price indexer and point it at the deployed market.
 #
 #   powershell -ExecutionPolicy Bypass -File .\deploy-indexer.ps1
 #
 # Deploys supabase/functions/index-price-history and sets the three values it
 # needs. Notably NOT among them: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
 # Supabase injects both into the Edge Functions runtime automatically, so no
-# secret is typed, stored, or transmitted here - every value below is public.
+# secret is typed, stored, or transmitted here — every value below is public.
 #
 # Uses --project-ref instead of `supabase link` on purpose: linking prompts for
 # the database password, which this task has no need for.
