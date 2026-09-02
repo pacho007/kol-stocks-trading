@@ -134,7 +134,7 @@ function Splash() {
             to="/app"
             className="group inline-flex h-12 items-center gap-3 rounded-lg bg-[#3d1024] px-8 text-[11px] font-extrabold tracking-[0.24em] uppercase text-white shadow-lg transition-transform duration-300 hover:scale-[1.03]"
           >
-            ENTER APP
+            OPEN APP
             <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
           </Link>
           <Link
