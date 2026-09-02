@@ -85,18 +85,18 @@ function Splash() {
         className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(120%_80%_at_50%_45%,rgba(255,255,255,0.35)_0%,transparent_55%,rgba(255,255,255,0.35)_100%)]"
       />
 
-      {/* top bar */}
+      {/* top bar — true 3-column grid so the centre line is viewport-centred */}
       <header
-        className="fade-up relative z-10 flex items-center justify-between px-6 py-7 sm:px-12"
+        className="fade-up relative z-10 grid grid-cols-3 items-center px-6 py-7 sm:px-12"
         style={{ animationDelay: "0.05s" }}
       >
-        <span className="display text-[11px] font-extrabold tracking-[0.42em] uppercase text-[#3d1024]">
+        <span className="display text-left text-[11px] font-extrabold tracking-[0.42em] uppercase text-[#3d1024]">
           Sharps
         </span>
-        <span className="num hidden text-[10px] tracking-[0.3em] uppercase text-[#3d1024]/60 md:block">
+        <span className="num hidden text-center text-[10px] tracking-[0.3em] uppercase text-[#3d1024]/60 md:block">
           ON-CHAIN PERFORMANCE PRICED.
         </span>
-        <span className="num text-[10px] tracking-[0.3em] uppercase text-[#3d1024]/60">
+        <span className="num text-right text-[10px] tracking-[0.3em] uppercase text-[#3d1024]/60">
           Est. 2026
         </span>
       </header>
