@@ -143,8 +143,43 @@ async function once(
   marketAddress: Address,
   listings: ListingInput[],
 ) {
-  console.log(`Indexing ${listings.length} wallets for on-chain price push...`);
-  const rows = await runOracle(listings, EvmPnlProvider, {});
+  // --from-scores reuses the scores publish.ts already computed instead of
+  // crawling Blockscout again. A full cohort pass is ~25 minutes at the rate
+  // limit that pass has to respect, and re-deriving scores that were just
+  // derived buys nothing — worse, the two runs would disagree slightly, so
+  // what lands on chain would not be the distribution that was reviewed.
+  //
+  // The default still re-indexes, because a scheduled --watch push should read
+  // the chain fresh rather than whatever file happens to be on disk.
+  let rows: Awaited<ReturnType<typeof runOracle>>;
+  if (process.argv.includes("--from-scores")) {
+    const path = resolve(__dirname, "../public/scores.json");
+    const snap = JSON.parse(readFileSync(path, "utf8")) as {
+      updatedAt: string;
+      rows: { id: string; score: number }[];
+    };
+    const byId = new Map(snap.rows.map((r) => [r.id, r.score]));
+    const missing = listings.filter((l) => !byId.has(l.id));
+    if (missing.length) {
+      console.error(
+        `scores.json is missing ${missing.length} of the ${listings.length} listings ` +
+          `(e.g. ${missing[0]!.id}). Re-run oracle/publish.ts before pushing, or drop ` +
+          `--from-scores to index fresh.`,
+      );
+      process.exit(1);
+    }
+    rows = listings.map((l) => ({
+      id: l.id,
+      wallet: l.wallet,
+      score: byId.get(l.id)!,
+    })) as typeof rows;
+    console.log(
+      `Pushing ${rows.length} scores from public/scores.json (published ${snap.updatedAt}).`,
+    );
+  } else {
+    console.log(`Indexing ${listings.length} wallets for on-chain price push...`);
+    rows = await runOracle(listings, EvmPnlProvider, {});
+  }
 
   const manifest: Manifest = {
     cycleStartedAt: new Date().toISOString(),
