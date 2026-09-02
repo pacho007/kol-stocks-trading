@@ -107,8 +107,8 @@ function Splash() {
           className="fade-up display select-none"
           style={{
             animationDelay: "0.2s",
-            fontWeight: 800,
-            letterSpacing: "0.04em",
+            fontWeight: 900,
+            letterSpacing: "-0.02em",
             lineHeight: 0.9,
             fontSize: "clamp(3.4rem, 15vw, 13rem)",
             color: "#ffffff",
