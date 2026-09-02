@@ -172,6 +172,10 @@ async function once(): Promise<void> {
           winRate: r.metrics.winRate,
           volumeSol: r.metrics.volumeSol,
           trades: r.metrics.trades,
+          // The individual closes behind those aggregates — the evidence a
+          // score is asserted from, rather than just the conclusion.
+          topWins: r.metrics.topWins ?? [],
+          topLosses: r.metrics.topLosses ?? [],
         },
         // The four percentile components behind the score, plus how much of
         // the raw blend actually landed after sample-size shrinkage. These

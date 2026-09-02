@@ -30,6 +30,23 @@ export type RawMetrics = {
   volumeSol: number;
   /** number of closed trades over the window */
   trades: number;
+  /**
+   * Biggest winning / losing closed positions, largest magnitude first.
+   * Display only — deliberately NOT an input to the score, which stays a
+   * pure function of the four aggregate measures above. Optional because
+   * not every provider reconstructs individual closes.
+   */
+  topWins?: ClosedTradeSummary[];
+  topLosses?: ClosedTradeSummary[];
+};
+
+/** One closed position, for showing the evidence behind a score. */
+export type ClosedTradeSummary = {
+  symbol: string;
+  pnl: number;
+  proceeds: number;
+  ts: number;
+  multiple: number | null;
 };
 
 export type ScoredMetrics = RawMetrics & {

@@ -8,7 +8,7 @@ import { LivePrice } from "@/components/live-price";
 import { PriceChart } from "@/components/price-chart";
 import { ConnectWalletButton } from "@/components/site-header";
 import { getKol, fmtCompact, fmtPct, fmtUsd, perfScore, shortWallet } from "@/lib/kols";
-import { useMarket, useKolStats } from "@/lib/market-store";
+import { useMarket, useKolStats, type ClosedTrade } from "@/lib/market-store";
 import {
   fetchBackingPerShareWad,
   sharesForBudget,
@@ -77,6 +77,8 @@ function KolDetail() {
     volumeSol,
     trades,
     breakdown,
+    topWins,
+    topLosses,
   } = useKolStats(kol.id);
   const up = changePct >= 0;
   const position = positions.find((p) => p.id === kol.id);
@@ -294,6 +296,8 @@ function KolDetail() {
             ))}
           </div>
 
+          <BiggestTradesPanel wins={topWins} losses={topLosses} nativePriceUsd={nativePriceUsd} />
+
           <TraderEscrowPanel kol={kol} />
 
           <ScoreBreakdownPanel
@@ -354,18 +358,47 @@ function KolDetail() {
               {side === "buy" ? (
                 <>
                   <Row label="Shares you'll get" value={derivedShares.toLocaleString()} />
-                  <Row label="Fee (2%)" value={`${(amt * 0.02).toFixed(4)} ETH`} />
                   <Row label="ETH balance" value={`${nativeBalance.toFixed(3)} ETH`} />
                 </>
               ) : (
                 <>
                   <Row label="You'll receive" value={`${sellProceedsNative.toFixed(4)} ETH`} />
-                  <Row label="Fee (2%)" value="included above" />
                   <Row label="Your shares" value={maxSell.toLocaleString()} />
                 </>
               )}
               <Row label="Session" value={marketOpen ? "OPEN" : "CLOSED"} />
             </dl>
+
+            {/* The 2% itemised. A single "fee" line hides that most of it
+                stays with this listing and none of it is a spread. */}
+            <div className="mt-3 rounded-md border border-border px-3 py-2.5">
+              <p className="text-[9px] tracking-widest uppercase text-muted-foreground">
+                The 2% fee, expanded
+              </p>
+              <dl className="mt-2 space-y-1 text-[11px]">
+                <FeeRow
+                  label="Back to this listing"
+                  pct="1%"
+                  value={feeSlice(amt, side, 100)}
+                  note="backs your ability to sell"
+                />
+                <FeeRow
+                  label={`To ${kol.name}`}
+                  pct="0.5%"
+                  value={feeSlice(amt, side, 50)}
+                  note="claimable by their wallet"
+                />
+                <FeeRow
+                  label="Protocol"
+                  pct="0.5%"
+                  value={feeSlice(amt, side, 50)}
+                  note="buys & burns $SHARPS"
+                />
+              </dl>
+              <p className="mt-2 border-t border-border pt-2 text-[10px] text-muted-foreground">
+                Round trip <b className="text-foreground">~4%</b> — and none of it is a spread.
+              </p>
+            </div>
 
             <div className="mt-3 space-y-2 rounded-md border border-border bg-muted/30 px-3 py-2.5 text-[10px] leading-relaxed text-muted-foreground">
               {side === "buy" ? (
@@ -702,6 +735,129 @@ function ScoreBreakdownPanel({
             )}
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+/** One slice of the fee, in ETH, for whichever side is being quoted. */
+function feeSlice(amt: number, side: "buy" | "sell", bps: number): string {
+  // On a buy `amt` is ETH in; on a sell it's shares, so there's no meaningful
+  // per-slice figure until the proceeds quote resolves.
+  if (side !== "buy" || amt <= 0) return "—";
+  return `${((amt * bps) / 10_000).toFixed(5)} ETH`;
+}
+
+function FeeRow({
+  label,
+  pct,
+  value,
+  note,
+}: {
+  label: string;
+  pct: string;
+  value: string;
+  note: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <span className="min-w-0 truncate text-muted-foreground">
+        <span className="text-foreground">{label}</span>{" "}
+        <span className="text-[9px]">{pct}</span>
+        <span className="block text-[9px] leading-tight">{note}</span>
+      </span>
+      <span className="num shrink-0 text-foreground">{value}</span>
+    </div>
+  );
+}
+
+/**
+ * Biggest winning and losing closed positions. This is the evidence the score
+ * is asserted from — a number like "62" is far more persuasive next to the
+ * actual trades that produced it. Display only; these never feed the score.
+ */
+function BiggestTradesPanel({
+  wins,
+  losses,
+  nativePriceUsd,
+}: {
+  wins: ClosedTrade[];
+  losses: ClosedTrade[];
+  nativePriceUsd: number;
+}) {
+  const has = wins.length > 0 || losses.length > 0;
+
+  return (
+    <div className="panel mt-6 p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-[10px] tracking-widest uppercase text-muted-foreground">
+          Biggest wins & losses
+        </p>
+        <p className="text-[10px] text-muted-foreground">Closed positions, this scoring window</p>
+      </div>
+
+      {!has ? (
+        <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+          No closed positions indexed yet for this wallet. Trades appear here once the oracle has
+          read them off-chain — only positions actually opened and closed count, so holding
+          something that hasn't been sold yet won't show up.
+        </p>
+      ) : (
+        <div className="mt-4 grid gap-6 sm:grid-cols-2">
+          <TradeColumn title="Wins" trades={wins} nativePriceUsd={nativePriceUsd} up />
+          <TradeColumn title="Losses" trades={losses} nativePriceUsd={nativePriceUsd} up={false} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TradeColumn({
+  title,
+  trades,
+  nativePriceUsd,
+  up,
+}: {
+  title: string;
+  trades: ClosedTrade[];
+  nativePriceUsd: number;
+  up: boolean;
+}) {
+  return (
+    <div>
+      <p className={`text-[10px] tracking-widest uppercase ${up ? "text-up" : "text-down"}`}>
+        {title}
+      </p>
+      {trades.length === 0 ? (
+        <p className="mt-2 text-xs text-muted-foreground">None recorded.</p>
+      ) : (
+        <ul className="mt-2 space-y-2">
+          {trades.map((t, i) => (
+            <li
+              key={`${t.symbol}-${t.ts}-${i}`}
+              className="flex items-baseline justify-between gap-3 border-b border-border pb-2 last:border-0"
+            >
+              <span className="min-w-0">
+                <span className="num block truncate text-xs font-semibold text-foreground">
+                  {t.symbol}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {t.multiple != null ? `${t.multiple.toFixed(2)}×` : "no cost basis"}
+                  {t.ts > 0 && ` · ${new Date(t.ts * 1000).toLocaleDateString()}`}
+                </span>
+              </span>
+              <span className="shrink-0 text-right">
+                <span className={`num block text-xs font-semibold ${up ? "text-up" : "text-down"}`}>
+                  {t.pnl >= 0 ? "+" : ""}
+                  {t.pnl.toFixed(3)} ETH
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {fmtUsd(Math.abs(t.pnl) * nativePriceUsd)}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

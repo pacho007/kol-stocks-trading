@@ -63,6 +63,17 @@ export type ScoreBreakdown = {
 
 export type Position = { id: string; shares: number; entry: number | null };
 export type PricePoint = { t: number; p: number };
+/** One closed position — the evidence behind a score, not an input to it. */
+export type ClosedTrade = {
+  symbol: string;
+  /** Realized PnL for this close, in the native token. */
+  pnl: number;
+  proceeds: number;
+  ts: number;
+  /** proceeds / cost basis; null when there was no recorded basis. */
+  multiple: number | null;
+};
+
 export type KolMetrics = {
   /** Realized PnL over the scoring window, in the chain's native token. */
   realizedPnlSol: number;
@@ -70,6 +81,8 @@ export type KolMetrics = {
   /** Traded volume over the scoring window, in the chain's native token. */
   volumeSol: number;
   trades: number;
+  topWins?: ClosedTrade[];
+  topLosses?: ClosedTrade[];
 };
 export type Trade = {
   id: string;
@@ -594,6 +607,8 @@ export function useKolStats(id: string) {
     realizedPnlSol: m ? m.realizedPnlSol : undefined,
     volumeSol: m ? m.volumeSol : undefined,
     trades: m ? m.trades : undefined,
+    topWins: m?.topWins ?? [],
+    topLosses: m?.topLosses ?? [],
     breakdown: breakdowns[id],
   };
 }

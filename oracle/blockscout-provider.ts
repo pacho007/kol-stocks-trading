@@ -180,8 +180,34 @@ function isWrappedNative(t: TokenTransfer): boolean {
   return sym === "WETH" || sym === "ETH";
 }
 
+/** A single closed position, kept for the biggest wins/losses display. */
+export type ClosedTrade = {
+  symbol: string;
+  /** Realized PnL for this close, in the native coin. */
+  pnl: number;
+  /** Native received on the close. */
+  proceeds: number;
+  ts: number;
+  /** proceeds / cost basis. Null when there was no recorded basis. */
+  multiple: number | null;
+};
+
+/** Fall back to a shortened contract address when a token has no symbol. */
+function shortToken(addr: string): string {
+  return addr.startsWith("0x") && addr.length > 10
+    ? `${addr.slice(0, 6)}…${addr.slice(-4)}`
+    : addr;
+}
+
 /** Per-transaction net movement for this wallet: dominant token + native delta. */
-type Movement = { ts: number; token: string; amount: number; nativeDelta: number };
+type Movement = {
+  ts: number;
+  token: string;
+  amount: number;
+  nativeDelta: number;
+  /** Ticker for display; the `token` key itself is a contract address. */
+  symbol?: string;
+};
 
 async function movementsForWallet(wallet: string): Promise<Movement[]> {
   const addr = wallet.toLowerCase();
@@ -212,6 +238,7 @@ async function movementsForWallet(wallet: string): Promise<Movement[]> {
 
   // token deltas per tx, with WETH folded into the native side instead
   const tokensByTx = new Map<string, Map<string, number>>();
+  const symbolByToken = new Map<string, string>();
   const tsByTx = new Map<string, number>();
 
   for (const t of transfers) {
@@ -231,6 +258,7 @@ async function movementsForWallet(wallet: string): Promise<Movement[]> {
       continue;
     }
     const key = (t.token?.address ?? t.token?.address_hash ?? t.token?.symbol ?? "?").toLowerCase();
+    if (t.token?.symbol) symbolByToken.set(key, t.token.symbol);
     const inner = tokensByTx.get(hash) ?? new Map<string, number>();
     inner.set(key, (inner.get(key) ?? 0) + delta);
     tokensByTx.set(hash, inner);
@@ -250,11 +278,13 @@ async function movementsForWallet(wallet: string): Promise<Movement[]> {
       }
     }
     if (!best) continue;
+    const sym = symbolByToken.get(best.token);
     movements.push({
       ts: tsByTx.get(hash) ?? 0,
       token: best.token,
       amount: best.amount,
       nativeDelta: nativeByTx.get(hash) ?? 0,
+      ...(sym ? { symbol: sym } : {}),
     });
   }
   return movements;
@@ -275,7 +305,12 @@ export function metricsFromMovements(wallet: string, movements: Movement[]): Raw
     .filter((m) => m.ts >= LAUNCH_TS)
     .sort((a, b) => a.ts - b.ts);
 
-  for (const { token, amount, nativeDelta } of ordered) {
+  // Every closed position, kept so the biggest winners/losers can be shown
+  // next to the score. The PnL per close is already computed below; it used
+  // to be folded into the running total and thrown away.
+  const closes: ClosedTrade[] = [];
+
+  for (const { ts, token, amount, nativeDelta, symbol } of ordered) {
     const pos = book.get(token) ?? { qty: 0, cost: 0 };
 
     if (amount > 0 && nativeDelta < 0) {
@@ -299,6 +334,18 @@ export function metricsFromMovements(wallet: string, movements: Movement[]): Raw
       closedTrades += 1;
       if (pnl > 0) wins += 1;
 
+      closes.push({
+        symbol: symbol ?? shortToken(token),
+        pnl,
+        proceeds,
+        ts,
+        // Return multiple on the capital actually at risk in this close.
+        // Guarded: a close with no recorded cost basis (an airdropped or
+        // transferred-in token sold for the first time) would otherwise
+        // divide by zero and report an infinite return.
+        multiple: costOfSold > 0 ? proceeds / costOfSold : null,
+      });
+
       pos.qty = Math.max(0, pos.qty - soldQty);
       pos.cost = pos.qty > 0 ? avgCost * pos.qty : 0;
       book.set(token, pos);
@@ -306,12 +353,23 @@ export function metricsFromMovements(wallet: string, movements: Movement[]): Raw
     // token->token swaps, transfers and airdrops are deliberately skipped
   }
 
+  // Biggest winners and losers, largest magnitude first. Kept small — this
+  // is evidence for the score, not a full trade log.
+  const byPnl = [...closes].sort((a, b) => b.pnl - a.pnl);
+  const topWins = byPnl.filter((c) => c.pnl > 0).slice(0, 3);
+  const topLosses = byPnl
+    .filter((c) => c.pnl < 0)
+    .slice(-3)
+    .reverse();
+
   return {
     id: wallet, // caller remaps to the listing id
     realizedPnlSol,
     winRate: closedTrades > 0 ? wins / closedTrades : 0,
     volumeSol,
     trades: closedTrades,
+    topWins,
+    topLosses,
   };
 }
 

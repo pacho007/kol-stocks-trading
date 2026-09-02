@@ -418,7 +418,16 @@ export async function runOracle(
       id: s.id,
       wallet: listings.find((l) => l.id === s.id)!.wallet,
       score: s.score,
-      metrics: { id: s.id, realizedPnlSol: s.realizedPnlSol, winRate: s.winRate, volumeSol: s.volumeSol, trades: s.trades },
+      metrics: {
+        id: s.id,
+        realizedPnlSol: s.realizedPnlSol,
+        winRate: s.winRate,
+        volumeSol: s.volumeSol,
+        trades: s.trades,
+        // Carried through for display; not an input to the score.
+        ...(s.topWins ? { topWins: s.topWins } : {}),
+        ...(s.topLosses ? { topLosses: s.topLosses } : {}),
+      },
       targetAnchor: capped,
       breakdown: s.breakdown,
       confidence: s.confidence,
