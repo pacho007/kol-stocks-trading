@@ -2,6 +2,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Link } from "@tanstack/react-router";
 import { Wallet, Menu, ChevronDown } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useMarket } from "@/lib/market-store";
 import { useSession } from "@/hooks/use-session";
@@ -40,14 +41,53 @@ export function ConnectWalletButton({
   } = useEvmWallet();
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+
+  /**
+   * The menu is portalled to <body> and positioned from the button's rect.
+   * It has to be: this button also renders inside the hero, which is
+   * `overflow-hidden` to clip its background image to the rounded corners.
+   * Any absolutely-positioned child is cut off at that boundary, and no
+   * amount of z-index escapes a clipping ancestor — only leaving the
+   * subtree does.
+   */
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const place = () => {
+      const el = pickerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setMenuPos({ top: r.bottom + 8, right: window.innerWidth - r.right });
+    };
+    place();
+    // Fixed positioning is viewport-relative, so it must follow scroll.
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [pickerOpen]);
 
   useEffect(() => {
     if (!pickerOpen) return;
     const onClick = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setPickerOpen(false);
+      const t = e.target as Node;
+      // The menu lives outside pickerRef now (it's portalled), so a click
+      // inside it would otherwise read as "outside" and close it instantly.
+      if (pickerRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setPickerOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPickerOpen(false);
     };
     document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [pickerOpen]);
 
   // On EVM the wallet is only usable on the right network — surface that as
@@ -111,13 +151,15 @@ export function ConnectWalletButton({
         {installedWallets.length > 1 && <ChevronDown className="size-3 opacity-60" />}
       </button>
 
-      {pickerOpen && (
-        // Scroll rather than clip: the number of installed wallets is
-        // unbounded (EIP-6963 discovers every one the browser exposes), and
-        // plain overflow-hidden silently cut the list off with no way to
-        // reach the rest. Capped against the viewport so it stays usable on
-        // short screens too.
-        <div className="absolute right-0 z-50 mt-2 max-h-[min(60vh,22rem)] w-52 overflow-y-auto overscroll-contain rounded-xl border border-border bg-background/95 py-1 shadow-xl backdrop-blur-xl">
+      {pickerOpen && menuPos && typeof document !== "undefined" && createPortal(
+        // Portalled to <body> so a clipping ancestor (the hero panel is
+        // overflow-hidden) can't cut it off, and scrollable + viewport-capped
+        // because EIP-6963 discovers an unbounded number of wallets.
+        <div
+          ref={menuRef}
+          style={{ position: "fixed", top: menuPos.top, right: menuPos.right }}
+          className="z-[100] max-h-[min(60vh,22rem)] w-52 overflow-y-auto overscroll-contain rounded-xl border border-border bg-background/95 py-1 shadow-xl backdrop-blur-xl"
+        >
           {installedWallets.length === 0 ? (
             <p className="px-3 py-2 text-[11px] text-muted-foreground">
               No EVM wallet detected. Install MetaMask or Rabby.
@@ -139,7 +181,8 @@ export function ConnectWalletButton({
               </button>
             ))
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
