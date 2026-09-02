@@ -14,7 +14,7 @@ import heroBanner from "@/assets/hero-banner.jpg";
 import { useSession } from "@/hooks/use-session";
 import { DAY_CLOSE, DAY_OPEN, fmtUtc } from "@/lib/sessions";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/app")({
   head: () => ({
     meta: [
       { title: "SHARPS · Invest in Crypto Traders Like Stocks" },
