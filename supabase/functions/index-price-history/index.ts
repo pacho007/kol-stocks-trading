@@ -35,8 +35,23 @@ import { createPublicClient, http, parseAbiItem, type Address } from "npm:viem@2
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const RPC_URL = Deno.env.get("ROBINHOOD_RPC_URL") ?? "https://rpc.mainnet.chain.robinhood.com";
+/**
+ * Defaults to TESTNET, matching src/lib/evm/chain.ts. This used to default to
+ * mainnet, which is the wrong direction to fail in: a missing secret would
+ * have silently indexed a different chain than the one the app trades on, and
+ * written the result into the price history every user reads as authoritative.
+ * A wrong shared feed is worse than an empty one, so the safe default is the
+ * chain where being wrong costs nothing.
+ */
+const RPC_URL = Deno.env.get("ROBINHOOD_RPC_URL") ?? "https://rpc.testnet.chain.robinhood.com";
 const MARKET_ADDRESS = Deno.env.get("MARKET_ADDRESS") as Address | undefined;
+
+/**
+ * The block SharpsMarket was deployed in. Leaving this at 0 is not merely
+ * slow: at ~100ms blocks the scan would spend every run grinding through
+ * millions of empty pre-deploy blocks, MAX_WINDOWS_PER_RUN at a time, and
+ * would take a very long time to reach the first real event.
+ */
 const DEPLOY_BLOCK = BigInt(Deno.env.get("MARKET_DEPLOY_BLOCK") ?? "0");
 
 /**
