@@ -31,8 +31,24 @@ trap cleanup EXIT
 printf 'Paste the DEPLOYER private key (input hidden), then press Enter: '
 read -rs DEPLOYER_PRIVATE_KEY
 echo
-export DEPLOYER_PRIVATE_KEY
 [ -n "$DEPLOYER_PRIVATE_KEY" ] || { echo "No key entered."; exit 1; }
+
+# Normalise the key before anything consumes it.
+#   - strip whitespace and any quotes a paste may carry along
+#   - add the 0x prefix if absent
+# MetaMask exports keys WITHOUT 0x, and while `cast` accepts that form,
+# forge's vm.envUint does not: it fails with "missing hex prefix", but only
+# after compiling and running the script, so the mismatch surfaces late and
+# reads like a script bug rather than a formatting one.
+DEPLOYER_PRIVATE_KEY="${DEPLOYER_PRIVATE_KEY//[[:space:]\"\']/}"
+[[ "$DEPLOYER_PRIVATE_KEY" == 0x* ]] || DEPLOYER_PRIVATE_KEY="0x$DEPLOYER_PRIVATE_KEY"
+
+if [[ ! "$DEPLOYER_PRIVATE_KEY" =~ ^0x[0-9a-fA-F]{64}$ ]]; then
+  echo "That does not look like a private key: expected 64 hex characters."
+  echo "Got ${#DEPLOYER_PRIVATE_KEY} characters (0x prefix included)."
+  exit 1
+fi
+export DEPLOYER_PRIVATE_KEY
 
 # Confirm the key belongs to the wallet we funded, BEFORE spending anything.
 # A mistyped or wrong key otherwise fails deep inside forge with a confusing
