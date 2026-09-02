@@ -505,3 +505,96 @@
     transform: none !important;
   }
 }
+
+/* ---------------------------------------------------------------
+   Glass / water wordmark (landing "SHARPS.")
+   The glyphs act as a lens: a soft chromatic gradient is clipped to
+   the text, inner highlights simulate a refracted top edge, and a
+   slow drift makes the fill feel liquid rather than painted.
+   --------------------------------------------------------------- */
+
+@keyframes glass-drift {
+  0% {
+    background-position:
+      0% 50%,
+      -140% 0,
+      50% 50%;
+  }
+  100% {
+    background-position:
+      100% 50%,
+      240% 0,
+      50% 50%;
+  }
+}
+
+.glass-text {
+  position: relative;
+  color: transparent;
+  background-image:
+    /* body of the "water": cool-to-rose refraction */
+    linear-gradient(
+      145deg,
+      color-mix(in oklab, #2a0b18 78%, transparent) 0%,
+      color-mix(in oklab, #7d2a4c 62%, transparent) 22%,
+      color-mix(in oklab, #ffffff 88%, transparent) 40%,
+      color-mix(in oklab, var(--primary) 70%, transparent) 55%,
+      color-mix(in oklab, #2a0b18 72%, transparent) 78%,
+      color-mix(in oklab, #6a1f3c 60%, transparent) 100%
+    ),
+    /* travelling specular streak — the wet highlight */
+      linear-gradient(
+        100deg,
+        transparent 42%,
+        rgba(255, 255, 255, 0.9) 50%,
+        transparent 58%
+      ),
+    /* bubble caustics pooling inside the glyphs */
+      radial-gradient(
+        60% 120% at 30% 15%,
+        rgba(255, 255, 255, 0.75) 0%,
+        transparent 60%
+      );
+  background-size:
+    220% 100%,
+    260% 100%,
+    100% 100%;
+  background-position:
+    0% 50%,
+    -140% 0,
+    50% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: glass-drift 9s linear infinite;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.85))
+    drop-shadow(0 10px 22px rgba(61, 16, 36, 0.28))
+    drop-shadow(0 2px 1px rgba(255, 255, 255, 0.5));
+}
+
+/* Glass body sitting behind the letters: a real blurred pane clipped to
+   the same glyph shapes, so the backdrop genuinely refracts. */
+.glass-text::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  color: rgba(255, 255, 255, 0.16);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6),
+    0 -1px 0 rgba(61, 16, 36, 0.25),
+    0 18px 34px rgba(61, 16, 36, 0.22);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-text {
+    animation: none;
+  }
+}
+
+/* Keep the entrance animation when the wordmark is also a fade-up target. */
+.fade-up.glass-text {
+  animation:
+    splash-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) both,
+    glass-drift 9s linear infinite;
+}

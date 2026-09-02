@@ -104,7 +104,8 @@ function Splash() {
       {/* hero */}
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-24 text-center">
         <h1
-          className="fade-up w-full select-none text-center"
+          className="fade-up glass-text w-full select-none text-center"
+          data-text="SHARPS."
           style={{
             animationDelay: "0.2s",
             fontFamily: '"Space Grotesk", ui-sans-serif, system-ui, sans-serif',
@@ -112,7 +113,6 @@ function Splash() {
             letterSpacing: "0.18em",
             lineHeight: 0.95,
             fontSize: "clamp(3.25rem, 14vw, 12rem)",
-            color: "#2a0b18",
           }}
         >
           SHARPS.
