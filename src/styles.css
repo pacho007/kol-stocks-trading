@@ -134,6 +134,95 @@
 
 
 
+/* ---------------------------------------------------------------------------
+   Landing hero
+   -------------------------------------------------------------------------*/
+
+/**
+ * Extruded wordmark. The depth is real stacked geometry via layered
+ * text-shadows rather than a flat drop shadow, so the letters read as solid
+ * blocks with a lit face — the same trick a 3D render would give, without
+ * shipping an image asset that can't restyle with the theme.
+ *
+ * The face itself is a glass gradient applied through background-clip, with a
+ * specular highlight raked across it.
+ */
+.hero-wordmark {
+  background-image: linear-gradient(
+    177deg,
+    oklch(1 0 0) 4%,
+    oklch(0.93 0.03 350) 32%,
+    oklch(0.74 0.19 350) 62%,
+    oklch(0.6 0.2 352) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 18px 44px color-mix(in oklab, var(--primary) 42%, transparent));
+}
+
+/* The extrusion sits in a duplicate layer behind the face — see the JSX. */
+.hero-wordmark-depth {
+  color: oklch(0.42 0.17 352);
+  text-shadow:
+    1px 1px 0 oklch(0.4 0.16 352),
+    2px 2px 0 oklch(0.38 0.155 352),
+    3px 3px 0 oklch(0.36 0.15 352),
+    4px 4px 0 oklch(0.34 0.145 352),
+    5px 5px 0 oklch(0.32 0.14 352),
+    6px 6px 0 oklch(0.3 0.135 352),
+    7px 7px 0 oklch(0.28 0.13 352),
+    8px 8px 0 oklch(0.26 0.12 352),
+    9px 9px 0 oklch(0.24 0.11 352),
+    10px 10px 0 oklch(0.22 0.1 352),
+    11px 11px 0 oklch(0.2 0.09 352),
+    12px 12px 0 oklch(0.18 0.08 352);
+}
+
+/* Slow drift so the hero is never completely static. */
+@keyframes hero-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+
+/* Aurora behind the wordmark — two counter-rotating blooms. */
+@keyframes hero-aurora {
+  0%,
+  100% {
+    transform: translate3d(-6%, 0, 0) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate3d(6%, 4%, 0) scale(1.12);
+    opacity: 1;
+  }
+}
+
+.hero-float {
+  animation: hero-float 7s ease-in-out infinite;
+}
+.hero-aurora {
+  animation: hero-aurora 14s ease-in-out infinite;
+}
+.hero-aurora-slow {
+  animation: hero-aurora 19s ease-in-out infinite reverse;
+}
+
+/* Decoration only — never animate for anyone who asked us not to. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-float,
+  .hero-aurora,
+  .hero-aurora-slow {
+    animation: none;
+  }
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

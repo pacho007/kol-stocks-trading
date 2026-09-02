@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Check } from "lucide-react";
 import { AvatarMark } from "@/components/avatar-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { HeroShards } from "@/components/hero-shards";
 import { KOLS, fmtCompact, fmtUsd } from "@/lib/kols";
 import { useMarket, useKolStats } from "@/lib/market-store";
 
@@ -110,28 +111,49 @@ function Hero({
   lastUpdated: string | null;
 }) {
   return (
-    <section className="relative pt-20 pb-16 text-center sm:pt-28 sm:pb-20">
-      <p className="num text-[10px] tracking-[0.32em] uppercase text-gold-light">
+    <section className="relative pt-20 pb-16 text-center sm:pt-24 sm:pb-20">
+      {/* Aurora blooms + drifting glass, layered behind the type. All of it is
+          aria-hidden and pointer-events-none: it's atmosphere, and it must
+          never intercept a click meant for the CTA underneath. */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-16 h-[42rem] overflow-hidden">
+        {/* Weaker in light mode: the same intensity that reads as a glow on
+            black turns the whole hero into a pink haze on near-white. */}
+        <div className="hero-aurora absolute left-1/2 top-0 h-[30rem] w-[52rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--primary)_14%,transparent),transparent)] blur-3xl dark:bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--primary)_38%,transparent),transparent)]" />
+        <div className="hero-aurora-slow absolute left-1/2 top-16 h-[24rem] w-[38rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--gold-light)_10%,transparent),transparent)] blur-3xl dark:bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--gold-light)_30%,transparent),transparent)]" />
+        <HeroShards className="absolute inset-0 h-full w-full" />
+      </div>
+
+      <p className="num relative text-[10px] tracking-[0.32em] uppercase text-gold-light">
         Trader stocks on Robinhood Chain
       </p>
 
-      {/* The wordmark carries the page. Sized in vw so it fills the viewport
-          the way the reference does, but clamped so it never overflows on
-          narrow screens or turns absurd on ultrawide ones. */}
-      <h1
-        className="display mt-5 bg-gradient-to-b from-foreground to-foreground/55 bg-clip-text font-extrabold tracking-[-0.02em] text-transparent"
-        style={{ fontSize: "clamp(3.5rem, 15vw, 11rem)", lineHeight: 0.92 }}
-      >
-        SHARPS
-      </h1>
+      {/* Two stacked copies: the back one is the extrusion, the front is the
+          lit glass face. Sized in vw so it fills the viewport the way the
+          reference does, clamped so it never overflows narrow screens or
+          turns absurd on ultrawide ones. */}
+      <div className="hero-float relative mt-6 select-none">
+        <h1
+          className="display hero-wordmark-depth font-extrabold tracking-[-0.03em]"
+          style={{ fontSize: "clamp(3.75rem, 16vw, 12rem)", lineHeight: 0.9 }}
+        >
+          SHARPS
+        </h1>
+        <span
+          aria-hidden
+          className="display hero-wordmark absolute inset-0 font-extrabold tracking-[-0.03em]"
+          style={{ fontSize: "clamp(3.75rem, 16vw, 12rem)", lineHeight: 0.9 }}
+        >
+          SHARPS
+        </span>
+      </div>
 
-      <p className="mx-auto mt-6 max-w-2xl text-balance text-lg leading-relaxed text-muted-foreground sm:text-xl">
+      <p className="relative mx-auto mt-8 max-w-2xl text-balance text-lg leading-relaxed text-muted-foreground sm:text-xl">
         Their on-chain performance <span className="text-foreground">is</span> their share price.
         Buy shares in the traders who actually make money — priced by what their wallet did, not
         by how loud they are.
       </p>
 
-      <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+      <div className="relative mt-9 flex flex-wrap items-center justify-center gap-3">
         <Link
           to="/app"
           className="group inline-flex h-12 items-center gap-2.5 rounded-xl bg-primary px-7 text-[12px] font-bold tracking-[0.14em] uppercase text-primary-foreground transition-all hover:brightness-110"
@@ -147,7 +169,7 @@ function Hero({
         </Link>
       </div>
 
-      <dl className="mx-auto mt-14 grid max-w-3xl grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-4">
+      <dl className="relative mx-auto mt-14 grid max-w-3xl grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-4">
         <Stat label="Traders listed" value={String(listed)} />
         <Stat label="Index market cap" value={fmtCompact(indexCap)} />
         <Stat label="Round trip cost" value="~4%" />
