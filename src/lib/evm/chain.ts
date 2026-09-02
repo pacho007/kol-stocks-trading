@@ -9,6 +9,21 @@ import { createPublicClient, defineChain, http, type PublicClient } from "viem";
 export const ROBINHOOD_MAINNET_ID = 4663;
 export const ROBINHOOD_TESTNET_ID = 46630;
 
+/**
+ * Multicall3, at the canonical CREATE2 address it holds on essentially every
+ * EVM chain. Verified deployed and answering on both Robinhood networks
+ * (3808 bytes of code, getBlockNumber() responds).
+ *
+ * This is NOT optional decoration. viem refuses client.multicall() outright on
+ * a chain with no multicall3 configured — "Chain does not support contract
+ * multicall3" — and evm/market.ts reads every listing and every share balance
+ * through exactly that call. Without this the board cannot load a single
+ * listing: not a degraded chart, an empty market.
+ */
+const MULTICALL3 = {
+  multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" as const },
+};
+
 export const robinhoodMainnet = defineChain({
   id: ROBINHOOD_MAINNET_ID,
   name: "Robinhood Chain",
@@ -17,6 +32,7 @@ export const robinhoodMainnet = defineChain({
   blockExplorers: {
     default: { name: "Robinhood Explorer", url: "https://explorer.chain.robinhood.com" },
   },
+  contracts: MULTICALL3,
 });
 
 export const robinhoodTestnet = defineChain({
@@ -27,6 +43,7 @@ export const robinhoodTestnet = defineChain({
   blockExplorers: {
     default: { name: "Robinhood Explorer", url: "https://explorer.testnet.chain.robinhood.com" },
   },
+  contracts: MULTICALL3,
 });
 
 const network = import.meta.env["VITE_ROBINHOOD_NETWORK"] as string | undefined;
