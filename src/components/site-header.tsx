@@ -112,7 +112,12 @@ export function ConnectWalletButton({
       </button>
 
       {pickerOpen && (
-        <div className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-xl border border-border bg-background/95 py-1 shadow-xl backdrop-blur-xl">
+        // Scroll rather than clip: the number of installed wallets is
+        // unbounded (EIP-6963 discovers every one the browser exposes), and
+        // plain overflow-hidden silently cut the list off with no way to
+        // reach the rest. Capped against the viewport so it stays usable on
+        // short screens too.
+        <div className="absolute right-0 z-50 mt-2 max-h-[min(60vh,22rem)] w-52 overflow-y-auto overscroll-contain rounded-xl border border-border bg-background/95 py-1 shadow-xl backdrop-blur-xl">
           {installedWallets.length === 0 ? (
             <p className="px-3 py-2 text-[11px] text-muted-foreground">
               No EVM wallet detected. Install MetaMask or Rabby.
