@@ -2,8 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { KOLS } from "@/lib/kols";
-import bgVideo from "@/assets/sharps-hero-pink.mp4.asset.json";
-import heroPoster from "@/assets/sharps-hero-poster.jpg.asset.json";
+import bgVideo from "@/assets/sharps-dunes.mp4.asset.json";
+import heroPoster from "@/assets/sharps-dunes-poster.jpg.asset.json";
 
 /**
  * Starts false so the server and the first client render agree — reading
