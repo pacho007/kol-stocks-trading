@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
 import { ArrowRight } from "lucide-react";
 import { KOLS } from "@/lib/kols";
+import bgVideo from "@/assets/sharps-bg-4k.mp4.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -24,97 +24,79 @@ export const Route = createFileRoute("/")({
   component: Splash,
 });
 
-const WORD = "SHARPS".split("");
-
 function Splash() {
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el) return;
-    const onMove = (e: PointerEvent) => {
-      const r = el.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width;
-      const y = (e.clientY - r.top) / r.height;
-      el.style.setProperty("--mx", `${x * 100}%`);
-      el.style.setProperty("--my", `${y * 100}%`);
-      el.style.setProperty("--tx", `${(x - 0.5) * 10}px`);
-      el.style.setProperty("--ty", `${(y - 0.5) * 7}px`);
-    };
-    window.addEventListener("pointermove", onMove);
-    return () => window.removeEventListener("pointermove", onMove);
-  }, []);
-
   const tape = KOLS.slice(0, 22);
 
   return (
-    <div
-      ref={rootRef}
-      className="splash-root relative isolate flex min-h-[100svh] flex-col overflow-hidden bg-background"
-      style={{ ["--mx" as string]: "50%", ["--my" as string]: "35%" }}
-    >
-      <div aria-hidden className="splash-light pointer-events-none absolute inset-0 -z-10" />
-      <div aria-hidden className="splash-grid pointer-events-none absolute inset-0 -z-10" />
-      <div aria-hidden className="splash-grain pointer-events-none absolute inset-0 -z-10" />
+    <div className="relative isolate flex min-h-[100svh] flex-col overflow-hidden bg-[#05060c]">
+      {/* 4K video backdrop */}
+      <video
+        className="pointer-events-none absolute inset-0 -z-20 size-full object-cover"
+        src={bgVideo.url}
+        autoPlay
+        muted
+        loop
+        playsInline
+        preload="auto"
+        aria-hidden
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(120%_80%_at_50%_50%,transparent_0%,rgba(3,4,10,0.55)_75%,rgba(3,4,10,0.9)_100%)]"
+      />
 
       {/* top bar */}
-      <header className="fade-up relative z-10 flex items-center justify-between px-6 py-7 sm:px-12" style={{ animationDelay: "0.05s" }}>
-        <span className="display text-[11px] font-extrabold tracking-[0.42em] uppercase text-foreground">
+      <header
+        className="fade-up relative z-10 flex items-center justify-between px-6 py-7 sm:px-12"
+        style={{ animationDelay: "0.05s" }}
+      >
+        <span className="display text-[11px] font-extrabold tracking-[0.42em] uppercase text-white/90">
           Sharps
         </span>
-        <span className="num hidden text-[10px] tracking-[0.3em] uppercase text-muted-foreground md:block">
+        <span className="num hidden text-[10px] tracking-[0.3em] uppercase text-white/50 md:block">
           On-chain talent exchange
         </span>
-        <span className="num text-[10px] tracking-[0.3em] uppercase text-muted-foreground">
-          Est. 2026
-        </span>
+        <span className="num text-[10px] tracking-[0.3em] uppercase text-white/50">Est. 2026</span>
       </header>
 
       {/* hero */}
-      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-10 text-center">
-        <div
-          className="fade-up mb-10 inline-flex items-center gap-2.5 rounded-full border border-border bg-card/70 px-4 py-1.5 backdrop-blur"
-          style={{ animationDelay: "0.2s" }}
-        >
-          <span className="size-1.5 rounded-full bg-primary" />
-          <span className="num text-[10px] tracking-[0.28em] uppercase text-muted-foreground">
-            {KOLS.length} traders listed
-          </span>
-        </div>
-
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-16 text-center">
         <h1
-          className="splash-word display select-none"
-          style={{ transform: "translate3d(var(--tx,0),var(--ty,0),0)" }}
+          className="fade-up display select-none text-white"
+          style={{
+            animationDelay: "0.2s",
+            fontWeight: 800,
+            letterSpacing: "0.06em",
+            lineHeight: 0.9,
+            fontSize: "clamp(3.4rem, 15vw, 13rem)",
+            textShadow: "0 0 60px rgba(255,255,255,0.35), 0 0 140px rgba(120,180,255,0.35)",
+          }}
         >
-          {WORD.map((c, i) => (
-            <span key={i} className="splash-letter" style={{ animationDelay: `${0.25 + i * 0.07}s` }}>
-              {c}
-            </span>
-          ))}
+          SHARPS
         </h1>
 
         <p
-          className="fade-up mt-9 max-w-lg text-balance text-[15px] leading-relaxed text-muted-foreground"
-          style={{ animationDelay: "0.85s" }}
+          className="fade-up mt-8 max-w-lg text-balance text-[15px] leading-relaxed text-white/70"
+          style={{ animationDelay: "0.5s" }}
         >
           The exchange where on-chain traders are listed like stocks. Every green day gaps them up,
           every blowup gaps them down. Scout the talent before the tape does.
         </p>
 
         <div
-          className="fade-up mt-11 flex flex-col items-center gap-3 sm:flex-row"
-          style={{ animationDelay: "1s" }}
+          className="fade-up mt-10 flex flex-col items-center gap-3 sm:flex-row"
+          style={{ animationDelay: "0.7s" }}
         >
           <Link
             to="/app"
-            className="enter-cta group relative inline-flex h-12 items-center gap-3 overflow-hidden rounded-lg bg-primary px-8 text-[11px] font-extrabold tracking-[0.24em] uppercase text-primary-foreground"
+            className="group inline-flex h-12 items-center gap-3 rounded-lg bg-white px-8 text-[11px] font-extrabold tracking-[0.24em] uppercase text-[#05060c] transition-transform duration-300 hover:scale-[1.03]"
           >
-            <span className="relative z-10">Enter Exchange</span>
-            <ArrowRight className="relative z-10 size-4 transition-transform duration-300 group-hover:translate-x-1" />
+            Enter Exchange
+            <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
           </Link>
           <Link
             to="/docs"
-            className="inline-flex h-12 items-center rounded-lg border border-border bg-card/60 px-7 text-[11px] font-bold tracking-[0.24em] uppercase text-muted-foreground backdrop-blur transition-colors duration-300 hover:border-primary/60 hover:text-primary"
+            className="inline-flex h-12 items-center rounded-lg border border-white/25 bg-white/5 px-7 text-[11px] font-bold tracking-[0.24em] uppercase text-white/75 backdrop-blur transition-colors duration-300 hover:border-white/60 hover:text-white"
           >
             How it works
           </Link>
@@ -123,17 +105,17 @@ function Splash() {
 
       {/* marquee tape */}
       <footer
-        className="fade-up relative z-10 border-t border-border/70 bg-card/40 py-3.5 backdrop-blur"
-        style={{ animationDelay: "1.15s" }}
+        className="fade-up relative z-10 border-t border-white/10 bg-black/30 py-3.5 backdrop-blur"
+        style={{ animationDelay: "0.9s" }}
       >
         <div className="splash-mask overflow-hidden">
           <div className="marquee flex w-max items-center gap-9 pr-9">
             {[...tape, ...tape].map((k, i) => (
               <span
                 key={i}
-                className="num flex items-center gap-2 text-[10px] tracking-[0.2em] whitespace-nowrap uppercase text-muted-foreground"
+                className="num flex items-center gap-2 text-[10px] tracking-[0.2em] whitespace-nowrap uppercase text-white/60"
               >
-                <span className="font-bold text-primary">${k.ticker}</span>
+                <span className="font-bold text-white">${k.ticker}</span>
                 <span className="opacity-60">{k.name}</span>
               </span>
             ))}
