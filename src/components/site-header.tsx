@@ -196,7 +196,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4">
       <div className="mx-auto max-w-[80rem]">
         <div className="flex h-14 items-center gap-6 px-1 sm:px-2">
-          <Link to="/app" className="group flex items-center gap-2.5">
+          <Link to="/" className="group flex items-center gap-2.5">
             <span className="display text-[13px] font-extrabold tracking-[0.3em] uppercase">
               Sharps
             </span>
