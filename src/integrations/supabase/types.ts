@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      fills: {
+        Row: {
+          block_number: number
+          block_timestamp: string
+          created_at: string
+          id: number
+          kol_id: string
+          kol_wallet: string
+          log_index: number
+          shares: number
+          side: string
+          trader: string
+          tx_hash: string
+          wei: number
+        }
+        Insert: {
+          block_number: number
+          block_timestamp: string
+          created_at?: string
+          id?: number
+          kol_id: string
+          kol_wallet: string
+          log_index: number
+          shares: number
+          side: string
+          trader: string
+          tx_hash: string
+          wei: number
+        }
+        Update: {
+          block_number?: number
+          block_timestamp?: string
+          created_at?: string
+          id?: number
+          kol_id?: string
+          kol_wallet?: string
+          log_index?: number
+          shares?: number
+          side?: string
+          trader?: string
+          tx_hash?: string
+          wei?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fills_kol_id_fkey"
+            columns: ["kol_id"]
+            isOneToOne: false
+            referencedRelation: "listing_volume_24h"
+            referencedColumns: ["kol_id"]
+          },
+          {
+            foreignKeyName: "fills_kol_id_fkey"
+            columns: ["kol_id"]
+            isOneToOne: false
+            referencedRelation: "listings"
+            referencedColumns: ["kol_id"]
+          },
+        ]
+      }
       indexer_state: {
         Row: {
           id: number
@@ -31,6 +91,60 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      listing_metrics: {
+        Row: {
+          breakdown: Json
+          confidence: number
+          kol_id: string
+          realized_pnl_eth: number
+          top_losses: Json
+          top_wins: Json
+          trades: number
+          updated_at: string
+          volume_eth: number
+          win_rate: number
+        }
+        Insert: {
+          breakdown?: Json
+          confidence?: number
+          kol_id: string
+          realized_pnl_eth?: number
+          top_losses?: Json
+          top_wins?: Json
+          trades?: number
+          updated_at?: string
+          volume_eth?: number
+          win_rate?: number
+        }
+        Update: {
+          breakdown?: Json
+          confidence?: number
+          kol_id?: string
+          realized_pnl_eth?: number
+          top_losses?: Json
+          top_wins?: Json
+          trades?: number
+          updated_at?: string
+          volume_eth?: number
+          win_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listing_metrics_kol_id_fkey"
+            columns: ["kol_id"]
+            isOneToOne: true
+            referencedRelation: "listing_volume_24h"
+            referencedColumns: ["kol_id"]
+          },
+          {
+            foreignKeyName: "listing_metrics_kol_id_fkey"
+            columns: ["kol_id"]
+            isOneToOne: true
+            referencedRelation: "listings"
+            referencedColumns: ["kol_id"]
+          },
+        ]
       }
       listings: {
         Row: {
@@ -110,6 +224,13 @@ export type Database = {
             foreignKeyName: "price_history_kol_id_fkey"
             columns: ["kol_id"]
             isOneToOne: false
+            referencedRelation: "listing_volume_24h"
+            referencedColumns: ["kol_id"]
+          },
+          {
+            foreignKeyName: "price_history_kol_id_fkey"
+            columns: ["kol_id"]
+            isOneToOne: false
             referencedRelation: "listings"
             referencedColumns: ["kol_id"]
           },
@@ -117,7 +238,15 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      listing_volume_24h: {
+        Row: {
+          fill_count: number | null
+          kol_id: string | null
+          trader_count: number | null
+          volume_wei: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
