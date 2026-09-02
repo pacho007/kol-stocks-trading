@@ -23,11 +23,11 @@
 export type RawMetrics = {
   id: string;
   /** realized PnL over the trailing window, in SOL (can be negative) */
-  realizedPnlSol: number;
+  realizedPnlEth: number;
   /** fraction of trades that were profitable, 0..1 */
   winRate: number;
   /** total traded volume over the window, in SOL */
-  volumeSol: number;
+  volumeEth: number;
   /** number of closed trades over the window */
   trades: number;
   /**
@@ -123,17 +123,17 @@ function percentile(value: number, all: number[]): number {
  * Percentile-normalizes each sub-metric across the cohort, then blends.
  */
 export function scoreCohort(cohort: RawMetrics[]): ScoredMetrics[] {
-  const pnl = cohort.map((c) => c.realizedPnlSol);
+  const pnl = cohort.map((c) => c.realizedPnlEth);
   const win = cohort.map((c) => c.winRate);
   // log-compress volume so a single mega-whale doesn't flatten everyone else
-  const vol = cohort.map((c) => Math.log1p(Math.max(0, c.volumeSol)));
+  const vol = cohort.map((c) => Math.log1p(Math.max(0, c.volumeEth)));
   const trd = cohort.map((c) => Math.log1p(Math.max(0, c.trades)));
 
   return cohort.map((c, i) => {
     // FRESH START: a trader with no post-launch trades yet sits at the neutral
     // opening score (50 -> $0.01). Only once they trade do they diverge. This
     // makes day-one a true equal start instead of ranking noise on all-zeros.
-    if (c.trades === 0 && c.volumeSol === 0 && c.realizedPnlSol === 0) {
+    if (c.trades === 0 && c.volumeEth === 0 && c.realizedPnlEth === 0) {
       return {
         ...c,
         score: 50,

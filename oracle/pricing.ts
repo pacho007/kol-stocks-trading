@@ -170,9 +170,9 @@ function main() {
 
   // a real cohort -> prices
   const raw: RawMetrics[] = [
-    { id: "cented", realizedPnlSol: 820, winRate: 0.68, volumeSol: 41000, trades: 1310 },
-    { id: "cupsey", realizedPnlSol: 410, winRate: 0.71, volumeSol: 22000, trades: 980 },
-    { id: "orangie", realizedPnlSol: -95, winRate: 0.44, volumeSol: 8000, trades: 260 },
+    { id: "cented", realizedPnlEth: 820, winRate: 0.68, volumeEth: 41000, trades: 1310 },
+    { id: "cupsey", realizedPnlEth: 410, winRate: 0.71, volumeEth: 22000, trades: 980 },
+    { id: "orangie", realizedPnlEth: -95, winRate: 0.44, volumeEth: 8000, trades: 260 },
   ];
   const scored = scoreCohort(raw);
 

@@ -179,8 +179,8 @@ function metricsForWallet(wallet: string, txs: HeliusTx[]): RawMetrics {
   // per-mint running position: total tokens held and total SOL cost
   const book = new Map<string, { qty: number; cost: number }>();
 
-  let realizedPnlSol = 0;
-  let volumeSol = 0;
+  let realizedPnlEth = 0;
+  let volumeEth = 0;
   let closedTrades = 0;
   let wins = 0;
 
@@ -203,19 +203,19 @@ function metricsForWallet(wallet: string, txs: HeliusTx[]): RawMetrics {
       const spent = -solDelta;
       pos.qty += amount;
       pos.cost += spent;
-      volumeSol += spent;
+      volumeEth += spent;
       book.set(mint, pos);
     } else if (amount < 0 && solDelta > 0) {
       // SELL: gave up `-amount` tokens, received `solDelta` SOL
       const soldQty = -amount;
       const proceeds = solDelta;
-      volumeSol += proceeds;
+      volumeEth += proceeds;
 
       const avgCost = pos.qty > 0 ? pos.cost / pos.qty : 0;
       const costOfSold = avgCost * Math.min(soldQty, pos.qty);
       const pnl = proceeds - costOfSold;
 
-      realizedPnlSol += pnl;
+      realizedPnlEth += pnl;
       closedTrades += 1;
       if (pnl > 0) wins += 1;
 
@@ -229,9 +229,9 @@ function metricsForWallet(wallet: string, txs: HeliusTx[]): RawMetrics {
 
   return {
     id: wallet, // caller remaps to the listing id
-    realizedPnlSol,
+    realizedPnlEth,
     winRate: closedTrades > 0 ? wins / closedTrades : 0,
-    volumeSol,
+    volumeEth,
     trades: closedTrades,
   };
 }
@@ -392,7 +392,7 @@ export async function runOracle(
         raw[i] = { ...m, id };
       } catch (e) {
         console.warn(`  ${id} ${short(wallet)} failed: ${(e as Error).message}`);
-        raw[i] = { id, realizedPnlSol: 0, winRate: 0, volumeSol: 0, trades: 0 };
+        raw[i] = { id, realizedPnlEth: 0, winRate: 0, volumeEth: 0, trades: 0 };
       }
       done++;
       if (done % 25 === 0 || done === listings.length) {
@@ -417,9 +417,9 @@ export async function runOracle(
       score: s.score,
       metrics: {
         id: s.id,
-        realizedPnlSol: s.realizedPnlSol,
+        realizedPnlEth: s.realizedPnlEth,
         winRate: s.winRate,
-        volumeSol: s.volumeSol,
+        volumeEth: s.volumeEth,
         trades: s.trades,
         // Carried through for display; not an input to the score.
         ...(s.topWins ? { topWins: s.topWins } : {}),

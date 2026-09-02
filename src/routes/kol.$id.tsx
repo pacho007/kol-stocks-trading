@@ -73,8 +73,8 @@ function KolDetail() {
     marketCapUsd: liveCap,
     changePct,
     winRate,
-    realizedPnlSol,
-    volumeSol,
+    realizedPnlEth,
+    volumeEth,
     trades,
     breakdown,
     topWins,
@@ -208,9 +208,9 @@ function KolDetail() {
 
   const stats = [
     ["Win rate", winRate != null ? `${Math.round(winRate * 100)}%` : "—"],
-    ["PnL (ETH)", realizedPnlSol != null ? realizedPnlSol.toFixed(2) : "—"],
+    ["PnL (ETH)", realizedPnlEth != null ? realizedPnlEth.toFixed(2) : "—"],
     ["Trades", trades != null ? String(trades) : "—"],
-    ["Volume (ETH)", volumeSol != null ? volumeSol.toFixed(1) : "—"],
+    ["Volume (ETH)", volumeEth != null ? volumeEth.toFixed(1) : "—"],
     ["Since open", fmtPct(changePct)],
     ["Market cap", fmtCompact(liveCap)],
     ["Perf score", String(liveScore)],

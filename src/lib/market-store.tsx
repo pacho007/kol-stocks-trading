@@ -76,10 +76,10 @@ export type ClosedTrade = {
 
 export type KolMetrics = {
   /** Realized PnL over the scoring window, in the chain's native token. */
-  realizedPnlSol: number;
+  realizedPnlEth: number;
   winRate: number;
   /** Traded volume over the scoring window, in the chain's native token. */
-  volumeSol: number;
+  volumeEth: number;
   trades: number;
   topWins?: ClosedTrade[];
   topLosses?: ClosedTrade[];
@@ -275,7 +275,23 @@ export function MarketProvider({ children }: { children: ReactNode }) {
         });
         setMetrics((prev) => {
           const next = { ...prev };
-          for (const r of data.rows) if (r.metrics) next[r.id] = r.metrics;
+          for (const r of data.rows) {
+            if (!r.metrics) continue;
+            // These were realizedPnlSol/volumeSol before the move to Robinhood
+            // Chain, and a scores.json published by an older oracle may still
+            // be sitting in public/ or on a deployed build. Accept either
+            // spelling rather than rendering "—" for PnL and volume until the
+            // next oracle run, same as nativePriceUsd ?? solPriceUsd above.
+            const m = r.metrics as KolMetrics & {
+              realizedPnlSol?: number;
+              volumeSol?: number;
+            };
+            next[r.id] = {
+              ...m,
+              realizedPnlEth: m.realizedPnlEth ?? m.realizedPnlSol ?? 0,
+              volumeEth: m.volumeEth ?? m.volumeSol ?? 0,
+            };
+          }
           return next;
         });
         setBreakdowns((prev) => {
@@ -343,6 +359,13 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       }
     }
     return next;
+    // nativePriceUsd is intentionally listed even though the body reads
+    // nativePriceRef.current instead. The ref is what keeps the value current
+    // without re-subscribing, but a ref read cannot trigger recomputation —
+    // without this dep, every USD price would freeze at whatever the rate was
+    // when the memo last ran. eslint sees an "unnecessary" dep; removing it
+    // would silently stop the board updating.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feed.listings, onChainListings, scores, nativePriceUsd]);
 
   const backingPerShare = useMemo(() => {
@@ -387,6 +410,10 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       next[id] = points.map((pt) => ({ t: pt.t, p: pt.p * nativePriceRef.current }));
     }
     return next;
+    // Same reasoning as `prices` above: the body converts through
+    // nativePriceRef.current, so this dep is what makes the chart re-derive
+    // when the USD rate moves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feed.configured, feed.history, localHistory, nativePriceUsd]);
 
   /** Max tolerated adverse move between quote and confirm before the
@@ -604,8 +631,8 @@ export function useKolStats(id: string) {
     marketCapUsd,
     changePct,
     winRate: m ? m.winRate : undefined,
-    realizedPnlSol: m ? m.realizedPnlSol : undefined,
-    volumeSol: m ? m.volumeSol : undefined,
+    realizedPnlEth: m ? m.realizedPnlEth : undefined,
+    volumeEth: m ? m.volumeEth : undefined,
     trades: m ? m.trades : undefined,
     topWins: m?.topWins ?? [],
     topLosses: m?.topLosses ?? [],

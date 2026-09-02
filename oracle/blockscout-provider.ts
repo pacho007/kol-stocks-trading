@@ -293,8 +293,8 @@ async function movementsForWallet(wallet: string): Promise<Movement[]> {
  */
 export function metricsFromMovements(wallet: string, movements: Movement[]): RawMetrics {
   const book = new Map<string, { qty: number; cost: number }>();
-  let realizedPnlSol = 0;
-  let volumeSol = 0;
+  let realizedPnlEth = 0;
+  let volumeEth = 0;
   let closedTrades = 0;
   let wins = 0;
 
@@ -313,19 +313,19 @@ export function metricsFromMovements(wallet: string, movements: Movement[]): Raw
       const spent = -nativeDelta;
       pos.qty += amount;
       pos.cost += spent;
-      volumeSol += spent;
+      volumeEth += spent;
       book.set(token, pos);
     } else if (amount < 0 && nativeDelta > 0) {
       // SELL: gave up tokens, received native
       const soldQty = -amount;
       const proceeds = nativeDelta;
-      volumeSol += proceeds;
+      volumeEth += proceeds;
 
       const avgCost = pos.qty > 0 ? pos.cost / pos.qty : 0;
       const costOfSold = avgCost * Math.min(soldQty, pos.qty);
       const pnl = proceeds - costOfSold;
 
-      realizedPnlSol += pnl;
+      realizedPnlEth += pnl;
       closedTrades += 1;
       if (pnl > 0) wins += 1;
 
@@ -359,9 +359,9 @@ export function metricsFromMovements(wallet: string, movements: Movement[]): Raw
 
   return {
     id: wallet, // caller remaps to the listing id
-    realizedPnlSol,
+    realizedPnlEth,
     winRate: closedTrades > 0 ? wins / closedTrades : 0,
-    volumeSol,
+    volumeEth,
     trades: closedTrades,
     topWins,
     topLosses,

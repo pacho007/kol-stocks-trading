@@ -140,7 +140,7 @@ type PublishedRow = {
   score: number;
   priceUsd: number;
   marketCapUsd: number;
-  metrics: { realizedPnlSol: number; winRate: number; volumeSol: number; trades: number };
+  metrics: { realizedPnlEth: number; winRate: number; volumeEth: number; trades: number };
 };
 
 type Published = {
@@ -170,9 +170,9 @@ async function once(): Promise<void> {
         priceUsd,
         marketCapUsd: priceUsd * SHARES_PER_LISTING,
         metrics: {
-          realizedPnlSol: r.metrics.realizedPnlSol,
+          realizedPnlEth: r.metrics.realizedPnlEth,
           winRate: r.metrics.winRate,
-          volumeSol: r.metrics.volumeSol,
+          volumeEth: r.metrics.volumeEth,
           trades: r.metrics.trades,
           // The individual closes behind those aggregates — the evidence a
           // score is asserted from, rather than just the conclusion.
