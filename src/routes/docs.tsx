@@ -52,9 +52,9 @@ function Docs() {
       <p className="num text-[10px] tracking-[0.3em] uppercase text-primary">Documentation</p>
       <h1 className="mt-2 text-3xl font-bold sm:text-4xl">How SHARPS works</h1>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-        SHARPS lists on-chain crypto traders as tradable stocks. This page explains, in plain
-        terms, how a listing gets priced, what actually happens on-chain when you buy or sell, and
-        what risk you're taking on when you do.
+        SHARPS lists on-chain crypto traders as tradable stocks. This page explains, in plain terms,
+        how a listing gets priced, what actually happens on-chain when you buy or sell, and what
+        risk you're taking on when you do.
       </p>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
@@ -99,19 +99,30 @@ function Docs() {
 
           <DocSection id="listings" kicker="02 · Listings" title="What a ticker actually is">
             <p>
-              Each listing has a ticker (like <span className="num text-foreground">$COOK</span>),
-              a name, and a linked wallet address you can verify yourself on any Robinhood Chain
+              Each listing has a ticker (like <span className="num text-foreground">$COOK</span>), a
+              name, and a linked wallet address you can verify yourself on any Robinhood Chain
               explorer. A listing exists on-chain once it's been created by the contract admin —
               until then it shows an estimated price only, and can't be traded.
             </p>
             <dl className="mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
               {[
-                ["Share cap", "10,000,000 shares max per listing — a comparability constant, not a solvency limit."],
-                ["Open price", "Every listing opens at a neutral baseline (score 50) the moment it's created."],
-                ["Verification", "The linked wallet is public — check it against the trader's real on-chain history."],
+                [
+                  "Share cap",
+                  "10,000,000 shares max per listing — a comparability constant, not a solvency limit.",
+                ],
+                [
+                  "Open price",
+                  "Every listing opens at a neutral baseline (score 50) the moment it's created.",
+                ],
+                [
+                  "Verification",
+                  "The linked wallet is public — check it against the trader's real on-chain history.",
+                ],
               ].map(([k, v]) => (
                 <div key={k} className="bg-card px-4 py-3.5">
-                  <p className="text-[10px] tracking-[0.18em] uppercase text-muted-foreground">{k}</p>
+                  <p className="text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
+                    {k}
+                  </p>
                   <p className="mt-1 text-xs leading-relaxed text-foreground">{v}</p>
                 </div>
               ))}
@@ -168,15 +179,15 @@ function Docs() {
               ))}
             </dl>
             <p className="mt-4">
-              Because it's a ranking, <b className="text-foreground">a score falls as well as
-              rises</b>. A trader can have a decent month and still slide if the rest of the field
-              did better.
+              Because it's a ranking,{" "}
+              <b className="text-foreground">a score falls as well as rises</b>. A trader can have a
+              decent month and still slide if the rest of the field did better.
             </p>
             <InfoCard tone="neutral" title="Small samples are pulled toward neutral">
-              A wallet with very few recorded trades is shrunk toward the neutral midpoint of 50,
-              in proportion to how little data there is. One lucky trade nudges a score; it can't
-              swing it. Only a sustained record earns the full percentile — which is the entire
-              point of pricing on skill rather than noise.
+              A wallet with very few recorded trades is shrunk toward the neutral midpoint of 50, in
+              proportion to how little data there is. One lucky trade nudges a score; it can't swing
+              it. Only a sustained record earns the full percentile — which is the entire point of
+              pricing on skill rather than noise.
             </InfoCard>
             <p>
               Two more brakes: a trader with no post-launch trades sits at exactly 50 (everyone
@@ -233,7 +244,9 @@ function Docs() {
 
           <DocSection id="buying" kicker="06 · Buying" title="What happens when you buy">
             <ol className="list-decimal space-y-2 pl-5">
-              <li>Connect an EVM wallet on Robinhood Chain and pick how much ETH you want to spend.</li>
+              <li>
+                Connect an EVM wallet on Robinhood Chain and pick how much ETH you want to spend.
+              </li>
               <li>
                 The app quotes you a share count at the listing's current on-chain price, and
                 submits a real transaction for your wallet to approve.
@@ -254,9 +267,9 @@ function Docs() {
             </p>
             <InfoCard tone="neutral" title="How shares are held">
               Shares live in the SHARPS contract's own ledger keyed to your address — they are not
-              ERC-20 tokens, so they won't appear in your wallet's token list and can't be traded
-              on an outside DEX. You can send them to another address directly through the
-              contract, and only you can move your own balance.
+              ERC-20 tokens, so they won't appear in your wallet's token list and can't be traded on
+              an outside DEX. You can send them to another address directly through the contract,
+              and only you can move your own balance.
             </InfoCard>
           </DocSection>
 
@@ -300,9 +313,9 @@ function Docs() {
               enough. That's replaced.
             </p>
             <p>
-              The chain remains the source of truth. The feed is a queryable mirror of it, and can be
-              rebuilt from scratch by replaying events, so it can't drift into being its own separate
-              version of reality.
+              The chain remains the source of truth. The feed is a queryable mirror of it, and can
+              be rebuilt from scratch by replaying events, so it can't drift into being its own
+              separate version of reality.
             </p>
           </DocSection>
 
@@ -370,9 +383,8 @@ function Docs() {
           <DocSection id="sessions" kicker="11 · Sessions" title="Market hours">
             <p>
               SHARPS runs on real-world session windows — Asia, London, and New York — rolling
-              through the day from 00:00 UTC to 21:00 UTC on weekdays. Prices keep updating
-              whenever the overall market is open, and trading is closed outside those hours and
-              on weekends.
+              through the day from 00:00 UTC to 21:00 UTC on weekdays. Prices keep updating whenever
+              the overall market is open, and trading is closed outside those hours and on weekends.
             </p>
             <p>
               The oracle score refreshes on its own cadence (roughly every 20 minutes) independent
@@ -415,8 +427,8 @@ function Docs() {
               </li>
               <li>
                 <b className="text-foreground">Admin controls exist.</b> A contract admin key can
-                pause trading market-wide or on an individual listing, and can create new
-                listings. It cannot access, redirect, or withdraw funds from any vault.
+                pause trading market-wide or on an individual listing, and can create new listings.
+                It cannot access, redirect, or withdraw funds from any vault.
               </li>
               <li>
                 <b className="text-foreground">On-chain, irreversible.</b> Every buy and sell is a
@@ -424,8 +436,8 @@ function Docs() {
               </li>
               <li>
                 <b className="text-foreground">Unaudited contract.</b> The SHARPS contract has not
-                been through a third-party security audit. It holds user funds. Treat it
-                accordingly and don't commit more than you're willing to lose.
+                been through a third-party security audit. It holds user funds. Treat it accordingly
+                and don't commit more than you're willing to lose.
               </li>
               <li>
                 <b className="text-foreground">Identity is best-effort.</b> Trader names, avatars,
@@ -440,14 +452,38 @@ function Docs() {
             <dl className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
               {[
                 ["Listing", "One tracked trader wallet, tradable as a stock with its own ticker."],
-                ["Share", "A unit of a listing, held in the contract's ledger against your address. Whole numbers only."],
-                ["Perf score", "0–100, that trader's rank against the whole field. Relative, so it moves when standing moves."],
-                ["Multiplier", "What the score does to the price. 1× at score 50; higher lifts the curve, lower drops it."],
-                ["Curve", "Each successive share costs more than the last. Buying walks price up, selling walks it down."],
-                ["Reserve", "The ETH backing one listing, held by the contract. Kept equal to the curve value of all outstanding shares."],
-                ["Backing / share", "Reserve divided by outstanding shares — the money actually behind each share."],
-                ["Market cap", "Price × the 10,000,000 share cap. A comparability figure, NOT money in the listing."],
-                ["Price lags score", "The score wants a higher price than the reserve can back yet. Shown, not hidden."],
+                [
+                  "Share",
+                  "A unit of a listing, held in the contract's ledger against your address. Whole numbers only.",
+                ],
+                [
+                  "Perf score",
+                  "0–100, that trader's rank against the whole field. Relative, so it moves when standing moves.",
+                ],
+                [
+                  "Multiplier",
+                  "What the score does to the price. 1× at score 50; higher lifts the curve, lower drops it.",
+                ],
+                [
+                  "Curve",
+                  "Each successive share costs more than the last. Buying walks price up, selling walks it down.",
+                ],
+                [
+                  "Reserve",
+                  "The ETH backing one listing, held by the contract. Kept equal to the curve value of all outstanding shares.",
+                ],
+                [
+                  "Backing / share",
+                  "Reserve divided by outstanding shares — the money actually behind each share.",
+                ],
+                [
+                  "Market cap",
+                  "Price × the 10,000,000 share cap. A comparability figure, NOT money in the listing.",
+                ],
+                [
+                  "Price lags score",
+                  "The score wants a higher price than the reserve can back yet. Shown, not hidden.",
+                ],
                 ["Oracle", "The narrow key that pushes scores on-chain. It cannot move funds."],
               ].map(([k, v]) => (
                 <div key={k} className="bg-card px-4 py-3.5">

@@ -353,10 +353,7 @@ function KolDetail() {
 
             <dl className="mt-4 space-y-1.5 border-t border-border pt-3 text-xs">
               <Row label="Price / share now" value={fmtUsd(price)} />
-              <Row
-                label="Backing / share"
-                value={backingUsd != null ? fmtUsd(backingUsd) : "—"}
-              />
+              <Row label="Backing / share" value={backingUsd != null ? fmtUsd(backingUsd) : "—"} />
               {side === "buy" ? (
                 <>
                   <Row label="Shares you'll get" value={derivedShares.toLocaleString()} />
@@ -429,8 +426,8 @@ function KolDetail() {
                     lands in your wallet, not an estimate that can be cut short.
                   </p>
                   <p>
-                    Selling reduces the supply, so the price steps down for whoever holds next —
-                    the same way your buy stepped it up.
+                    Selling reduces the supply, so the price steps down for whoever holds next — the
+                    same way your buy stepped it up.
                   </p>
                 </>
               )}
@@ -489,8 +486,8 @@ function KolDetail() {
               <li>
                 <b className="text-foreground">4 · Price can lag the score.</b> A score rise only
                 lifts the price as far as the reserve can actually back. A trader who's performing
-                but barely traded will show a high score and a price still catching up — that gap
-                is real, and shown rather than hidden.
+                but barely traded will show a high score and a price still catching up — that gap is
+                real, and shown rather than hidden.
               </li>
             </ol>
             <p className="mt-3 border-t border-border pt-2.5 text-[10px] text-muted-foreground">
@@ -550,8 +547,7 @@ function TraderEscrowPanel({ kol }: { kol: ReturnType<typeof getKol> & {} }) {
   const [owedWei, setOwedWei] = useState<bigint>(0n);
   const [claiming, setClaiming] = useState(false);
 
-  const isTrader =
-    connected && !!address && address.toLowerCase() === kol.wallet.toLowerCase();
+  const isTrader = connected && !!address && address.toLowerCase() === kol.wallet.toLowerCase();
 
   useEffect(() => {
     let alive = true;
@@ -638,8 +634,8 @@ function TraderEscrowPanel({ kol }: { kol: ReturnType<typeof getKol> & {} }) {
 
       {!isTrader && (
         <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
-          If this is your wallet, connect it and the claim button appears here. Nothing expires —
-          it keeps accruing whether or not anyone ever turns up for it.
+          If this is your wallet, connect it and the claim button appears here. Nothing expires — it
+          keeps accruing whether or not anyone ever turns up for it.
         </p>
       )}
     </div>
@@ -764,8 +760,7 @@ function FeeRow({
   return (
     <div className="flex items-baseline justify-between gap-3">
       <span className="min-w-0 truncate text-muted-foreground">
-        <span className="text-foreground">{label}</span>{" "}
-        <span className="text-[9px]">{pct}</span>
+        <span className="text-foreground">{label}</span> <span className="text-[9px]">{pct}</span>
         <span className="block text-[9px] leading-tight">{note}</span>
       </span>
       <span className="num shrink-0 text-foreground">{value}</span>

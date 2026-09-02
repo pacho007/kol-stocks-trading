@@ -70,7 +70,8 @@
   --grid: oklch(0.66 0.19 350 / 0.07);
   --shadow-glow: 0 0 60px -18px color-mix(in oklab, var(--primary) 40%, transparent);
   --shadow-vault: 0 1px 2px rgb(24 12 20 / 0.05), 0 18px 40px -28px rgb(24 12 20 / 0.25);
-  --gradient-hero: radial-gradient(
+  --gradient-hero:
+    radial-gradient(
       110% 80% at 50% -10%,
       color-mix(in oklab, var(--primary) 12%, transparent) 0%,
       transparent 62%
@@ -132,8 +133,6 @@
   --gradient-panel: linear-gradient(180deg, oklch(0.2 0 0), oklch(0.17 0 0));
 }
 
-
-
 @layer base {
   * {
     border-color: var(--color-border);
@@ -169,7 +168,8 @@
 }
 
 @utility grid-bg {
-  background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid) 1px, transparent 1px);
   background-size: 56px 56px;
   mask-image: radial-gradient(80% 60% at 50% 0%, black, transparent 85%);
@@ -233,7 +233,6 @@
   height: 0;
   display: none;
 }
-
 
 @utility scanline {
   position: relative;
@@ -346,7 +345,6 @@
   animation: splash-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-
 @keyframes letter-in {
   0% {
     opacity: 0;
@@ -396,7 +394,7 @@
       transparent 60%
     ),
     /* fine grain texture baked into the glyph */
-      repeating-linear-gradient(
+    repeating-linear-gradient(
         24deg,
         color-mix(in oklab, var(--foreground) 14%, transparent) 0px,
         transparent 1.2px,
@@ -450,7 +448,8 @@
 }
 
 .splash-grid {
-  background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--grid) 1px, transparent 1px);
   background-size: 72px 72px;
   mask-image: radial-gradient(70% 60% at 50% 45%, black, transparent 88%);

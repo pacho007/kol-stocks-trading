@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "test:contracts": "forge test --root evm",
-    "verify": "npm run typecheck && npm run test:contracts",
+    "verify": "npm run typecheck && npm run lint && npm run test:contracts",
     "seed:listings": "tsx supabase/seed-listings.ts",
     "oracle:publish": "tsx oracle/publish.ts",
     "oracle:push": "tsx oracle/push-onchain-evm.ts"

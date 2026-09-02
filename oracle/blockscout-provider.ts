@@ -25,8 +25,7 @@
 import type { RawMetrics } from "./score.js";
 import type { PnlProvider } from "./indexer.js";
 
-const BASE_URL =
-  process.env.BLOCKSCOUT_URL ?? "https://robinhoodchain.blockscout.com";
+const BASE_URL = process.env.BLOCKSCOUT_URL ?? "https://robinhoodchain.blockscout.com";
 
 /**
  * Blockscout sits behind Cloudflare and returns an interstitial challenge to
@@ -194,9 +193,7 @@ export type ClosedTrade = {
 
 /** Fall back to a shortened contract address when a token has no symbol. */
 function shortToken(addr: string): string {
-  return addr.startsWith("0x") && addr.length > 10
-    ? `${addr.slice(0, 6)}…${addr.slice(-4)}`
-    : addr;
+  return addr.startsWith("0x") && addr.length > 10 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
 }
 
 /** Per-transaction net movement for this wallet: dominant token + native delta. */
@@ -301,9 +298,7 @@ export function metricsFromMovements(wallet: string, movements: Movement[]): Raw
   let closedTrades = 0;
   let wins = 0;
 
-  const ordered = [...movements]
-    .filter((m) => m.ts >= LAUNCH_TS)
-    .sort((a, b) => a.ts - b.ts);
+  const ordered = [...movements].filter((m) => m.ts >= LAUNCH_TS).sort((a, b) => a.ts - b.ts);
 
   // Every closed position, kept so the biggest winners/losers can be shown
   // next to the score. The PnL per close is already computed below; it used

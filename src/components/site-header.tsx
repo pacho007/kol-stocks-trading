@@ -151,39 +151,42 @@ export function ConnectWalletButton({
         {installedWallets.length > 1 && <ChevronDown className="size-3 opacity-60" />}
       </button>
 
-      {pickerOpen && menuPos && typeof document !== "undefined" && createPortal(
-        // Portalled to <body> so a clipping ancestor (the hero panel is
-        // overflow-hidden) can't cut it off, and scrollable + viewport-capped
-        // because EIP-6963 discovers an unbounded number of wallets.
-        <div
-          ref={menuRef}
-          style={{ position: "fixed", top: menuPos.top, right: menuPos.right }}
-          className="z-[100] max-h-[min(60vh,22rem)] w-52 overflow-y-auto overscroll-contain rounded-xl border border-border bg-background/95 py-1 shadow-xl backdrop-blur-xl"
-        >
-          {installedWallets.length === 0 ? (
-            <p className="px-3 py-2 text-[11px] text-muted-foreground">
-              No EVM wallet detected. Install MetaMask or Rabby.
-            </p>
-          ) : (
-            installedWallets.map((w) => (
-              <button
-                key={w.info.rdns}
-                onClick={() => {
-                  connect(w).catch(() => {
-                    /* user rejected the wallet prompt */
-                  });
-                  setPickerOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[11px] font-medium text-foreground hover:bg-primary/10"
-              >
-                {w.info.icon && <img src={w.info.icon} alt="" className="size-4" />}
-                {w.info.name}
-              </button>
-            ))
-          )}
-        </div>,
-        document.body,
-      )}
+      {pickerOpen &&
+        menuPos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          // Portalled to <body> so a clipping ancestor (the hero panel is
+          // overflow-hidden) can't cut it off, and scrollable + viewport-capped
+          // because EIP-6963 discovers an unbounded number of wallets.
+          <div
+            ref={menuRef}
+            style={{ position: "fixed", top: menuPos.top, right: menuPos.right }}
+            className="z-[100] max-h-[min(60vh,22rem)] w-52 overflow-y-auto overscroll-contain rounded-xl border border-border bg-background/95 py-1 shadow-xl backdrop-blur-xl"
+          >
+            {installedWallets.length === 0 ? (
+              <p className="px-3 py-2 text-[11px] text-muted-foreground">
+                No EVM wallet detected. Install MetaMask or Rabby.
+              </p>
+            ) : (
+              installedWallets.map((w) => (
+                <button
+                  key={w.info.rdns}
+                  onClick={() => {
+                    connect(w).catch(() => {
+                      /* user rejected the wallet prompt */
+                    });
+                    setPickerOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[11px] font-medium text-foreground hover:bg-primary/10"
+                >
+                  {w.info.icon && <img src={w.info.icon} alt="" className="size-4" />}
+                  {w.info.name}
+                </button>
+              ))
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -268,7 +271,9 @@ export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-surface/40">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-8 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p className="num tracking-wide">SHARPS © 2026, {ACTIVE_CHAIN.name}. Not financial advice.</p>
+        <p className="num tracking-wide">
+          SHARPS © 2026, {ACTIVE_CHAIN.name}. Not financial advice.
+        </p>
         <p className="num tracking-wide">
           Displayed price is a quote, not a guaranteed redemption value — sell payouts are capped by
           each listing&apos;s available on-chain balance.

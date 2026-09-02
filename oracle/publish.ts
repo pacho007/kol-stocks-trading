@@ -115,7 +115,9 @@ async function fetchNativePriceUsd(): Promise<number> {
     },
     // Coingecko
     async () => {
-      const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+      const r = await fetch(
+        "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
+      );
       if (!r.ok) return null;
       const j = (await r.json()) as { ethereum?: { usd?: number } };
       const p = Number(j.ethereum?.usd);
@@ -192,12 +194,20 @@ async function once(): Promise<void> {
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, json, "utf8");
   }
-  const top = published.rows.filter((r) => r.score !== 50).sort((a, b) => b.score - a.score).slice(0, 8);
+  const top = published.rows
+    .filter((r) => r.score !== 50)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
   console.log(
     `\nETH $${nativePriceUsd.toFixed(2)} · wrote ${published.rows.length} scores -> ${OUT_TARGETS.join(", ")}` +
       (top.length
         ? `\n  movers:\n` +
-          top.map((r) => `    ${r.id.padEnd(10)} score ${String(r.score).padStart(3)}  $${r.priceUsd.toFixed(4)}`).join("\n")
+          top
+            .map(
+              (r) =>
+                `    ${r.id.padEnd(10)} score ${String(r.score).padStart(3)}  $${r.priceUsd.toFixed(4)}`,
+            )
+            .join("\n")
         : `\n  (all at neutral 50 — no post-launch trades counted yet)`),
   );
 }

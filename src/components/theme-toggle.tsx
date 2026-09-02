@@ -66,7 +66,9 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
       onClick={toggle}
       // Until mounted the icon is a guess, so don't announce a state that
       // might be wrong to a screen reader mid-hydration.
-      aria-label={mounted ? `Switch to ${theme === "dark" ? "light" : "dark"} mode` : "Switch theme"}
+      aria-label={
+        mounted ? `Switch to ${theme === "dark" ? "light" : "dark"} mode` : "Switch theme"
+      }
       title={mounted ? `Switch to ${theme === "dark" ? "light" : "dark"} mode` : "Switch theme"}
       className={`inline-flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${className}`}
     >

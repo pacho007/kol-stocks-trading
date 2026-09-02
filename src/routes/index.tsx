@@ -1,7 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
 import { KOLS } from "@/lib/kols";
 import bgVideo from "@/assets/sharps-bg-4k.mp4.asset.json";
+import heroPoster from "@/assets/hero-banner.jpg";
+
+/**
+ * Starts false so the server and the first client render agree — reading
+ * matchMedia during render would either crash on the server (no window) or
+ * produce markup that disagrees with the server's, which makes React discard
+ * the whole tree on hydration.
+ */
+function usePrefersReducedMotion() {
+  const [reduce, setReduce] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReduce(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return reduce;
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -26,19 +46,39 @@ export const Route = createFileRoute("/")({
 
 function Splash() {
   const tape = KOLS.slice(0, 22);
+  const reduceMotion = usePrefersReducedMotion();
 
   return (
     <div className="relative isolate flex min-h-[100svh] flex-col overflow-hidden bg-[#05060c]">
-      {/* 4K video backdrop */}
-      <video
-        className="pointer-events-none absolute inset-0 -z-20 size-full object-cover"
-        src={bgVideo.url}
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="auto"
+      {/* 4K video backdrop.
+          The file is ~40MB, so how it loads matters more than that it loads:
+          - poster paints the hero instantly instead of leaving a black box
+            for however long 40MB takes on the visitor's connection;
+          - preload="none" keeps that 40MB off the critical path — autoPlay
+            still starts the fetch, but it no longer competes with the JS and
+            CSS needed to make the page interactive;
+          - it is skipped entirely under prefers-reduced-motion, where a
+            looping full-bleed video is exactly what that setting is for. */}
+      {!reduceMotion && (
+        <video
+          className="pointer-events-none absolute inset-0 -z-20 size-full object-cover"
+          src={bgVideo.url}
+          poster={heroPoster}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="none"
+          aria-hidden
+        />
+      )}
+      {/* Reduced-motion and pre-roll both fall back to the still, so the hero
+          never renders as a bare black rectangle. */}
+      <img
+        src={heroPoster}
+        alt=""
         aria-hidden
+        className="pointer-events-none absolute inset-0 -z-30 size-full object-cover"
       />
       <div
         aria-hidden

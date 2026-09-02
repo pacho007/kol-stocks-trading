@@ -152,14 +152,20 @@ function main() {
 
   console.log("=== Machine B: $0.01 open, price moves ONLY on performance ===\n");
   console.log(`Pool per listing: ${SHARES_PER_LISTING.toLocaleString()} shares`);
-  console.log(`Open price: $${OPEN_PRICE_USD} => opening cap $${(OPEN_PRICE_USD * SHARES_PER_LISTING).toLocaleString()}`);
-  console.log(`Price rails: $${(OPEN_PRICE_USD * PRICE_FLOOR_MULT).toFixed(4)} .. $${(OPEN_PRICE_USD * PRICE_CAP_MULT).toFixed(4)}\n`);
+  console.log(
+    `Open price: $${OPEN_PRICE_USD} => opening cap $${(OPEN_PRICE_USD * SHARES_PER_LISTING).toLocaleString()}`,
+  );
+  console.log(
+    `Price rails: $${(OPEN_PRICE_USD * PRICE_FLOOR_MULT).toFixed(4)} .. $${(OPEN_PRICE_USD * PRICE_CAP_MULT).toFixed(4)}\n`,
+  );
 
   // score -> price table
   console.log("score -> price -> market cap");
   for (const sc of [0, 10, 25, 50, 60, 75, 90, 100]) {
     const p = scoreToPriceUsd(sc);
-    console.log(`  ${String(sc).padStart(3)}  ->  $${p.toFixed(4)}  ->  $${(p * SHARES_PER_LISTING).toLocaleString(undefined,{maximumFractionDigits:0})}`);
+    console.log(
+      `  ${String(sc).padStart(3)}  ->  $${p.toFixed(4)}  ->  $${(p * SHARES_PER_LISTING).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+    );
   }
 
   // a real cohort -> prices
@@ -174,19 +180,31 @@ function main() {
   const l = newListing("cented");
   const centedScore = scored.find((s) => s.id === "cented")!.score;
   applyScore(l, centedScore);
-  console.log(`cented score ${centedScore} -> price $${l.priceUsd.toFixed(4)}, cap $${marketCapUsd(l).toLocaleString(undefined,{maximumFractionDigits:0})}`);
+  console.log(
+    `cented score ${centedScore} -> price $${l.priceUsd.toFixed(4)}, cap $${marketCapUsd(l).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+  );
 
   const b1 = buyWithSol(l, 1, SOL_USD); // buy with 1 SOL
-  console.log(`  buy 1 SOL ($${SOL_USD}) -> ${b1.shares.toLocaleString()} shares, price still $${l.priceUsd.toFixed(4)}`);
+  console.log(
+    `  buy 1 SOL ($${SOL_USD}) -> ${b1.shares.toLocaleString()} shares, price still $${l.priceUsd.toFixed(4)}`,
+  );
   const b2 = buyWithSol(l, 5, SOL_USD); // buy with 5 SOL
-  console.log(`  buy 5 SOL ($${(5*SOL_USD)}) -> ${b2.shares.toLocaleString()} shares, price still $${l.priceUsd.toFixed(4)}`);
-  console.log(`  pool remaining: ${l.poolRemaining.toLocaleString()} / ${l.poolTotal.toLocaleString()}`);
+  console.log(
+    `  buy 5 SOL ($${5 * SOL_USD}) -> ${b2.shares.toLocaleString()} shares, price still $${l.priceUsd.toFixed(4)}`,
+  );
+  console.log(
+    `  pool remaining: ${l.poolRemaining.toLocaleString()} / ${l.poolTotal.toLocaleString()}`,
+  );
 
   console.log("\n=== now the trader performs better: oracle lifts price ===\n");
   applyScore(l, 90);
-  console.log(`  score -> 90, price now $${l.priceUsd.toFixed(4)} (holders gained, no trade needed)`);
+  console.log(
+    `  score -> 90, price now $${l.priceUsd.toFixed(4)} (holders gained, no trade needed)`,
+  );
   const s1 = sellShares(l, b1.shares, SOL_USD);
-  console.log(`  sell ${b1.shares.toLocaleString()} shares -> $${s1.usdOut.toFixed(2)} (${s1.solOut.toFixed(3)} SOL) at the higher price`);
+  console.log(
+    `  sell ${b1.shares.toLocaleString()} shares -> $${s1.usdOut.toFixed(2)} (${s1.solOut.toFixed(3)} SOL) at the higher price`,
+  );
 
   console.log("\nPrice moved ONLY when performance changed — never from buying.\n");
 }

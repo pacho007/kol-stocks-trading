@@ -1,8 +1,0 @@
-[workspace]
-resolver = "2"
-members = ["programs/sharps"]
-
-[profile.release]
-overflow-checks = true
-lto = "fat"
-codegen-units = 1

@@ -6,7 +6,22 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi"] },
+  {
+    ignores: [
+      "dist",
+      ".output",
+      ".vinxi",
+      // Generated and owned by Lovable Cloud — regenerated on their side, so
+      // our fixes here would be overwritten and our rules aren't theirs to
+      // satisfy. Same reason routeTree.gen.ts is in .prettierignore.
+      "src/integrations/supabase/**",
+      "src/routeTree.gen.ts",
+      // Foundry dependency + build output.
+      "evm/lib/**",
+      "evm/out/**",
+      "evm/cache/**",
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

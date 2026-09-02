@@ -184,8 +184,7 @@ export function scoreToAnchor(score: number, gain = 2.0): number {
   // map score 0..100 -> multiplier. score 50 -> ~1x, 100 -> ~ (1+gain)x, 0 -> ~1/(1+gain)x
   const s = Math.max(0, Math.min(100, score)) / 100; // 0..1
   const centered = (s - 0.5) * 2; // -1..1
-  const mult =
-    centered >= 0 ? 1 + centered * gain : 1 / (1 + -centered * gain);
+  const mult = centered >= 0 ? 1 + centered * gain : 1 / (1 + -centered * gain);
   return BASE_PRICE * mult;
 }
 

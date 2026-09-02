@@ -19,13 +19,7 @@
  * touching the scorer.
  */
 
-import {
-  scoreCohort,
-  scoreToAnchor,
-  applyRateCap,
-  BASE_PRICE,
-  type RawMetrics,
-} from "./score.js";
+import { scoreCohort, scoreToAnchor, applyRateCap, BASE_PRICE, type RawMetrics } from "./score.js";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -292,7 +286,8 @@ function swapFromEvent(wallet: string, tx: HeliusTx): ParsedSwap | null {
   // dominant token moved
   let best: { mint: string; amount: number } | null = null;
   for (const [mint, amount] of byMint) {
-    if (amount !== 0 && (!best || Math.abs(amount) > Math.abs(best.amount))) best = { mint, amount };
+    if (amount !== 0 && (!best || Math.abs(amount) > Math.abs(best.amount)))
+      best = { mint, amount };
   }
   if (!best) return null;
   return { mint: best.mint, amount: best.amount, solDelta: solLamports / LAMPORTS };
@@ -379,7 +374,9 @@ export async function runOracle(
   provider: PnlProvider = HeliusPnlProvider,
   prevAnchors: Record<string, number> = {},
 ): Promise<OracleRow[]> {
-  console.log(`Indexing ${listings.length} wallets since launch ${new Date(LAUNCH_TS * 1000).toISOString()}...`);
+  console.log(
+    `Indexing ${listings.length} wallets since launch ${new Date(LAUNCH_TS * 1000).toISOString()}...`,
+  );
 
   // Concurrency-limited batching so hundreds of wallets don't hammer Helius.
   // CONCURRENCY simultaneous requests; tune down if you hit rate limits.
@@ -465,9 +462,7 @@ async function main() {
   for (const r of rows.sort((a, b) => b.score - a.score)) {
     console.log([r.id, r.score, r.targetAnchor.toFixed(6)].join("\t"));
   }
-  console.log(
-    "\nThis is real on-chain data feeding the exact same scorer the demo used.",
-  );
+  console.log("\nThis is real on-chain data feeding the exact same scorer the demo used.");
 }
 
 // run only if invoked directly (not when imported, e.g. by publish.ts)

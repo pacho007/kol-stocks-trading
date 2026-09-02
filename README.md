@@ -65,16 +65,17 @@ cd evm && forge install foundry-rs/forge-std && forge test
 
 ### Scripts
 
-| Script | Does |
-|---|---|
-| `npm run dev` / `build` | app |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run test:contracts` | `forge test --root evm` (39 tests) |
-| `npm run verify` | typecheck + contract tests — the pre-push gate |
-| `npm run lint` | ESLint. **Currently ~485 formatting errors**; run `npm run format` to clear them, ideally when nobody else is mid-change, since it touches most files |
-| `npm run seed:listings` | writes `src/lib/kols.ts` into Postgres |
-| `npm run oracle:publish` | scores wallets, writes JSON (no chain writes) |
-| `npm run oracle:push` | scores wallets and pushes on-chain |
+| Script                   | Does                                                                  |
+| ------------------------ | --------------------------------------------------------------------- |
+| `npm run dev` / `build`  | app                                                                   |
+| `npm run typecheck`      | `tsc --noEmit`                                                        |
+| `npm run test:contracts` | `forge test --root evm` (39 tests)                                    |
+| `npm run verify`         | typecheck + lint + contract tests — the pre-push gate                 |
+| `npm run lint`           | ESLint. Clean; the remaining warnings are dev-only fast-refresh hints |
+| `npm run format`         | Prettier                                                              |
+| `npm run seed:listings`  | writes `src/lib/kols.ts` into Postgres                                |
+| `npm run oracle:publish` | scores wallets, writes JSON (no chain writes)                         |
+| `npm run oracle:push`    | scores wallets and pushes on-chain                                    |
 
 ---
 

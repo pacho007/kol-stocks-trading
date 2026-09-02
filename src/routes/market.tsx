@@ -142,10 +142,22 @@ function Market() {
                 {rows.map((k) => {
                   const up = k.change24h >= 0;
                   return (
-                    <tr key={k.id} className="border-b border-border/70 bg-card last:border-0 hover:bg-surface">
+                    <tr
+                      key={k.id}
+                      className="border-b border-border/70 bg-card last:border-0 hover:bg-surface"
+                    >
                       <td className="px-4 py-3">
-                        <Link to="/kol/$id" params={{ id: k.id }} className="flex items-center gap-3">
-                          <AvatarMark gradient={k.avatar} label={k.ticker} src={k.image} size={32} />
+                        <Link
+                          to="/kol/$id"
+                          params={{ id: k.id }}
+                          className="flex items-center gap-3"
+                        >
+                          <AvatarMark
+                            gradient={k.avatar}
+                            label={k.ticker}
+                            src={k.image}
+                            size={32}
+                          />
                           <div>
                             <p className="num text-sm font-bold tracking-widest">${k.ticker}</p>
                             <p className="text-xs text-muted-foreground">{k.handle}</p>

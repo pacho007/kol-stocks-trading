@@ -54,18 +54,27 @@ const robinhoodTestnet = defineChain({
   id: 46630,
   name: "Robinhood Chain Testnet",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-  rpcUrls: { default: { http: [process.env.ROBINHOOD_RPC_URL ?? "https://rpc.testnet.chain.robinhood.com"] } },
+  rpcUrls: {
+    default: { http: [process.env.ROBINHOOD_RPC_URL ?? "https://rpc.testnet.chain.robinhood.com"] },
+  },
 });
 
 const robinhoodMainnet = defineChain({
   id: 4663,
   name: "Robinhood Chain",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
-  rpcUrls: { default: { http: [process.env.ROBINHOOD_RPC_URL ?? "https://rpc.mainnet.chain.robinhood.com"] } },
+  rpcUrls: {
+    default: { http: [process.env.ROBINHOOD_RPC_URL ?? "https://rpc.mainnet.chain.robinhood.com"] },
+  },
 });
 
 async function loadFullListings(): Promise<ListingInput[] | null> {
-  const candidates = ["../src/lib/kols.js", "../src/lib/kols.ts", "../../src/lib/kols.js", "../../src/lib/kols.ts"];
+  const candidates = [
+    "../src/lib/kols.js",
+    "../src/lib/kols.ts",
+    "../../src/lib/kols.js",
+    "../../src/lib/kols.ts",
+  ];
   for (const path of candidates) {
     try {
       const mod = await import(path);
@@ -169,7 +178,9 @@ async function once(
     } else {
       const message = lastErr instanceof Error ? lastErr.message : String(lastErr);
       for (const r of chunk) manifest.results[r.id] = { status: "unknown_error", error: message };
-      console.warn(`  chunk ${i / CHUNK_SIZE + 1}: FAILED for ${chunk.map((r) => r.id).join(", ")}: ${message}`);
+      console.warn(
+        `  chunk ${i / CHUNK_SIZE + 1}: FAILED for ${chunk.map((r) => r.id).join(", ")}: ${message}`,
+      );
     }
 
     await sleep(SEND_GAP_MS);
@@ -182,7 +193,9 @@ async function once(
   const confirmed = Object.values(manifest.results).filter((v) => v.status === "confirmed").length;
   console.log(
     `\nCycle done: ${confirmed}/${rows.length} confirmed on-chain, ${failed.length} failed.` +
-      (failed.length ? ` See ${MANIFEST_PATH} for details — these listings' on-chain price is stale.` : ""),
+      (failed.length
+        ? ` See ${MANIFEST_PATH} for details — these listings' on-chain price is stale.`
+        : ""),
   );
 }
 
@@ -228,7 +241,9 @@ async function main() {
   if (watch) {
     console.log(`\nWatching — pushing on-chain updates every ${REFRESH_MIN} min. Ctrl-C to stop.`);
     setInterval(() => {
-      once(publicClient, walletClient, marketAddress, listings).catch((e) => console.error("push cycle failed:", e));
+      once(publicClient, walletClient, marketAddress, listings).catch((e) =>
+        console.error("push cycle failed:", e),
+      );
     }, REFRESH_MIN * 60_000);
   }
 }

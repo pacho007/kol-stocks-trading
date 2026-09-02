@@ -26,7 +26,8 @@ export const Route = createFileRoute("/portfolio")({
 });
 
 function Portfolio() {
-  const { connected, nativeBalance, nativePriceUsd, positions, trades, prices, reset } = useMarket();
+  const { connected, nativeBalance, nativePriceUsd, positions, trades, prices, reset } =
+    useMarket();
   const cashUsd = nativeBalance * nativePriceUsd;
 
   const rows = positions

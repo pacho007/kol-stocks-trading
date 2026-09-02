@@ -57,7 +57,11 @@ export function PriceChart({ id, up }: { id: string; up: boolean }) {
               width={72}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: "var(--muted-foreground)", fontSize: 11, fontFamily: "var(--font-mono)" }}
+              tick={{
+                fill: "var(--muted-foreground)",
+                fontSize: 11,
+                fontFamily: "var(--font-mono)",
+              }}
               tickFormatter={(v: number) => `$${v.toFixed(4)}`}
             />
             <Tooltip

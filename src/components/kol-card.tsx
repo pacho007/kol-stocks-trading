@@ -34,7 +34,9 @@ export function KolCard({ kol, price, index = 0 }: { kol: Kol; price: number; in
               {kol.chain}
             </span>
           </div>
-          <p className="truncate text-xs text-muted-foreground">{kol.handle || shortWallet(kol.wallet)}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {kol.handle || shortWallet(kol.wallet)}
+          </p>
         </div>
         <span
           className={`num ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${
@@ -44,7 +46,6 @@ export function KolCard({ kol, price, index = 0 }: { kol: Kol; price: number; in
           {fmtPct(changePct)}
         </span>
       </div>
-
 
       <Sparkline data={series} up={up} className="h-12 w-full" />
 

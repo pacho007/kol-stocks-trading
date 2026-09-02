@@ -87,7 +87,10 @@ Deno.serve(async () => {
   );
   if (walletToId.size === 0) {
     return jsonResponse(
-      { error: "no rows in public.listings — seed listings before indexing (see scripts/seed-listings)." },
+      {
+        error:
+          "no rows in public.listings — seed listings before indexing (see scripts/seed-listings).",
+      },
       500,
     );
   }
@@ -110,7 +113,8 @@ Deno.serve(async () => {
   let skippedUnknownWallet = 0;
 
   while (fromBlock <= headBlock && windows < MAX_WINDOWS_PER_RUN) {
-    const toBlock = fromBlock + BLOCK_WINDOW - 1n > headBlock ? headBlock : fromBlock + BLOCK_WINDOW - 1n;
+    const toBlock =
+      fromBlock + BLOCK_WINDOW - 1n > headBlock ? headBlock : fromBlock + BLOCK_WINDOW - 1n;
 
     const logs = await chain.getLogs({
       address: MARKET_ADDRESS,

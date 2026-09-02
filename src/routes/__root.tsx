@@ -1,4 +1,3 @@
-
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -150,32 +149,32 @@ function RootComponent() {
             which reads price history from it so every client charts the same
             data instead of each browser recording its own. */}
         <MarketFeedProvider>
-        <MarketProvider>
-          <div className="relative flex min-h-screen flex-col">
-            {isSplash ? (
-              <Outlet />
-            ) : (
-              <>
-            {/* Brand wash behind the header. Much weaker in dark mode: at
+          <MarketProvider>
+            <div className="relative flex min-h-screen flex-col">
+              {isSplash ? (
+                <Outlet />
+              ) : (
+                <>
+                  {/* Brand wash behind the header. Much weaker in dark mode: at
                 14% it tints the entire top of a black page pink, which is
                 what made dark mode read purple rather than matte. */}
-            <div
-              aria-hidden
-              className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[32rem] bg-[radial-gradient(60rem_22rem_at_50%_-8rem,color-mix(in_oklab,var(--primary)_14%,transparent),transparent_70%)] dark:bg-[radial-gradient(60rem_22rem_at_50%_-8rem,color-mix(in_oklab,var(--primary)_5%,transparent),transparent_70%)]"
-            />
-            <div className="relative z-50">
-              <SiteHeader />
-            </div>
-            <main className="relative z-10 flex-1">
-              <Outlet />
-            </main>
+                  <div
+                    aria-hidden
+                    className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[32rem] bg-[radial-gradient(60rem_22rem_at_50%_-8rem,color-mix(in_oklab,var(--primary)_14%,transparent),transparent_70%)] dark:bg-[radial-gradient(60rem_22rem_at_50%_-8rem,color-mix(in_oklab,var(--primary)_5%,transparent),transparent_70%)]"
+                  />
+                  <div className="relative z-50">
+                    <SiteHeader />
+                  </div>
+                  <main className="relative z-10 flex-1">
+                    <Outlet />
+                  </main>
 
-            <SiteFooter />
-              </>
-            )}
-          </div>
-          <Toaster position="bottom-right" />
-        </MarketProvider>
+                  <SiteFooter />
+                </>
+              )}
+            </div>
+            <Toaster position="bottom-right" />
+          </MarketProvider>
         </MarketFeedProvider>
       </EvmWalletProvider>
     </QueryClientProvider>

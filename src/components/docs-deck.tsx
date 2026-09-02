@@ -69,7 +69,9 @@ export function DocsDeck() {
   return (
     <section className="rise panel overflow-hidden">
       <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
-        <span className="text-[10px] tracking-[0.22em] uppercase text-foreground">The briefing</span>
+        <span className="text-[10px] tracking-[0.22em] uppercase text-foreground">
+          The briefing
+        </span>
         <span className="num text-[10px] tracking-widest text-muted-foreground">
           {String(i + 1).padStart(2, "0")} / {String(CARDS.length).padStart(2, "0")}
         </span>

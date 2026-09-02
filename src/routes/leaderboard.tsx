@@ -96,30 +96,43 @@ function Leaderboard() {
         <table className="w-full min-w-[820px]">
           <thead>
             <tr className="border-b border-border bg-surface/60 text-left">
-              {["#", "Trader", "Price", "24h", "Win rate", "30d PnL", "Market cap", "Score", ""].map(
-                (h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-2.5 text-[10px] font-medium tracking-widest uppercase text-muted-foreground"
-                  >
-                    {h}
-                  </th>
-                ),
-              )}
+              {[
+                "#",
+                "Trader",
+                "Price",
+                "24h",
+                "Win rate",
+                "30d PnL",
+                "Market cap",
+                "Score",
+                "",
+              ].map((h) => (
+                <th
+                  key={h}
+                  className="px-4 py-2.5 text-[10px] font-medium tracking-widest uppercase text-muted-foreground"
+                >
+                  {h}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {rows.map((k, i) => {
               const up = liveChange(k.id) >= 0;
               return (
-                <tr key={k.id} className="border-b border-border/70 bg-card last:border-0 hover:bg-surface">
+                <tr
+                  key={k.id}
+                  className="border-b border-border/70 bg-card last:border-0 hover:bg-surface"
+                >
                   <td className="num px-4 py-3 text-sm text-muted-foreground">{i + 1}</td>
                   <td className="px-4 py-3">
                     <Link to="/kol/$id" params={{ id: k.id }} className="flex items-center gap-3">
                       <AvatarMark gradient={k.avatar} label={k.ticker} src={k.image} size={30} />
                       <div>
                         <p className="num text-sm font-bold tracking-widest">${k.ticker}</p>
-                        <p className="text-xs text-muted-foreground">{k.handle || shortWallet(k.wallet)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {k.handle || shortWallet(k.wallet)}
+                        </p>
                       </div>
                     </Link>
                   </td>
@@ -130,13 +143,17 @@ function Leaderboard() {
                     {fmtPct(liveChange(k.id))}
                   </td>
                   <td className="num px-4 py-3 text-sm">{k.winRate}%</td>
-                  <td className={`num px-4 py-3 text-sm ${k.pnl30d >= 0 ? "text-up" : "text-down"}`}>
+                  <td
+                    className={`num px-4 py-3 text-sm ${k.pnl30d >= 0 ? "text-up" : "text-down"}`}
+                  >
                     {fmtCompact(k.pnl30d)}
                   </td>
                   <td className="num px-4 py-3 text-sm text-muted-foreground">
                     {fmtCompact(liveCap(k.id))}
                   </td>
-                  <td className="num px-4 py-3 text-sm font-semibold text-primary">{liveScore(k.id)}</td>
+                  <td className="num px-4 py-3 text-sm font-semibold text-primary">
+                    {liveScore(k.id)}
+                  </td>
                   <td className="px-4 py-3">
                     <Sparkline data={k.series} up={up} className="h-8 w-24" />
                   </td>

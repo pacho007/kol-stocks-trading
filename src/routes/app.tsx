@@ -51,13 +51,22 @@ const STEPS = [
     title: "You trade the session",
     body: "Buy fractional shares of the operator, not the coin they are farming, while the market is open. Orders placed after the bell fill at the next open.",
   },
-
 ];
 
 function Landing() {
   const { prices } = useMarket();
   const session = useSession();
-  const featured = ["cupsey", "sebastian", "pain", "loopier", "cented", "flames", "nyhrox", "parsix", "pr6sper"];
+  const featured = [
+    "cupsey",
+    "sebastian",
+    "pain",
+    "loopier",
+    "cented",
+    "flames",
+    "nyhrox",
+    "parsix",
+    "pr6sper",
+  ];
   const demoted = ["gepm1s"]; // other "Pain" account, always last
   const rank = (k: (typeof KOLS)[number]) => {
     if (demoted.includes(k.id)) return featured.length + 1;
@@ -77,8 +86,12 @@ function Landing() {
       {/* status strip */}
       <div className="border-b border-border bg-surface/40">
         <div className="mx-auto flex max-w-[110rem] flex-wrap items-center gap-x-6 gap-y-1 px-4 py-2 text-[10px] tracking-[0.18em] uppercase text-muted-foreground sm:px-6">
-          <span className={`flex items-center gap-2 ${session?.marketOpen ? "text-primary" : "text-muted-foreground"}`}>
-            <span className={`size-1.5 rounded-full ${session?.marketOpen ? "live-dot bg-up" : "bg-down"}`} />
+          <span
+            className={`flex items-center gap-2 ${session?.marketOpen ? "text-primary" : "text-muted-foreground"}`}
+          >
+            <span
+              className={`size-1.5 rounded-full ${session?.marketOpen ? "live-dot bg-up" : "bg-down"}`}
+            />
             {session
               ? session.active.length
                 ? `${session.active.map((s) => s.label).join(" + ")} open · NY close ${fmtUtc(DAY_CLOSE)} UTC`
@@ -105,11 +118,12 @@ function Landing() {
         {/* left rail */}
         <aside className="rise panel order-2 self-start overflow-hidden lg:order-1 lg:sticky lg:top-24">
           <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-            <span className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Markets</span>
+            <span className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">
+              Markets
+            </span>
             <span className="num text-[10px] tracking-widest text-up">{KOLS.length} TRADERS</span>
           </div>
           <div className="max-h-[783px] overflow-y-auto overscroll-contain">
-
             {rail.map((k) => {
               const up = k.change24h >= 0;
               return (
@@ -121,14 +135,18 @@ function Landing() {
                 >
                   <AvatarMark gradient={k.avatar} label={k.ticker} src={k.image} size={28} />
                   <div className="min-w-0 flex-1">
-                    <p className="num text-xs font-bold tracking-widest group-hover:text-primary">${k.ticker}</p>
+                    <p className="num text-xs font-bold tracking-widest group-hover:text-primary">
+                      ${k.ticker}
+                    </p>
                     <p className="truncate text-[10px] tracking-wider uppercase text-muted-foreground">
                       {k.name} · {k.chain}
                     </p>
                   </div>
                   <div className="text-right">
                     <LivePrice value={prices[k.id] ?? k.price} className="text-xs" />
-                    <p className={`num text-[10px] ${up ? "text-up" : "text-down"}`}>{fmtPct(k.change24h)}</p>
+                    <p className={`num text-[10px] ${up ? "text-up" : "text-down"}`}>
+                      {fmtPct(k.change24h)}
+                    </p>
                   </div>
                 </Link>
               );
@@ -162,10 +180,14 @@ function Landing() {
                 className="rise mt-5 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base"
                 style={{ animationDelay: "120ms" }}
               >
-                Their on-chain performance <span className="text-foreground">is</span> their share price. Good
-                trades pump, blowups dump. Scout the next great degen before the timeline finds the wallet.
+                Their on-chain performance <span className="text-foreground">is</span> their share
+                price. Good trades pump, blowups dump. Scout the next great degen before the
+                timeline finds the wallet.
               </p>
-              <div className="rise mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: "180ms" }}>
+              <div
+                className="rise mt-8 flex flex-wrap items-center gap-3"
+                style={{ animationDelay: "180ms" }}
+              >
                 <Link
                   to="/market"
                   className="group inline-flex h-12 items-center gap-2.5 rounded-lg bg-primary px-6 text-[11px] font-bold tracking-[0.12em] uppercase text-primary-foreground transition-colors duration-200 hover:brightness-[1.06]"
@@ -175,14 +197,15 @@ function Landing() {
                 </Link>
                 <ConnectWalletButton size="lg" />
               </div>
-
             </div>
           </section>
 
           {/* index metrics strip */}
           <section className="rise panel overflow-hidden" style={{ animationDelay: "220ms" }}>
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border px-4 py-2.5">
-              <span className="text-[10px] tracking-[0.22em] uppercase text-foreground">The index</span>
+              <span className="text-[10px] tracking-[0.22em] uppercase text-foreground">
+                The index
+              </span>
               <span className="num text-[10px] tracking-widest text-muted-foreground">
                 {KOLS.length} TRADERS LISTED · PRICED ON ON-CHAIN PERFORMANCE
               </span>
@@ -195,26 +218,46 @@ function Landing() {
             </div>
             <div className="grid grid-cols-2 gap-px bg-border md:grid-cols-4">
               {[
-                ["Index market cap", `$${(totalCap / 1_000_000).toFixed(2)}M`, "all listed traders"],
+                [
+                  "Index market cap",
+                  `$${(totalCap / 1_000_000).toFixed(2)}M`,
+                  "all listed traders",
+                ],
                 ["Session volume", `$${(totalVol / 1_000).toFixed(0)}K`, "shares traded today"],
                 ["Avg index win rate", `${avgWin}%`, "across all listings"],
                 ["Best 24h", fmtPct(top[0]?.change24h ?? 0), `$${top[0]?.ticker ?? "-"} leading`],
               ].map(([label, value, sub]) => (
                 <div key={label} className="bg-card px-4 py-4">
-                  <p className="text-[10px] tracking-[0.18em] uppercase text-muted-foreground">{label}</p>
+                  <p className="text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
+                    {label}
+                  </p>
                   <p className="num mt-1 text-2xl font-semibold">{value}</p>
-                  <p className="mt-0.5 text-[10px] tracking-wider uppercase text-muted-foreground">{sub}</p>
+                  <p className="mt-0.5 text-[10px] tracking-wider uppercase text-muted-foreground">
+                    {sub}
+                  </p>
                 </div>
               ))}
             </div>
           </section>
 
           {/* index thesis */}
-          <section className="rise panel grid gap-px overflow-hidden bg-border sm:grid-cols-3" style={{ animationDelay: "280ms" }}>
+          <section
+            className="rise panel grid gap-px overflow-hidden bg-border sm:grid-cols-3"
+            style={{ animationDelay: "280ms" }}
+          >
             {[
-              ["Verified books only", "Every listing is tied to a real on-chain wallet. Nothing is self-reported, nothing is editable after the close."],
-              ["Priced on skill", "Share prices track realized PnL, win rate, size and hold time, not follower counts or engagement."],
-              ["Scout early", "Traders list small. Find the operator before the timeline does and hold the stock through the run."],
+              [
+                "Verified books only",
+                "Every listing is tied to a real on-chain wallet. Nothing is self-reported, nothing is editable after the close.",
+              ],
+              [
+                "Priced on skill",
+                "Share prices track realized PnL, win rate, size and hold time, not follower counts or engagement.",
+              ],
+              [
+                "Scout early",
+                "Traders list small. Find the operator before the timeline does and hold the stock through the run.",
+              ],
             ].map(([title, body]) => (
               <div key={title} className="bg-card px-4 py-4">
                 <p className="text-sm font-semibold">{title}</p>
@@ -243,11 +286,13 @@ function Landing() {
             ))}
           </div>
           <div className="panel px-4 py-4">
-            <p className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">Next reprice</p>
+            <p className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">
+              Next reprice
+            </p>
             <SessionClock />
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              Every trader's book is scored once a day. Winning sessions mark their stock up at the close, losing
-              sessions mark it down, that's the whole game.
+              Every trader's book is scored once a day. Winning sessions mark their stock up at the
+              close, losing sessions mark it down, that's the whole game.
             </p>
           </div>
 
@@ -266,8 +311,12 @@ function Landing() {
                   className="group flex items-center justify-between gap-3 border-b border-border/60 px-4 py-2.5 transition-colors last:border-0 hover:bg-accent/40"
                 >
                   <div className="min-w-0">
-                    <p className="num text-xs font-bold tracking-widest group-hover:text-primary">${k.ticker}</p>
-                    <p className="truncate text-[10px] tracking-wider uppercase text-muted-foreground">{k.handle || shortWallet(k.wallet)}</p>
+                    <p className="num text-xs font-bold tracking-widest group-hover:text-primary">
+                      ${k.ticker}
+                    </p>
+                    <p className="truncate text-[10px] tracking-wider uppercase text-muted-foreground">
+                      {k.handle || shortWallet(k.wallet)}
+                    </p>
                   </div>
                   <div className="text-right">
                     <LivePrice value={prices[k.id] ?? k.price} className="text-xs" />
@@ -278,8 +327,6 @@ function Landing() {
                 </Link>
               ))}
           </div>
-
-
         </aside>
       </div>
 
@@ -288,7 +335,10 @@ function Landing() {
       <section className="mx-auto max-w-[110rem] px-4 py-16 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <SectionHead kicker="Top movers" title="Who's running today" />
-          <Link to="/market" className="num text-xs tracking-widest uppercase text-primary hover:underline">
+          <Link
+            to="/market"
+            className="num text-xs tracking-widest uppercase text-primary hover:underline"
+          >
             View all markets →
           </Link>
         </div>
@@ -325,16 +375,22 @@ function Landing() {
                   <AvatarMark gradient={k.avatar} label={k.ticker} src={k.image} size={34} />
                   <div className="min-w-0">
                     <p className="num text-sm font-bold tracking-widest">${k.ticker}</p>
-                    <p className="truncate text-xs text-muted-foreground">{k.handle || shortWallet(k.wallet)}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {k.handle || shortWallet(k.wallet)}
+                    </p>
                   </div>
                   <Sparkline data={k.series} up={up} className="ml-auto hidden h-8 w-28 sm:block" />
                   <div className="hidden w-24 text-right md:block">
-                    <p className="text-[10px] tracking-widest uppercase text-muted-foreground">Score</p>
+                    <p className="text-[10px] tracking-widest uppercase text-muted-foreground">
+                      Score
+                    </p>
                     <p className="num text-sm">{perfScore(k)}</p>
                   </div>
                   <div className="w-24 text-right">
                     <LivePrice value={prices[k.id] ?? k.price} className="text-sm font-semibold" />
-                    <p className={`num text-xs ${up ? "text-up" : "text-down"}`}>{fmtPct(k.change24h)}</p>
+                    <p className={`num text-xs ${up ? "text-up" : "text-down"}`}>
+                      {fmtPct(k.change24h)}
+                    </p>
                   </div>
                 </Link>
               );
@@ -345,10 +401,12 @@ function Landing() {
 
       <section>
         <div className="mx-auto max-w-3xl px-4 py-20 text-center sm:px-6">
-          <h2 className="text-3xl font-bold sm:text-5xl">Talent is the only asset that compounds.</h2>
+          <h2 className="text-3xl font-bold sm:text-5xl">
+            Talent is the only asset that compounds.
+          </h2>
           <p className="mx-auto mt-4 max-w-lg text-sm text-muted-foreground">
-            Stop chasing the coin. Buy the operator behind it, before the rest of the timeline figures out who
-            they are.
+            Stop chasing the coin. Buy the operator behind it, before the rest of the timeline
+            figures out who they are.
           </p>
           <div className="mt-8 flex justify-center">
             <Link

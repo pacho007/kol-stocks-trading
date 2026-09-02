@@ -28,10 +28,11 @@ export function SessionClock() {
         {SESSIONS.map((s) => {
           const live = activeIds.has(s.id);
           return (
-            <div key={s.id} className="flex items-center gap-2 text-[10px] tracking-[0.16em] uppercase">
-              <span
-                className={`size-1.5 rounded-full ${live ? "live-dot bg-up" : "bg-border"}`}
-              />
+            <div
+              key={s.id}
+              className="flex items-center gap-2 text-[10px] tracking-[0.16em] uppercase"
+            >
+              <span className={`size-1.5 rounded-full ${live ? "live-dot bg-up" : "bg-border"}`} />
               <span className={live ? "text-foreground" : "text-muted-foreground"}>{s.label}</span>
               <span className="num ml-auto text-muted-foreground">
                 {fmtUtc(s.open)}-{fmtUtc(s.close)}
