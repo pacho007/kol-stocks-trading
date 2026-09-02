@@ -75,13 +75,28 @@ contract SharpsMarket {
     /// Fixed-point scale for score multipliers. 10_000 == 1.0x.
     uint256 public constant MULT_ONE = 10_000;
 
-    /// Fees, in basis points, retained in the listing's own reserve — NOT
-    /// taken by the protocol. They exist to build the surplus that funds
-    /// score-driven price increases (see _applyScore); without them a rising
-    /// score could never lift the price without breaking solvency. They are
-    /// the cost of the guarantee that a sell always pays the full curve price.
+    /// Total fee per side, in basis points. ~4% for a round trip.
     uint256 public constant BUY_FEE_BPS = 200; // 2%
     uint256 public constant SELL_FEE_BPS = 200; // 2%
+
+    /// How that 2% splits. Must sum to BUY_FEE_BPS/SELL_FEE_BPS.
+    ///
+    /// RESERVE is the load-bearing one: surplus above the curve integral is
+    /// the ONLY thing that can fund a score-driven price increase without
+    /// breaking the sell guarantee (see _applyScore). Diverting fee away from
+    /// it is a real cost — price tracks score more slowly — which is why the
+    /// reserve keeps the largest slice.
+    ///
+    /// TRADER accrues to the listed wallet itself, claimable by signing from
+    /// that wallet. These 108 traders were listed without being asked; this
+    /// gives them a stake rather than making them the product.
+    ///
+    /// PROTOCOL accrues to a treasury. Intended to buy and burn $SHARPS once
+    /// that token exists, so the house keeps nothing — until then it simply
+    /// accumulates and is withdrawable by the admin.
+    uint256 public constant RESERVE_FEE_BPS = 100; // 1% of trade — backs sells
+    uint256 public constant TRADER_FEE_BPS = 50; //  0.5% — listed trader
+    uint256 public constant PROTOCOL_FEE_BPS = 50; // 0.5% — treasury
 
     address public admin;
     address public oracleAuthority;
@@ -90,6 +105,12 @@ contract SharpsMarket {
     mapping(address kolWallet => Listing) public listings;
     mapping(address kolWallet => mapping(address holder => uint256 shares)) public shareBalances;
     mapping(address kolWallet => uint256 weiHeld) public vaultBalance;
+
+    /// Fees accrued to each listed trader, claimable only by that wallet.
+    mapping(address kolWallet => uint256 weiOwed) public traderEscrow;
+
+    /// Protocol fees awaiting withdrawal (destined for $SHARPS buy-and-burn).
+    uint256 public protocolTreasury;
 
     bool private locked;
 
@@ -105,6 +126,8 @@ contract SharpsMarket {
     event Bought(address indexed kolWallet, address indexed buyer, uint256 shares, uint256 weiCost, uint256 timestamp);
     event Sold(address indexed kolWallet, address indexed seller, uint256 shares, uint256 weiOut, bool haircut, uint256 timestamp);
     event SharesTransferred(address indexed kolWallet, address indexed from, address indexed to, uint256 shares);
+    event TraderFeesClaimed(address indexed kolWallet, uint256 amount, uint256 timestamp);
+    event ProtocolWithdrawn(address indexed to, uint256 amount, uint256 timestamp);
 
     error Unauthorized();
     error ListingExists();
@@ -388,9 +411,19 @@ contract SharpsMarket {
         // _sharesFor never returns a count whose cost exceeds msg.value.
         uint256 refund = msg.value - total;
 
+        // Split the fee. The curve cost itself always goes to the reserve —
+        // that's what keeps reserve == scaled curve integral and makes the
+        // sell guarantee hold. Only the fee is divided.
+        uint256 curveCost = (Curve.cost(l.sharesOutstanding, shares) * l.scoreMult) / MULT_ONE;
+        uint256 traderCut = (curveCost * TRADER_FEE_BPS) / 10_000;
+        uint256 protocolCut = (curveCost * PROTOCOL_FEE_BPS) / 10_000;
+
         l.sharesOutstanding += shares;
         shareBalances[kolWallet][msg.sender] += shares;
-        vaultBalance[kolWallet] += total;
+        // Everything except the trader/protocol slices stays with the listing.
+        vaultBalance[kolWallet] += total - traderCut - protocolCut;
+        traderEscrow[kolWallet] += traderCut;
+        protocolTreasury += protocolCut;
         // The curve moved: the next share now costs more. Keep the stored
         // spot price in step so readers and the price feed see it without
         // recomputing the curve themselves.
@@ -447,19 +480,62 @@ contract SharpsMarket {
         uint256 payout = scaled - (scaled * SELL_FEE_BPS) / 10_000;
         if (payout < minWeiOut) revert SlippageExceeded();
 
+        uint256 traderCut = (scaled * TRADER_FEE_BPS) / 10_000;
+        uint256 protocolCut = (scaled * PROTOCOL_FEE_BPS) / 10_000;
+
         shareBalances[kolWallet][msg.sender] -= sharesIn;
         l.sharesOutstanding -= sharesIn;
-        // Deduct only what actually leaves the contract. The curve chunk being
-        // unwound is `scaled`; the retained fee (scaled - payout) therefore
-        // stays behind as surplus, so the reserve lands strictly ABOVE the
-        // scaled curve integral at the new supply. Deducting `scaled` here
-        // instead would strand the fee outside vaultBalance's accounting.
-        vaultBalance[kolWallet] -= payout;
+        // The vault loses the payout plus the two slices that leave it; the
+        // reserve's own slice of the fee stays behind as surplus. Net effect:
+        // vault drops by (scaled - reserveSlice), so it lands strictly ABOVE
+        // the scaled curve integral at the new supply — the sell guarantee
+        // survives the fee split intact.
+        vaultBalance[kolWallet] -= payout + traderCut + protocolCut;
+        traderEscrow[kolWallet] += traderCut;
+        protocolTreasury += protocolCut;
         l.priceWei = (Curve.spotPrice(l.sharesOutstanding) * l.scoreMult) / MULT_ONE;
 
         emit Sold(kolWallet, msg.sender, sharesIn, payout, false, block.timestamp);
 
         (bool ok,) = msg.sender.call{value: payout}("");
+        if (!ok) revert TransferFailed();
+    }
+
+    /**
+     * Claim the fees accrued to your own listing.
+     *
+     * Identity is the wallet itself: only `kolWallet` can claim `kolWallet`'s
+     * escrow, proved by signing the transaction. No verification flow, no
+     * OAuth, no review queue — which is the one place this model is simpler
+     * than tokenising social handles, where somebody has to prove offline
+     * that they control a username.
+     *
+     * A listed trader never has to do anything for this to accrue; it just
+     * sits here until they turn up.
+     */
+    function claimTraderFees() external nonReentrant returns (uint256 amount) {
+        amount = traderEscrow[msg.sender];
+        if (amount == 0) revert ZeroAmount();
+        traderEscrow[msg.sender] = 0;
+
+        emit TraderFeesClaimed(msg.sender, amount, block.timestamp);
+
+        (bool ok,) = msg.sender.call{value: amount}("");
+        if (!ok) revert TransferFailed();
+    }
+
+    /// Withdraw accrued protocol fees. Destined for $SHARPS buy-and-burn once
+    /// that token exists; until then it goes to an admin-nominated address.
+    /// Cannot touch any listing's reserve or any trader's escrow — those are
+    /// separate balances and this only ever spends `protocolTreasury`.
+    function withdrawProtocol(address to, uint256 amount) external onlyAdmin nonReentrant {
+        if (to == address(0)) revert ZeroAmount();
+        if (amount == 0 || amount > protocolTreasury) revert ZeroAmount();
+        protocolTreasury -= amount;
+
+        emit ProtocolWithdrawn(to, amount, block.timestamp);
+
+        (bool ok,) = to.call{value: amount}("");
         if (!ok) revert TransferFailed();
     }
 
@@ -478,6 +554,29 @@ contract SharpsMarket {
     }
 
     // ------------------------------------------------------------- reading
+
+    /// Itemised buy quote, so the UI can show where every wei goes instead of
+    /// a single opaque "fee" line. `curveCost` is the shares themselves;
+    /// the three cuts sum to the 2% fee; `total` is what to send.
+    function quoteBuyBreakdown(address kolWallet, uint256 n)
+        external
+        view
+        returns (
+            uint256 curveCost,
+            uint256 reserveCut,
+            uint256 traderCut,
+            uint256 protocolCut,
+            uint256 total
+        )
+    {
+        Listing storage l = listings[kolWallet];
+        if (!l.exists || n == 0) return (0, 0, 0, 0, 0);
+        curveCost = (Curve.cost(l.sharesOutstanding, n) * l.scoreMult) / MULT_ONE;
+        reserveCut = (curveCost * RESERVE_FEE_BPS) / 10_000;
+        traderCut = (curveCost * TRADER_FEE_BPS) / 10_000;
+        protocolCut = (curveCost * PROTOCOL_FEE_BPS) / 10_000;
+        total = curveCost + (curveCost * BUY_FEE_BPS) / 10_000;
+    }
 
     /// How many whole shares `budget` buys right now, fee included. The
     /// client cannot compute this as budget/price: each share along the curve

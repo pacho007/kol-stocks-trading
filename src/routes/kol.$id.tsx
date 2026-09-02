@@ -9,7 +9,14 @@ import { PriceChart } from "@/components/price-chart";
 import { ConnectWalletButton } from "@/components/site-header";
 import { getKol, fmtCompact, fmtPct, fmtUsd, perfScore, shortWallet } from "@/lib/kols";
 import { useMarket, useKolStats } from "@/lib/market-store";
-import { fetchBackingPerShareWad, sharesForBudget, quoteSell } from "@/lib/evm/market";
+import {
+  fetchBackingPerShareWad,
+  sharesForBudget,
+  quoteSell,
+  fetchTraderEscrow,
+  claimTraderFees,
+} from "@/lib/evm/market";
+import { useEvmWallet } from "@/lib/evm/wallet-provider";
 import { getPublicClient, ethToWei, weiToEth } from "@/lib/evm/chain";
 
 /** viem surfaces a contract revert's decoded reason on `shortMessage`;
@@ -287,6 +294,8 @@ function KolDetail() {
             ))}
           </div>
 
+          <TraderEscrowPanel kol={kol} />
+
           <ScoreBreakdownPanel
             ticker={kol.ticker}
             score={liveScore}
@@ -488,6 +497,116 @@ function KolDetail() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Escrow panel — fees accrued to the listed trader, claimable by that wallet.
+ *
+ * The wallet-native version of the "unclaimed" pattern: because a listing IS
+ * an address, proving you're the trader is just signing from it. No handle
+ * verification, no review queue — the connected wallet either matches or it
+ * doesn't.
+ */
+function TraderEscrowPanel({ kol }: { kol: ReturnType<typeof getKol> & {} }) {
+  const { nativePriceUsd } = useMarket();
+  const { address, connected, walletClient } = useEvmWallet();
+  const [owedWei, setOwedWei] = useState<bigint>(0n);
+  const [claiming, setClaiming] = useState(false);
+
+  const isTrader =
+    connected && !!address && address.toLowerCase() === kol.wallet.toLowerCase();
+
+  useEffect(() => {
+    let alive = true;
+    const client = getPublicClient();
+    const pull = async () => {
+      const owed = await fetchTraderEscrow(client, kol.wallet as Address);
+      if (alive) setOwedWei(owed);
+    };
+    pull();
+    const t = setInterval(pull, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [kol.wallet]);
+
+  const owedUsd = weiToEth(owedWei) * nativePriceUsd;
+
+  async function claim() {
+    if (!walletClient || !address) return;
+    setClaiming(true);
+    try {
+      await claimTraderFees(walletClient, address);
+      toast.success("Claimed", { description: `${weiToEth(owedWei).toFixed(5)} ETH sent` });
+      setOwedWei(0n);
+    } catch (e) {
+      toast.error(describeTradeError(e));
+    } finally {
+      setClaiming(false);
+    }
+  }
+
+  return (
+    <div className="panel mt-6 p-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-sm border border-gold-light/40 px-2 py-0.5 text-[9px] tracking-widest uppercase text-gold-light">
+          {isTrader ? "This is your wallet" : "Unclaimed"}
+        </span>
+        <p className="text-sm font-semibold">
+          {isTrader ? `You're the trader behind $${kol.ticker}` : `Earning for ${kol.name}`}
+        </p>
+      </div>
+
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+        A share of every trade on this listing accrues to{" "}
+        <span className="num text-foreground">{shortWallet(kol.wallet)}</span> — the wallet the
+        listing tracks. The protocol can't take it and traders can't take it. It pays out in full
+        the moment that wallet claims it, and claiming is just signing a transaction from it: no
+        verification, no application, nothing to prove.
+      </p>
+
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-4 border-t border-border pt-3">
+        <div>
+          <p className="text-[10px] tracking-widest uppercase text-muted-foreground">
+            Waiting in escrow
+          </p>
+          <p className="num mt-1 text-2xl font-bold">{fmtUsd(owedUsd)}</p>
+          <p className="num text-[10px] text-muted-foreground">
+            {weiToEth(owedWei).toFixed(6)} ETH
+          </p>
+        </div>
+
+        {isTrader ? (
+          <button
+            onClick={claim}
+            disabled={claiming || owedWei === 0n}
+            className="rounded-md bg-primary px-4 py-2.5 text-[11px] font-bold tracking-widest uppercase text-primary-foreground transition-all disabled:opacity-40 hover:brightness-110"
+          >
+            {claiming ? "Claiming…" : owedWei === 0n ? "Nothing to claim" : "Claim"}
+          </button>
+        ) : (
+          kol.x && (
+            <a
+              href={kol.x}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md border border-input px-4 py-2.5 text-[11px] font-bold tracking-widest uppercase text-foreground hover:bg-accent"
+            >
+              Open on X
+            </a>
+          )
+        )}
+      </div>
+
+      {!isTrader && (
+        <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
+          If this is your wallet, connect it and the claim button appears here. Nothing expires —
+          it keeps accruing whether or not anyone ever turns up for it.
+        </p>
+      )}
     </div>
   );
 }

@@ -95,6 +95,19 @@
   },
   {
     "type": "function",
+    "name": "PROTOCOL_FEE_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "RATE_CAP_DEN",
     "inputs": [],
     "outputs": [
@@ -121,6 +134,19 @@
   },
   {
     "type": "function",
+    "name": "RESERVE_FEE_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "SELL_FEE_BPS",
     "inputs": [],
     "outputs": [
@@ -135,6 +161,19 @@
   {
     "type": "function",
     "name": "SHARES_PER_LISTING",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "TRADER_FEE_BPS",
     "inputs": [],
     "outputs": [
       {
@@ -218,6 +257,19 @@
     ],
     "outputs": [],
     "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "claimTraderFees",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -414,6 +466,19 @@
   },
   {
     "type": "function",
+    "name": "protocolTreasury",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "quoteBuy",
     "inputs": [
       {
@@ -430,6 +495,50 @@
     "outputs": [
       {
         "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "quoteBuyBreakdown",
+    "inputs": [
+      {
+        "name": "kolWallet",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "n",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "curveCost",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "reserveCut",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "traderCut",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "protocolCut",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "total",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -577,6 +686,25 @@
   },
   {
     "type": "function",
+    "name": "traderEscrow",
+    "inputs": [
+      {
+        "name": "kolWallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "weiOwed",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "transferShares",
     "inputs": [
       {
@@ -634,6 +762,24 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "withdrawProtocol",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "event",
@@ -769,6 +915,31 @@
   },
   {
     "type": "event",
+    "name": "ProtocolWithdrawn",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "SharesTransferred",
     "inputs": [
       {
@@ -831,6 +1002,31 @@
         "type": "bool",
         "indexed": false,
         "internalType": "bool"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TraderFeesClaimed",
+    "inputs": [
+      {
+        "name": "kolWallet",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       },
       {
         "name": "timestamp",

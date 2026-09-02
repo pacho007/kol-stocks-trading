@@ -225,8 +225,96 @@ contract SharpsMarketTest is Test {
         market.buy{value: sendAmount}(kol, 3);
 
         assertEq(market.shareBalances(kol, buyer), 3);
-        assertEq(market.vaultBalance(kol), exact);
         assertEq(buyer.balance, 1); // refund of the sub-share remainder
+
+        // The vault keeps everything except the trader and protocol slices,
+        // which are now separate balances rather than reserve surplus.
+        assertEq(
+            market.vaultBalance(kol) + market.traderEscrow(kol) + market.protocolTreasury(),
+            exact
+        );
+        assertGt(market.traderEscrow(kol), 0);
+        assertGt(market.protocolTreasury(), 0);
+    }
+
+    /// Every wei sent must land in exactly one of the three buckets — nothing
+    /// stranded in the contract outside the accounting.
+    function test_fees_splitAccountsForEveryWei() public {
+        uint256 exact = market.quoteBuy(kol, 500);
+        vm.deal(buyer, exact);
+        vm.prank(buyer);
+        market.buy{value: exact}(kol, 500);
+
+        assertEq(
+            market.vaultBalance(kol) + market.traderEscrow(kol) + market.protocolTreasury(),
+            address(market).balance
+        );
+    }
+
+    /// Only the listed wallet can claim its own escrow — identity is the
+    /// signature, so there's no verification flow to spoof.
+    function test_traderEscrow_onlyListedWalletCanClaim() public {
+        _buyShares(buyer, 200);
+        uint256 owed = market.traderEscrow(kol);
+        assertGt(owed, 0);
+
+        // Someone else claiming gets nothing — they have their own (empty)
+        // escrow, so this reverts rather than paying out the trader's.
+        vm.prank(buyer);
+        vm.expectRevert(SharpsMarket.ZeroAmount.selector);
+        market.claimTraderFees();
+
+        uint256 before = kol.balance;
+        vm.prank(kol);
+        market.claimTraderFees();
+
+        assertEq(kol.balance - before, owed);
+        assertEq(market.traderEscrow(kol), 0);
+    }
+
+    /// Claiming escrow must not eat into the reserve backing the sell
+    /// guarantee — they are separate balances.
+    function test_traderEscrow_claimDoesNotTouchReserve() public {
+        _buyShares(buyer, 300);
+        uint256 reserveBefore = market.vaultBalance(kol);
+
+        vm.prank(kol);
+        market.claimTraderFees();
+
+        assertEq(market.vaultBalance(kol), reserveBefore);
+        _assertSolvent();
+
+        // And the seller is still paid in full afterwards.
+        uint256 quoted = market.quoteSell(kol, 300);
+        uint256 before = buyer.balance;
+        vm.prank(buyer);
+        market.sell(kol, 300, quoted);
+        assertEq(buyer.balance - before, quoted);
+    }
+
+    function test_protocolTreasury_onlyAdminWithdraws() public {
+        _buyShares(buyer, 200);
+        assertGt(market.protocolTreasury(), 0);
+
+        vm.prank(buyer);
+        vm.expectRevert(SharpsMarket.Unauthorized.selector);
+        market.withdrawProtocol(buyer, 1);
+
+        uint256 amount = market.protocolTreasury();
+        vm.prank(admin);
+        market.withdrawProtocol(admin, amount);
+        assertEq(market.protocolTreasury(), 0);
+        assertEq(admin.balance, amount);
+    }
+
+    /// The treasury cannot be used as a backdoor into listing reserves.
+    function test_protocolTreasury_cannotOverdrawIntoReserves() public {
+        _buyShares(buyer, 200);
+        uint256 treasury = market.protocolTreasury();
+
+        vm.prank(admin);
+        vm.expectRevert(SharpsMarket.ZeroAmount.selector);
+        market.withdrawProtocol(admin, treasury + 1);
     }
 
     /// Each successive share costs more than the last — that's the curve, and

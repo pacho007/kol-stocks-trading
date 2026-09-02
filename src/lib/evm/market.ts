@@ -171,6 +171,75 @@ export async function fetchShareBalances(
   }
 }
 
+/** Fees accrued to a listed trader, claimable only by that wallet. */
+export async function fetchTraderEscrow(
+  client: PublicClient,
+  kolWallet: Address,
+): Promise<bigint> {
+  if (!MARKET_ADDRESS) return 0n;
+  try {
+    return (await client.readContract({
+      address: MARKET_ADDRESS,
+      abi: MARKET_ABI,
+      functionName: "traderEscrow",
+      args: [kolWallet],
+    })) as bigint;
+  } catch {
+    return 0n;
+  }
+}
+
+/**
+ * Claim your own listing's accrued fees. Only the listed wallet can call this
+ * for itself — identity is the signature, so there's nothing to verify.
+ */
+export async function claimTraderFees(
+  wallet: WalletClient,
+  account: Address,
+): Promise<`0x${string}`> {
+  if (!MARKET_ADDRESS) throw new Error("Market contract is not configured");
+  return wallet.writeContract({
+    address: MARKET_ADDRESS,
+    abi: MARKET_ABI,
+    functionName: "claimTraderFees",
+    args: [],
+    account,
+    chain: ACTIVE_CHAIN,
+  });
+}
+
+/** Itemised buy quote — curve cost plus where each slice of the fee goes. */
+export async function quoteBuyBreakdown(
+  client: PublicClient,
+  kolWallet: Address,
+  shares: bigint,
+): Promise<{
+  curveCost: bigint;
+  reserveCut: bigint;
+  traderCut: bigint;
+  protocolCut: bigint;
+  total: bigint;
+} | null> {
+  if (!MARKET_ADDRESS || shares <= 0n) return null;
+  try {
+    const r = (await client.readContract({
+      address: MARKET_ADDRESS,
+      abi: MARKET_ABI,
+      functionName: "quoteBuyBreakdown",
+      args: [kolWallet, shares],
+    })) as readonly [bigint, bigint, bigint, bigint, bigint];
+    return {
+      curveCost: r[0],
+      reserveCut: r[1],
+      traderCut: r[2],
+      protocolCut: r[3],
+      total: r[4],
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * How many whole shares `budgetWei` buys right now, fee included. Must come
  * from the contract: on a curve each share costs more than the last, so
