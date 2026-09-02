@@ -84,10 +84,38 @@ cd evm && forge install foundry-rs/forge-std && forge test
 Nothing is deployed yet. These steps are ordered because each depends on the
 one before it.
 
+### 0. Testnet facts
+
+| | |
+| --- | --- |
+| RPC | `https://rpc.testnet.chain.robinhood.com` |
+| Chain id | 46630 (mainnet 4663) |
+| Explorer | `https://explorer.testnet.chain.robinhood.com` (Blockscout) |
+| Faucet | `https://faucet.testnet.chain.robinhood.com` — Chainlink and QuickNode also dispense the same testnet ETH |
+
+Gas is ~0.01 gwei. Deploying the contract and opening all 108 listings costs
+on the order of **0.0002 ETH**, so one faucet drip covers the entire bring-up
+several times over. Budget is not the constraint here; having any balance at
+all is.
+
+Verification works through Blockscout:
+
+```sh
+forge verify-contract <address> src/SharpsMarket.sol:SharpsMarket \
+  --chain-id 46630 --rpc-url https://rpc.testnet.chain.robinhood.com \
+  --verifier blockscout \
+  --verifier-url https://explorer.testnet.chain.robinhood.com/api/
+```
+
 ### 1. Deploy the contract (testnet first)
 
-Testnet is chain id 46630, mainnet 4663. Do the whole sequence on testnet and
-actually exercise buy/sell/updatePrice before touching mainnet.
+Do the whole sequence on testnet and actually exercise buy/sell/updatePrice
+before touching mainnet.
+
+Note the chain's block number *before* you broadcast and keep it: that is your
+`MARKET_DEPLOY_BLOCK`. Any block at or before the deploy works — the indexer
+just scans empty blocks ahead of it — but at ~100ms blocks a number that is
+days early costs a lot of wasted scanning.
 
 ```sh
 cd evm
