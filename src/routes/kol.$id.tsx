@@ -298,14 +298,16 @@ function KolDetail() {
 
           <BiggestTradesPanel wins={topWins} losses={topLosses} nativePriceUsd={nativePriceUsd} />
 
-          <TraderEscrowPanel kol={kol} />
-
           <ScoreBreakdownPanel
             ticker={kol.ticker}
             score={liveScore}
             breakdown={breakdown}
             trades={trades}
           />
+
+          {/* Last: it's addressed to the listed trader, not to someone
+              deciding whether to buy. Everything above is the trading case. */}
+          <TraderEscrowPanel kol={kol} />
         </div>
 
         <div className="rise flex flex-col gap-4" style={{ animationDelay: "90ms" }}>
@@ -791,7 +793,7 @@ function BiggestTradesPanel({
     <div className="panel mt-6 p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-[10px] tracking-widest uppercase text-muted-foreground">
-          Biggest wins & losses
+          Recent biggest wins and losses
         </p>
         <p className="text-[10px] text-muted-foreground">Closed positions, this scoring window</p>
       </div>

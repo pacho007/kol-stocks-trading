@@ -1,3 +1,4 @@
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Link } from "@tanstack/react-router";
 import { Wallet, Menu, ChevronDown } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -184,6 +185,7 @@ export function SiteHeader() {
                   : "Markets"}
               </span>
             </div>
+            <ThemeToggle />
             <ConnectWalletButton />
             <button
               className="grid size-9 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:text-gold-light md:hidden"

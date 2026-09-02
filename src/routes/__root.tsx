@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { MarketProvider } from "@/lib/market-store";
 import { MarketFeedProvider } from "@/lib/market-feed";
+import { THEME_INIT_SCRIPT } from "@/components/theme-toggle";
 import { EvmWalletProvider } from "@/lib/evm/wallet-provider";
 import { SiteHeader, SiteFooter } from "@/components/site-header";
 import { Toaster } from "@/components/ui/sonner";
@@ -114,8 +115,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    // suppressHydrationWarning is REQUIRED here, not cosmetic. The pre-paint
+    // script below sets class="dark" on <html> before React hydrates, so the
+    // client tree legitimately differs from the server HTML. Without this,
+    // React treats it as a mismatch and bails out of hydrating the entire
+    // tree — every event handler in the app silently stops working.
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Must run before first paint, or the page renders light and snaps
+            to dark on hydration. Kept inline for that reason — an external
+            script would load too late to prevent the flash. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
       </head>
       <body>

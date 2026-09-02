@@ -80,6 +80,56 @@
   --gradient-panel: linear-gradient(180deg, oklch(1 0 0), oklch(0.975 0.005 320));
 }
 
+/**
+ * Dark palette. Activated by `.dark` on <html> — see the pre-paint script in
+ * src/routes/__root.tsx and the toggle in components/theme-toggle.tsx.
+ *
+ * Same hue family (320-352) as light, so the brand reads identically; only
+ * lightness and the direction of the surface ramp invert. Cards sit ABOVE the
+ * background here (lighter) rather than below it (white on near-white), which
+ * is what keeps panels legible instead of disappearing into the page.
+ *
+ * up/down are lifted rather than reused from light: the light green and red
+ * are tuned for contrast against near-white and go muddy on a dark ground.
+ */
+.dark {
+  --background: oklch(0.16 0.012 320);
+  --foreground: oklch(0.95 0.006 320);
+  --surface: oklch(0.2 0.014 320);
+  --card: oklch(0.2 0.014 320);
+  --card-foreground: oklch(0.95 0.006 320);
+  --popover: oklch(0.22 0.016 320);
+  --popover-foreground: oklch(0.95 0.006 320);
+  --primary: oklch(0.72 0.2 350);
+  --primary-foreground: oklch(0.16 0.012 320);
+  --gold-light: oklch(0.78 0.17 352);
+  --secondary: oklch(0.26 0.016 320);
+  --secondary-foreground: oklch(0.95 0.006 320);
+  --muted: oklch(0.26 0.014 320);
+  --muted-foreground: oklch(0.72 0.02 320);
+  --accent: oklch(0.3 0.03 340);
+  --accent-foreground: oklch(0.95 0.006 320);
+  --destructive: oklch(0.62 0.2 20);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.72 0.2 350 / 0.2);
+  --input: oklch(0.72 0.2 350 / 0.28);
+  --ring: oklch(0.72 0.2 350);
+  --up: oklch(0.74 0.17 155);
+  --down: oklch(0.68 0.2 18);
+  --grid: oklch(0.72 0.2 350 / 0.09);
+  --shadow-glow: 0 0 60px -18px color-mix(in oklab, var(--primary) 45%, transparent);
+  /* Shadows do almost nothing on a dark ground; depth comes from the surface
+     ramp above, so these are kept subtle rather than pretending otherwise. */
+  --shadow-vault: 0 1px 2px rgb(0 0 0 / 0.4), 0 18px 40px -28px rgb(0 0 0 / 0.7);
+  --gradient-hero: radial-gradient(
+      110% 80% at 50% -10%,
+      color-mix(in oklab, var(--primary) 16%, transparent) 0%,
+      transparent 62%
+    ),
+    linear-gradient(180deg, oklch(0.2 0.02 340) 0%, var(--background) 72%);
+  --gradient-panel: linear-gradient(180deg, oklch(0.22 0.016 320), oklch(0.185 0.013 320));
+}
+
 
 
 @layer base {
