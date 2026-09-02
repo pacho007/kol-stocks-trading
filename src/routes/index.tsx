@@ -109,8 +109,8 @@ function Splash() {
           style={{
             animationDelay: "0.2s",
             fontFamily: '"Space Grotesk", ui-sans-serif, system-ui, sans-serif',
-            fontWeight: 500,
-            letterSpacing: "0.18em",
+            fontWeight: 700,
+            letterSpacing: "0.06em",
             lineHeight: 0.95,
             fontSize: "clamp(3.25rem, 14vw, 12rem)",
           }}
