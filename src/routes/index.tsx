@@ -94,7 +94,7 @@ function Splash() {
           Sharps
         </span>
         <span className="num hidden text-[10px] tracking-[0.3em] uppercase text-[#3d1024]/60 md:block">
-          ON-CHAIN SKILL PRICED.
+          ON-CHAIN PERFORMANCE PRICED.
         </span>
         <span className="num text-[10px] tracking-[0.3em] uppercase text-[#3d1024]/60">
           Est. 2026
