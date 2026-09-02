@@ -32,10 +32,10 @@ import {
  * price is read from each listing's on-chain state, not recomputed
  * client-side.
  *
- * IMPORTANT: sell() pays min(quoted price, pro-rata vault NAV) — see
- * SharpsMarket.sol's sell(). `prices` below is the QUOTED price; it is not a
- * guaranteed redemption price. Compare it against backing-per-share (read on
- * the listing page) before assuming a sell will fill at the quote.
+ * Pricing is a bonding curve scaled by the trader's score. The reserve is held
+ * equal to the curve's value of all outstanding shares, so a sell is always
+ * payable in full — quotes come from the contract (quoteBuy/quoteSell/
+ * sharesForBudget), never from price * amount, which the curve makes wrong.
  *
  * Before a listing has been created on-chain (mid-rollout — see
  * oracle/push-onchain-evm.ts and the createListing admin script), there is
@@ -46,6 +46,20 @@ import {
  * Chart history does NOT come from this store's own polling — it comes from
  * the shared feed (lib/market-feed.tsx), so every trader sees the same chart.
  */
+
+/**
+ * The percentile components behind a score, plus how much of that raw blend
+ * actually landed after small-sample shrinkage. Computed by oracle/score.ts
+ * and published in scores.json — this is what the "why this score" panel on a
+ * listing page renders, so the headline number isn't unexplained.
+ */
+export type ScoreBreakdown = {
+  pnlPct: number;
+  winPct: number;
+  volPct: number;
+  tradesPct: number;
+  confidence: number;
+};
 
 export type Position = { id: string; shares: number; entry: number | null };
 export type PricePoint = { t: number; p: number };
@@ -73,6 +87,7 @@ type Ctx = {
   scores: Record<string, number>;
   history: Record<string, PricePoint[]>;
   metrics: Record<string, KolMetrics>;
+  breakdowns: Record<string, ScoreBreakdown>;
   onChainListings: Record<string, OnChainListing>;
   backingPerShare: Record<string, number>;
   live: boolean;
@@ -136,6 +151,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
 
   const [scores, setScores] = useState<Record<string, number>>(SEED_SCORES);
   const [metrics, setMetrics] = useState<Record<string, KolMetrics>>({});
+  const [breakdowns, setBreakdowns] = useState<Record<string, ScoreBreakdown>>({});
   const [onChainListings, setOnChainListings] = useState<Record<string, OnChainListing>>({});
   const [nativeBalance, setNativeBalance] = useState(0);
   const [positions, setPositions] = useState<Position[]>([]);
@@ -224,7 +240,13 @@ export function MarketProvider({ children }: { children: ReactNode }) {
         const res = await fetch("/scores.json", { cache: "no-store" });
         if (!res.ok) return;
         const data = (await res.json()) as {
-          rows: { id: string; score: number; metrics?: KolMetrics }[];
+          rows: {
+            id: string;
+            score: number;
+            metrics?: KolMetrics;
+            breakdown?: ScoreBreakdown;
+            confidence?: number;
+          }[];
           nativePriceUsd?: number;
           solPriceUsd?: number;
           updatedAt?: string;
@@ -241,6 +263,15 @@ export function MarketProvider({ children }: { children: ReactNode }) {
         setMetrics((prev) => {
           const next = { ...prev };
           for (const r of data.rows) if (r.metrics) next[r.id] = r.metrics;
+          return next;
+        });
+        setBreakdowns((prev) => {
+          const next = { ...prev };
+          for (const r of data.rows) {
+            if (r.breakdown) {
+              next[r.id] = { ...r.breakdown, confidence: r.confidence ?? 1 };
+            }
+          }
           return next;
         });
       } catch {
@@ -474,6 +505,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       prices,
       scores,
       metrics,
+      breakdowns,
       onChainListings,
       history,
       backingPerShare,
@@ -504,6 +536,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       prices,
       scores,
       metrics,
+      breakdowns,
       onChainListings,
       history,
       backingPerShare,
@@ -543,7 +576,7 @@ export function useMarket() {
  *  - changePct: move since the equal open (so day-one = 0%)
  */
 export function useKolStats(id: string) {
-  const { prices, scores, metrics, onChainListings } = useMarket();
+  const { prices, scores, metrics, breakdowns, onChainListings } = useMarket();
   const feed = useMarketFeed();
   const price = prices[id] ?? OPEN_PRICE_USD;
   // Prefer the score every other trader is seeing (shared feed), then the
@@ -561,6 +594,7 @@ export function useKolStats(id: string) {
     realizedPnlSol: m ? m.realizedPnlSol : undefined,
     volumeSol: m ? m.volumeSol : undefined,
     trades: m ? m.trades : undefined,
+    breakdown: breakdowns[id],
   };
 }
 

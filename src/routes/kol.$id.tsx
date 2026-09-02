@@ -69,6 +69,7 @@ function KolDetail() {
     realizedPnlSol,
     volumeSol,
     trades,
+    breakdown,
   } = useKolStats(kol.id);
   const up = changePct >= 0;
   const position = positions.find((p) => p.id === kol.id);
@@ -285,6 +286,13 @@ function KolDetail() {
               </div>
             ))}
           </div>
+
+          <ScoreBreakdownPanel
+            ticker={kol.ticker}
+            score={liveScore}
+            breakdown={breakdown}
+            trades={trades}
+          />
         </div>
 
         <div className="rise flex flex-col gap-4" style={{ animationDelay: "90ms" }}>
@@ -448,16 +456,11 @@ function KolDetail() {
             </p>
           </div>
 
-          <div className="panel p-4">
-            <div className="flex items-center gap-2">
-              <Users className="size-4 text-primary" />
-              <p className="text-[10px] tracking-widest uppercase text-muted-foreground">Holders</p>
-            </div>
-            <p className="num mt-2 text-2xl font-bold">{kol.holders.toLocaleString()}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Wallets currently long ${kol.ticker}.
-            </p>
-          </div>
+          {/* Holder count intentionally removed: `kol.holders` was hardcoded 0
+              for every listing and nothing ever updated it, so the panel
+              displayed a fake measurement. Share balances live in a Solidity
+              mapping, which isn't enumerable, so a real count needs the
+              Bought/Sold events indexed first — bring this back then. */}
 
           {position && (
             <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
@@ -485,6 +488,102 @@ function KolDetail() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * "Why this score" — the four percentile components the score is actually
+ * blended from, plus how much of that blend survived small-sample shrinkage.
+ * oracle/score.ts computes these and calls them the transparent why panel;
+ * this is that panel. Without it the headline score is a number with no
+ * visible reasoning, which is a bad look for a product whose entire pitch is
+ * that price is earned rather than speculated.
+ */
+function ScoreBreakdownPanel({
+  ticker,
+  score,
+  breakdown,
+  trades,
+}: {
+  ticker: string;
+  score: number;
+  breakdown:
+    | { pnlPct: number; winPct: number; volPct: number; tradesPct: number; confidence: number }
+    | undefined;
+  trades: number | undefined;
+}) {
+  const parts = breakdown
+    ? ([
+        ["Realized PnL", breakdown.pnlPct, 50],
+        ["Win rate", breakdown.winPct, 20],
+        ["Volume", breakdown.volPct, 15],
+        ["Trade count", breakdown.tradesPct, 15],
+      ] as const)
+    : [];
+
+  return (
+    <div className="panel mt-6 p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-[10px] tracking-widest uppercase text-muted-foreground">
+          Why ${ticker} scores {score}
+        </p>
+        <p className="text-[10px] text-muted-foreground">
+          Ranked against every other listed trader
+        </p>
+      </div>
+
+      {!breakdown ? (
+        <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
+          No scored data for this trader yet. Every listing starts at the neutral 50 and only
+          diverges once the oracle has indexed real post-launch trading — so a 50 here means
+          "nothing measured", not "measured as average".
+        </p>
+      ) : (
+        <>
+          <div className="mt-4 space-y-3">
+            {parts.map(([label, pct, weight]) => (
+              <div key={label}>
+                <div className="flex items-baseline justify-between text-xs">
+                  <span className="text-foreground">
+                    {label}{" "}
+                    <span className="text-[10px] text-muted-foreground">{weight}% of score</span>
+                  </span>
+                  <span className="num text-muted-foreground">
+                    {Math.round(pct * 100)}
+                    <span className="text-[10px]">th pct</span>
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-border">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: `${Math.max(1, Math.min(100, pct * 100))}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
+            {breakdown.confidence < 0.5 ? (
+              <p>
+                <b className="text-foreground">
+                  Only {Math.round(breakdown.confidence * 100)}% of this blend is being applied.
+                </b>{" "}
+                With {trades ?? "few"} recorded trades there isn't enough of a sample to trust the
+                ranking yet, so the score is pulled toward the neutral 50. It moves toward the true
+                percentile as the record builds — one good trade can't buy a high score.
+              </p>
+            ) : (
+              <p>
+                {Math.round(breakdown.confidence * 100)}% of this blend is being applied — enough
+                trades on record for the ranking to be taken close to face value. The remainder is
+                held back toward neutral until the sample grows further.
+              </p>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

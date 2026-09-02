@@ -364,6 +364,9 @@ export type OracleRow = {
     volPct: number;
     tradesPct: number;
   };
+  /** 0..1 — how much of the raw percentile blend survived sample-size
+   *  shrinkage. Low for wallets with few trades. See score.ts. */
+  confidence: number;
 };
 
 /**
@@ -418,6 +421,7 @@ export async function runOracle(
       metrics: { id: s.id, realizedPnlSol: s.realizedPnlSol, winRate: s.winRate, volumeSol: s.volumeSol, trades: s.trades },
       targetAnchor: capped,
       breakdown: s.breakdown,
+      confidence: s.confidence,
     };
   });
 }

@@ -173,6 +173,12 @@ async function once(): Promise<void> {
           volumeSol: r.metrics.volumeSol,
           trades: r.metrics.trades,
         },
+        // The four percentile components behind the score, plus how much of
+        // the raw blend actually landed after sample-size shrinkage. These
+        // were computed all along and thrown away here, which left the
+        // "transparent why panel" score.ts documents with nothing to render.
+        breakdown: r.breakdown,
+        confidence: r.confidence,
       };
     }),
   };
