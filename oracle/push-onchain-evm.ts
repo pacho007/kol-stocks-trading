@@ -6,14 +6,20 @@
  * the actual tradable on-chain price. publish.ts's public/scores.json is a
  * separate display snapshot, not touched here.
  *
- * NOT YET WIRED TO REAL SCORES: this script's chain-interaction layer
- * (viem client, batching, retry/manifest logic) is a complete, working port
- * — but it still calls runOracle() with `EvmPnlProvider`
- * (oracle/evm-pnl-provider.ts), which currently throws on every wallet. See
- * that file's comment for what's needed before this pushes real scores
- * instead of failing loudly. Do not swap in HeliusPnlProvider/RpcPnlProvider
- * to "make it work" — those read Solana history, which is meaningless for
- * these 0x... wallets.
+ * WIRED TO REAL SCORES. EvmPnlProvider was a throwing stub when this warning
+ * was written; it now re-exports BlockscoutPnlProvider and returns real
+ * metrics. Verified against live Robinhood Chain data: differentiated scores,
+ * real token symbols in topWins, and confidence tracking trades/(trades+20).
+ *
+ * Still do not swap in HeliusPnlProvider/RpcPnlProvider to "fix" anything —
+ * those read Solana history, which is meaningless for these 0x... wallets.
+ *
+ * Rate limiting is the live constraint, not correctness. Blockscout's public
+ * API sustains roughly one request per second; below that a full 108-wallet
+ * cycle exhausts its retries and the affected wallets fall back to a neutral
+ * 50 at confidence 0, indistinguishable from not having traded. See
+ * BLOCKSCOUT_GAP_MS in blockscout-provider.ts. An API key removes the problem
+ * properly; pacing only rations it.
  *
  * Key custody: same separation-of-privilege as the Solana version — the
  * oracle authority key can ONLY call updatePrice/batchUpdatePrice
