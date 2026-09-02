@@ -107,14 +107,11 @@ function Splash() {
           className="fade-up display select-none"
           style={{
             animationDelay: "0.2s",
-            fontWeight: 900,
-            letterSpacing: "-0.02em",
-            lineHeight: 0.9,
-            fontSize: "clamp(3.4rem, 15vw, 13rem)",
-            color: "#ffffff",
-            textShadow:
-              "0 1px 0 #ffd8e7, 0 2px 0 #ffc0d9, 0 3px 0 #ffa8cb, 0 4px 0 #f58fb8, 0 10px 24px rgba(170,30,85,0.35), 0 0 80px rgba(255,255,255,0.55)",
-
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            lineHeight: 0.95,
+            fontSize: "clamp(3rem, 13vw, 11rem)",
+            color: "#2a0b18",
           }}
         >
           SHARPS
