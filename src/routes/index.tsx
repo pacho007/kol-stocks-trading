@@ -115,7 +115,7 @@ function Splash() {
             color: "#2a0b18",
           }}
         >
-          SHARPS
+          SHARPS.
         </h1>
 
         <p
