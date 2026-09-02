@@ -44,8 +44,28 @@ const MAX_PAGES = Number(process.env.BLOCKSCOUT_MAX_PAGES ?? 6);
  * module shares one queue, so raising oracle/indexer.ts's INDEXER_CONCURRENCY
  * does not increase the request rate here — it only adds wallets waiting on
  * the same queue.
+ *
+ * Raised from 400ms after a full 108-wallet run: at 400ms (2.5 req/s) the
+ * limiter did not merely delay requests, it exhausted all six retries on
+ * individual wallets — 1.5s through 48s of backoff was not enough to get back
+ * under the limit. An exhausted wallet yields all-zero metrics, which
+ * scoreCohort's fresh-start branch reads as "has not traded yet" and scores at
+ * a neutral 50 with confidence 0. So no false ranking is invented; the cost is
+ * that a rate-limited trader is indistinguishable from an inactive one, and
+ * quietly stops being priced on their actual record until a later cycle
+ * happens to fetch them.
+ *
+ * A full cycle is roughly 108 wallets x up to MAX_PAGES requests, so at 1s
+ * that is ~11 minutes: still inside the oracle's default 20 minute refresh,
+ * with room to spare.
+ *
+ * For production this wants an authenticated endpoint rather than a slower
+ * crawl of a free public one. Blockscout issues API keys, and Alchemy supports
+ * Robinhood Chain; either raises the ceiling far above what pacing alone can
+ * buy, and neither leaves score correctness dependent on someone else's
+ * unmetered goodwill.
  */
-const MIN_GAP_MS = Number(process.env.BLOCKSCOUT_GAP_MS ?? 400);
+const MIN_GAP_MS = Number(process.env.BLOCKSCOUT_GAP_MS ?? 1000);
 
 /** Only trades AFTER this point count — mirrors indexer.ts's LAUNCH GATE. */
 const LAUNCH_TS = Number(process.env.LAUNCH_TS ?? 0);
