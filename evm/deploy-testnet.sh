@@ -72,12 +72,47 @@ echo "Balance: $(cast from-wei "$BAL") ETH"
 # before its first run.
 DEPLOY_BLOCK=$(cast block-number --rpc-url "$RPC")
 echo "Deploy block floor: $DEPLOY_BLOCK"
+
+# Always build from scratch before deploying. forge will happily reuse a cached
+# artifact and broadcast it, so a source change that has not been recompiled
+# deploys as the OLD contract — successfully, with a fresh address, and no
+# warning that the code is stale. That happened here three times in a row: the
+# only symptom was "Detected artifacts built from source files that no longer
+# exist", which reads like housekeeping noise.
+#
+# A deploy is the one operation where a stale build is unrecoverable-ish (the
+# address is live, listings get created against it), and a clean rebuild costs
+# a few seconds, so it is never worth skipping.
+echo
+echo "Rebuilding from source (never deploy a cached artifact)..."
+forge clean
+forge build --force 2>&1 | tail -2
+
+# Prove the binary about to go on chain is the one built from this source.
+LOCAL_CODE=$(forge inspect SharpsMarket deployedBytecode 2>/dev/null | tr -d '[:space:]')
+echo "Built runtime size: $(( (${#LOCAL_CODE} - 2) / 2 )) bytes"
 echo
 
 forge script script/Deploy.s.sol:Deploy --rpc-url "$RPC" --broadcast | tee /tmp/sharps-deploy.log
 
 ADDR=$(grep -oE 'SharpsMarket deployed at: 0x[0-9a-fA-F]{40}' /tmp/sharps-deploy.log | tail -1 | grep -oE '0x[0-9a-fA-F]{40}' || true)
 [ -n "$ADDR" ] || { echo; echo "Could not parse the deployed address from the output above."; exit 1; }
+
+# Verify what actually landed on chain matches what we just built. This is the
+# check that would have caught three consecutive stale deploys immediately
+# instead of after the fact.
+sleep 2
+ONCHAIN=$(cast code "$ADDR" --rpc-url "$RPC")
+if [ "${ONCHAIN,,}" = "${LOCAL_CODE,,}" ]; then
+  echo "Deployed bytecode matches the local build."
+else
+  echo
+  echo "WARNING: deployed bytecode does NOT match the build from this source."
+  echo "  on chain: $(( (${#ONCHAIN} - 2) / 2 )) bytes"
+  echo "  built:    $(( (${#LOCAL_CODE} - 2) / 2 )) bytes"
+  echo "Do not create listings against this address until that is understood."
+  exit 1
+fi
 
 # Hand the address to create-listings.sh rather than making someone paste it
 # between the two steps. A stale hardcoded address there would not error — it
