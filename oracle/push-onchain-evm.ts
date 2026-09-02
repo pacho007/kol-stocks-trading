@@ -262,6 +262,41 @@ async function main() {
   console.log(`Oracle authority: ${account.address}`);
   console.log(`Market: ${marketAddress}`);
 
+  // Preflight, here rather than in a wrapper script, so it holds however this
+  // is invoked — shell, scheduler, or CI.
+  const deployedCode = await publicClient.getBytecode({ address: marketAddress });
+  if (!deployedCode || deployedCode === "0x") {
+    console.error(`No contract deployed at ${marketAddress}. Check MARKET_ADDRESS.`);
+    process.exit(1);
+  }
+
+  // updatePrice/batchUpdatePrice are onlyOracle, so the wrong key does not fail
+  // once — it reverts every chunk in turn, after spending gas discovering that.
+  const onChainOracle = (await publicClient.readContract({
+    address: marketAddress,
+    abi: marketAbi,
+    functionName: "oracleAuthority",
+  })) as Address;
+  if (onChainOracle.toLowerCase() !== account.address.toLowerCase()) {
+    console.error(
+      `This key is not the contract's oracle authority.\n` +
+        `  contract expects: ${onChainOracle}\n` +
+        `  key derives to:   ${account.address}\n` +
+        `Every batch would revert.`,
+    );
+    process.exit(1);
+  }
+
+  const balance = await publicClient.getBalance({ address: account.address });
+  if (balance === 0n) {
+    console.error(
+      `Oracle wallet ${account.address} has no ETH and cannot sign.\n` +
+        `Fund it: bash evm/fund-oracle.sh`,
+    );
+    process.exit(1);
+  }
+  console.log(`Oracle balance: ${Number(balance) / 1e18} ETH`);
+
   let listings: ListingInput[];
   const full = await loadFullListings();
   if (!full) {
