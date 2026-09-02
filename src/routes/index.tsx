@@ -2,8 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { KOLS } from "@/lib/kols";
-import bgVideo from "@/assets/sharps-bg-4k.mp4.asset.json";
-import heroPoster from "@/assets/hero-banner.jpg";
+import bgVideo from "@/assets/sharps-hero-pink.mp4.asset.json";
+import heroPoster from "@/assets/sharps-hero-poster.jpg.asset.json";
 
 /**
  * Starts false so the server and the first client render agree — reading
@@ -49,7 +49,7 @@ function Splash() {
   const reduceMotion = usePrefersReducedMotion();
 
   return (
-    <div className="relative isolate flex min-h-[100svh] flex-col overflow-hidden bg-[#05060c]">
+    <div className="relative isolate flex min-h-[100svh] flex-col overflow-hidden bg-white">
       {/* 4K video backdrop.
           The file is ~40MB, so how it loads matters more than that it loads:
           - poster paints the hero instantly instead of leaving a black box
@@ -63,7 +63,7 @@ function Splash() {
         <video
           className="pointer-events-none absolute inset-0 -z-20 size-full object-cover"
           src={bgVideo.url}
-          poster={heroPoster}
+          poster={heroPoster.url}
           autoPlay
           muted
           loop
@@ -75,14 +75,14 @@ function Splash() {
       {/* Reduced-motion and pre-roll both fall back to the still, so the hero
           never renders as a bare black rectangle. */}
       <img
-        src={heroPoster}
+        src={heroPoster.url}
         alt=""
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-30 size-full object-cover"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(120%_80%_at_50%_50%,transparent_0%,rgba(3,4,10,0.55)_75%,rgba(3,4,10,0.9)_100%)]"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(120%_80%_at_50%_45%,rgba(255,255,255,0.35)_0%,transparent_55%,rgba(255,255,255,0.35)_100%)]"
       />
 
       {/* top bar */}
@@ -90,33 +90,39 @@ function Splash() {
         className="fade-up relative z-10 flex items-center justify-between px-6 py-7 sm:px-12"
         style={{ animationDelay: "0.05s" }}
       >
-        <span className="display text-[11px] font-extrabold tracking-[0.42em] uppercase text-white/90">
+        <span className="display text-[11px] font-extrabold tracking-[0.42em] uppercase text-[#3d1024]">
           Sharps
         </span>
-        <span className="num hidden text-[10px] tracking-[0.3em] uppercase text-white/50 md:block">
+        <span className="num hidden text-[10px] tracking-[0.3em] uppercase text-[#3d1024]/60 md:block">
           On-chain talent exchange
         </span>
-        <span className="num text-[10px] tracking-[0.3em] uppercase text-white/50">Est. 2026</span>
+        <span className="num text-[10px] tracking-[0.3em] uppercase text-[#3d1024]/60">
+          Est. 2026
+        </span>
       </header>
 
       {/* hero */}
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-16 text-center">
         <h1
-          className="fade-up display select-none text-white"
+          className="fade-up display select-none"
           style={{
             animationDelay: "0.2s",
             fontWeight: 800,
-            letterSpacing: "0.06em",
+            letterSpacing: "0.04em",
             lineHeight: 0.9,
             fontSize: "clamp(3.4rem, 15vw, 13rem)",
-            textShadow: "0 0 60px rgba(255,255,255,0.35), 0 0 140px rgba(120,180,255,0.35)",
+            backgroundImage:
+              "linear-gradient(180deg, #ffffff 0%, #ffe9f2 38%, #ff9dc4 62%, #d8partial 63%, #b7争 64%)",
+            color: "#fff",
+            textShadow:
+              "0 1px 0 #ffd8e7, 0 2px 0 #ffc0d9, 0 3px 0 #ff a8cb, 0 6px 18px rgba(190,40,100,0.45), 0 0 70px rgba(255,255,255,0.5)",
           }}
         >
           SHARPS
         </h1>
 
         <p
-          className="fade-up mt-8 max-w-lg text-balance text-[15px] leading-relaxed text-white/70"
+          className="fade-up mt-8 max-w-lg text-balance text-[15px] leading-relaxed text-[#3d1024]/80"
           style={{ animationDelay: "0.5s" }}
         >
           The exchange where on-chain traders are listed like stocks. Every green day gaps them up,
@@ -129,14 +135,14 @@ function Splash() {
         >
           <Link
             to="/app"
-            className="group inline-flex h-12 items-center gap-3 rounded-lg bg-white px-8 text-[11px] font-extrabold tracking-[0.24em] uppercase text-[#05060c] transition-transform duration-300 hover:scale-[1.03]"
+            className="group inline-flex h-12 items-center gap-3 rounded-lg bg-[#3d1024] px-8 text-[11px] font-extrabold tracking-[0.24em] uppercase text-white shadow-lg transition-transform duration-300 hover:scale-[1.03]"
           >
             Enter Exchange
             <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
           </Link>
           <Link
             to="/docs"
-            className="inline-flex h-12 items-center rounded-lg border border-white/25 bg-white/5 px-7 text-[11px] font-bold tracking-[0.24em] uppercase text-white/75 backdrop-blur transition-colors duration-300 hover:border-white/60 hover:text-white"
+            className="inline-flex h-12 items-center rounded-lg border border-[#3d1024]/25 bg-white/50 px-7 text-[11px] font-bold tracking-[0.24em] uppercase text-[#3d1024]/80 backdrop-blur transition-colors duration-300 hover:border-[#3d1024]/60 hover:text-[#3d1024]"
           >
             How it works
           </Link>
@@ -145,7 +151,7 @@ function Splash() {
 
       {/* marquee tape */}
       <footer
-        className="fade-up relative z-10 border-t border-white/10 bg-black/30 py-3.5 backdrop-blur"
+        className="fade-up relative z-10 border-t border-white/60 bg-white/45 py-3.5 backdrop-blur"
         style={{ animationDelay: "0.9s" }}
       >
         <div className="splash-mask overflow-hidden">
@@ -153,9 +159,9 @@ function Splash() {
             {[...tape, ...tape].map((k, i) => (
               <span
                 key={i}
-                className="num flex items-center gap-2 text-[10px] tracking-[0.2em] whitespace-nowrap uppercase text-white/60"
+                className="num flex items-center gap-2 text-[10px] tracking-[0.2em] whitespace-nowrap uppercase text-[#3d1024]/70"
               >
-                <span className="font-bold text-white">${k.ticker}</span>
+                <span className="font-bold text-[#3d1024]">${k.ticker}</span>
                 <span className="opacity-60">{k.name}</span>
               </span>
             ))}
@@ -163,5 +169,6 @@ function Splash() {
         </div>
       </footer>
     </div>
+
   );
 }
