@@ -640,6 +640,104 @@ export function useKolStats(id: string) {
   };
 }
 
+/** Shares minted per listing — the denominator behind every market cap here. */
+export const SHARES_PER_LISTING = 10_000_000;
+
+/**
+ * Live per-listing figures, keyed by id, for anywhere rendering a list.
+ *
+ * useKolStats covers a single listing, but it is a hook, so a table cannot
+ * call it per row. Without this the list views fall back to KOLS.change24h /
+ * .marketCap / .volume24h, which are seed placeholders sitting at zero — so
+ * every row reads "+0.00%" no matter what the market is doing.
+ *
+ * changePct is measured against the shared opening price, which is what makes
+ * a day-one 0% honest rather than a placeholder: every listing genuinely does
+ * open at the same price.
+ *
+ * There is no volume here on purpose. Volume needs Bought/Sold events, and the
+ * indexer subscribes to PriceUpdated only, so any number would be invented.
+ */
+export function useLiveMetrics() {
+  const { prices } = useMarket();
+  return useMemo(() => {
+    const changePct: Record<string, number> = {};
+    const marketCapUsd: Record<string, number> = {};
+    for (const k of KOLS) {
+      const price = prices[k.id] ?? OPEN_PRICE_USD;
+      changePct[k.id] = ((price - OPEN_PRICE_USD) / OPEN_PRICE_USD) * 100;
+      marketCapUsd[k.id] = price * SHARES_PER_LISTING;
+    }
+    return { changePct, marketCapUsd };
+  }, [prices]);
+}
+
+/**
+ * Index-wide stats, derived live rather than read from kols.ts.
+ *
+ * The static marketCap/volume24h/winRate/change24h fields on KOLS are seed
+ * placeholders and are all literally zero, so anything rendering them shows
+ * "$0.00M · $0K · 0%" forever, however busy the market actually is. These come
+ * from the same sources a listing page uses: on-chain price via the shared
+ * feed, and oracle metrics.
+ *
+ * `bestChangePct` is measured against the equal opening price, not a rolling
+ * 24h window — every listing starts at the same open, so on day one everything
+ * is legitimately 0%. Label it for what it is rather than calling it 24h.
+ *
+ * Volume is deliberately absent: it would have to come from Bought/Sold
+ * events, and the indexer subscribes to PriceUpdated only, so there is no
+ * honest number to show. A zero that means "not measured" is worse than no
+ * figure at all on a stat bar people read as live.
+ */
+export function useIndexStats() {
+  const { prices, metrics, onChainListings } = useMarket();
+  const feed = useMarketFeed();
+
+  return useMemo(() => {
+    let capUsd = 0;
+    let bestChangePct = 0;
+    let bestId: string | null = null;
+    let winSum = 0;
+    let winCount = 0;
+    let listedOnChain = 0;
+
+    for (const k of KOLS) {
+      const price = prices[k.id] ?? OPEN_PRICE_USD;
+      capUsd += price * SHARES_PER_LISTING;
+
+      const changePct = ((price - OPEN_PRICE_USD) / OPEN_PRICE_USD) * 100;
+      if (bestId === null || changePct > bestChangePct) {
+        bestChangePct = changePct;
+        bestId = k.id;
+      }
+
+      const m = metrics[k.id];
+      // Only count wallets the oracle actually scored. Averaging in a missing
+      // wallet as 0% would drag the index average down purely because that
+      // wallet was rate-limited, which is a data gap, not a losing trader.
+      if (m && typeof m.winRate === "number" && m.trades > 0) {
+        winSum += m.winRate;
+        winCount++;
+      }
+
+      if (onChainListings[k.id] || feed.listings[k.id]) listedOnChain++;
+    }
+
+    return {
+      capUsd,
+      avgWinRatePct: winCount > 0 ? (winSum / winCount) * 100 : null,
+      scoredWallets: winCount,
+      bestChangePct,
+      bestId,
+      bestTicker: KOLS.find((k) => k.id === bestId)?.ticker ?? null,
+      listedOnChain,
+      totalListings: KOLS.length,
+      live: feed.configured,
+    };
+  }, [prices, metrics, onChainListings, feed.listings, feed.configured]);
+}
+
 /** Timeframe windows in milliseconds for the price chart. */
 export const TIMEFRAMES = [
   { key: "1s", ms: 1_000 },

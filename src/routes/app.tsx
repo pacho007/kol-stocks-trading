@@ -1,5 +1,5 @@
 import { SessionClock } from "@/components/session-clock";
-import { useMarket } from "@/lib/market-store";
+import { useMarket, useIndexStats, useLiveMetrics } from "@/lib/market-store";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { AvatarMark } from "@/components/avatar-mark";
@@ -55,6 +55,8 @@ const STEPS = [
 
 function Landing() {
   const { prices } = useMarket();
+  const idx = useIndexStats();
+  const { changePct, marketCapUsd } = useLiveMetrics();
   const session = useSession();
   const featured = [
     "cupsey",
@@ -74,12 +76,11 @@ function Landing() {
     const i = featured.findIndex((f) => n === f || n.startsWith(f));
     return i === -1 ? featured.length : i;
   };
-  const rail = [...KOLS].sort((a, b) => rank(a) - rank(b) || b.marketCap - a.marketCap);
-  const top = [...KOLS].sort((a, b) => b.change24h - a.change24h).slice(0, 4);
+  const rail = [...KOLS].sort(
+    (a, b) => rank(a) - rank(b) || (marketCapUsd[b.id] ?? 0) - (marketCapUsd[a.id] ?? 0),
+  );
+  const top = [...KOLS].sort((a, b) => (changePct[b.id] ?? 0) - (changePct[a.id] ?? 0)).slice(0, 4);
   const board = [...KOLS].sort((a, b) => perfScore(b) - perfScore(a)).slice(0, 6);
-  const totalCap = KOLS.reduce((s, k) => s + k.marketCap, 0);
-  const totalVol = KOLS.reduce((s, k) => s + k.volume24h, 0);
-  const avgWin = Math.round(KOLS.reduce((s, k) => s + k.winRate, 0) / KOLS.length);
 
   return (
     <div>
@@ -101,13 +102,19 @@ function Landing() {
               : `Sessions ${fmtUtc(DAY_OPEN)}-${fmtUtc(DAY_CLOSE)} UTC`}
           </span>
           <span>
-            Index cap <span className="num text-foreground">{fmtCompact(totalCap)}</span>
+            Index cap <span className="num text-foreground">{fmtCompact(idx.capUsd)}</span>
           </span>
           <span>
-            24h vol <span className="num text-foreground">{fmtCompact(totalVol)}</span>
+            Scored{" "}
+            <span className="num text-foreground">
+              {idx.scoredWallets}/{idx.totalListings}
+            </span>
           </span>
           <span>
-            Listings <span className="num text-foreground">{KOLS.length}</span>
+            On-chain{" "}
+            <span className="num text-foreground">
+              {idx.listedOnChain}/{idx.totalListings}
+            </span>
           </span>
           <span className="ml-auto hidden sm:inline">Season 1 · daily close settlement</span>
         </div>
@@ -125,7 +132,7 @@ function Landing() {
           </div>
           <div className="max-h-[783px] overflow-y-auto overscroll-contain">
             {rail.map((k) => {
-              const up = k.change24h >= 0;
+              const up = (changePct[k.id] ?? 0) >= 0;
               return (
                 <Link
                   key={k.id}
@@ -145,7 +152,7 @@ function Landing() {
                   <div className="text-right">
                     <LivePrice value={prices[k.id] ?? k.price} className="text-xs" />
                     <p className={`num text-[10px] ${up ? "text-up" : "text-down"}`}>
-                      {fmtPct(k.change24h)}
+                      {fmtPct(changePct[k.id] ?? 0)}
                     </p>
                   </div>
                 </Link>
@@ -220,12 +227,32 @@ function Landing() {
               {[
                 [
                   "Index market cap",
-                  `$${(totalCap / 1_000_000).toFixed(2)}M`,
-                  "all listed traders",
+                  `$${(idx.capUsd / 1_000_000).toFixed(2)}M`,
+                  `${idx.listedOnChain} of ${idx.totalListings} live on-chain`,
                 ],
-                ["Session volume", `$${(totalVol / 1_000).toFixed(0)}K`, "shares traded today"],
-                ["Avg index win rate", `${avgWin}%`, "across all listings"],
-                ["Best 24h", fmtPct(top[0]?.change24h ?? 0), `$${top[0]?.ticker ?? "-"} leading`],
+                [
+                  "Listings on-chain",
+                  `${idx.listedOnChain}`,
+                  idx.live ? "shared live feed" : "connecting to feed",
+                ],
+                // Only wallets the oracle actually scored are averaged — a
+                // rate-limited wallet counted as 0% would look like a losing
+                // trader rather than a missing measurement.
+                [
+                  "Avg index win rate",
+                  idx.avgWinRatePct === null ? "—" : `${idx.avgWinRatePct.toFixed(0)}%`,
+                  idx.avgWinRatePct === null
+                    ? "awaiting first oracle run"
+                    : `across ${idx.scoredWallets} scored wallets`,
+                ],
+                // Measured from the equal opening price, not a rolling 24h
+                // window: every listing opens at the same price, so this is
+                // honestly 0% until someone trades or the oracle moves a score.
+                [
+                  "Best since open",
+                  fmtPct(idx.bestChangePct),
+                  idx.bestTicker ? `$${idx.bestTicker} leading` : "all even",
+                ],
               ].map(([label, value, sub]) => (
                 <div key={label} className="bg-card px-4 py-4">
                   <p className="text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
@@ -301,7 +328,7 @@ function Landing() {
               Session tape
             </div>
             {[...KOLS]
-              .sort((a, b) => b.change24h - a.change24h)
+              .sort((a, b) => (changePct[b.id] ?? 0) - (changePct[a.id] ?? 0))
               .filter((_, i, arr) => i < 3 || i >= arr.length - 2)
               .map((k) => (
                 <Link
@@ -320,8 +347,10 @@ function Landing() {
                   </div>
                   <div className="text-right">
                     <LivePrice value={prices[k.id] ?? k.price} className="text-xs" />
-                    <p className={`num text-[10px] ${k.change24h >= 0 ? "text-up" : "text-down"}`}>
-                      {fmtPct(k.change24h)}
+                    <p
+                      className={`num text-[10px] ${(changePct[k.id] ?? 0) >= 0 ? "text-up" : "text-down"}`}
+                    >
+                      {fmtPct(changePct[k.id] ?? 0)}
                     </p>
                   </div>
                 </Link>
@@ -363,7 +392,7 @@ function Landing() {
 
           <div className="mt-8 overflow-hidden panel">
             {board.map((k, i) => {
-              const up = k.change24h >= 0;
+              const up = (changePct[k.id] ?? 0) >= 0;
               return (
                 <Link
                   key={k.id}
@@ -389,7 +418,7 @@ function Landing() {
                   <div className="w-24 text-right">
                     <LivePrice value={prices[k.id] ?? k.price} className="text-sm font-semibold" />
                     <p className={`num text-xs ${up ? "text-up" : "text-down"}`}>
-                      {fmtPct(k.change24h)}
+                      {fmtPct(changePct[k.id] ?? 0)}
                     </p>
                   </div>
                 </Link>

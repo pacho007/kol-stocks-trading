@@ -26,7 +26,7 @@ export const Route = createFileRoute("/leaderboard")({
 });
 
 function Leaderboard() {
-  const { prices, scores } = useMarket();
+  const { prices, scores, metrics } = useMarket();
   const [mode, setMode] = useState<"cap" | "score">("cap");
 
   const liveScore = (id: string) => scores[id] ?? 50;
@@ -142,7 +142,11 @@ function Leaderboard() {
                   <td className={`num px-4 py-3 text-sm ${up ? "text-up" : "text-down"}`}>
                     {fmtPct(liveChange(k.id))}
                   </td>
-                  <td className="num px-4 py-3 text-sm">{k.winRate}%</td>
+                  <td className="num px-4 py-3 text-sm">
+                    {metrics[k.id] && metrics[k.id]!.trades > 0
+                      ? `${Math.round(metrics[k.id]!.winRate * 100)}%`
+                      : "—"}
+                  </td>
                   <td
                     className={`num px-4 py-3 text-sm ${k.pnl30d >= 0 ? "text-up" : "text-down"}`}
                   >

@@ -8,7 +8,7 @@ import { Sparkline } from "@/components/sparkline";
 import { TickerTape } from "@/components/ticker-tape";
 import { Link } from "@tanstack/react-router";
 import { KOLS, fmtCompact, fmtPct } from "@/lib/kols";
-import { useMarket } from "@/lib/market-store";
+import { useMarket, useLiveMetrics } from "@/lib/market-store";
 
 export const Route = createFileRoute("/market")({
   head: () => ({
@@ -34,13 +34,14 @@ const SORTS = [
   { id: "price", label: "Price" },
   { id: "gainers", label: "Gainers" },
   { id: "losers", label: "Losers" },
-  { id: "volume", label: "Volume" },
+  { id: "volume", label: "Trader volume" },
 ] as const;
 
 type SortId = (typeof SORTS)[number]["id"];
 
 function Market() {
-  const { prices } = useMarket();
+  const { prices, metrics } = useMarket();
+  const { changePct, marketCapUsd } = useLiveMetrics();
   const [sort, setSort] = useState<SortId>("cap");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [q, setQ] = useState("");
@@ -54,11 +55,12 @@ function Market() {
         k.handle.toLowerCase().includes(q.toLowerCase()),
     );
     const s = [...filtered];
-    if (sort === "cap") s.sort((a, b) => b.marketCap - a.marketCap);
+    if (sort === "cap") s.sort((a, b) => (marketCapUsd[b.id] ?? 0) - (marketCapUsd[a.id] ?? 0));
     if (sort === "price") s.sort((a, b) => b.price - a.price);
-    if (sort === "gainers") s.sort((a, b) => b.change24h - a.change24h);
-    if (sort === "losers") s.sort((a, b) => a.change24h - b.change24h);
-    if (sort === "volume") s.sort((a, b) => b.volume24h - a.volume24h);
+    if (sort === "gainers") s.sort((a, b) => (changePct[b.id] ?? 0) - (changePct[a.id] ?? 0));
+    if (sort === "losers") s.sort((a, b) => (changePct[a.id] ?? 0) - (changePct[b.id] ?? 0));
+    if (sort === "volume")
+      s.sort((a, b) => (metrics[b.id]?.volumeEth ?? 0) - (metrics[a.id]?.volumeEth ?? 0));
     return s;
   }, [sort, q]);
 
@@ -128,7 +130,7 @@ function Market() {
             <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="border-b border-border bg-surface/60 text-left">
-                  {["Trader", "Price", "24h", "Market cap", "24h volume", "Chart"].map((h) => (
+                  {["Trader", "Price", "24h", "Market cap", "Trader volume", "Chart"].map((h) => (
                     <th
                       key={h}
                       className="px-4 py-2.5 text-[10px] font-medium tracking-widest uppercase text-muted-foreground"
@@ -140,7 +142,7 @@ function Market() {
               </thead>
               <tbody>
                 {rows.map((k) => {
-                  const up = k.change24h >= 0;
+                  const up = (changePct[k.id] ?? 0) >= 0;
                   return (
                     <tr
                       key={k.id}
@@ -168,13 +170,13 @@ function Market() {
                         <LivePrice value={prices[k.id] ?? k.price} className="text-sm" />
                       </td>
                       <td className={`num px-4 py-3 text-sm ${up ? "text-up" : "text-down"}`}>
-                        {fmtPct(k.change24h)}
+                        {fmtPct(changePct[k.id] ?? 0)}
                       </td>
                       <td className="num px-4 py-3 text-sm text-muted-foreground">
-                        {fmtCompact(k.marketCap)}
+                        {fmtCompact(marketCapUsd[k.id] ?? 0)}
                       </td>
                       <td className="num px-4 py-3 text-sm text-muted-foreground">
-                        {fmtCompact(k.volume24h)}
+                        {metrics[k.id] ? `${metrics[k.id]!.volumeEth.toFixed(1)} ETH` : "—"}
                       </td>
                       <td className="px-4 py-3">
                         <Sparkline data={k.series} up={up} className="h-8 w-32" />

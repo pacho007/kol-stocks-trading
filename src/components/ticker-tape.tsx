@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
 import { KOLS, fmtPct } from "@/lib/kols";
-import { useMarket } from "@/lib/market-store";
+import { useMarket, useLiveMetrics } from "@/lib/market-store";
 
 export function TickerTape() {
   const { prices } = useMarket();
+  const { changePct } = useLiveMetrics();
   const row = [...KOLS, ...KOLS];
 
   return (
@@ -12,7 +13,7 @@ export function TickerTape() {
       <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-background to-transparent" />
       <div className="marquee flex w-max items-center gap-8 py-2.5">
         {row.map((k, i) => {
-          const up = k.change24h >= 0;
+          const up = (changePct[k.id] ?? 0) >= 0;
           return (
             <Link
               key={`${k.id}-${i}`}
@@ -25,7 +26,7 @@ export function TickerTape() {
                 {(prices[k.id] ?? k.price).toFixed(2)}
               </span>
               <span className={`num font-medium ${up ? "text-up" : "text-down"}`}>
-                {fmtPct(k.change24h)}
+                {fmtPct(changePct[k.id] ?? 0)}
               </span>
               <span className="text-border">|</span>
             </Link>
