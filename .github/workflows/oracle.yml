@@ -1,0 +1,85 @@
+name: Oracle
+
+# Scores every listed wallet from live chain history, mirrors the measurements
+# into Postgres, and pushes the resulting scores on-chain.
+#
+# This exists because the oracle previously ran nowhere. Scores only moved when
+# someone ran the push by hand, which on mainnet would mean prices freezing the
+# moment attention moved elsewhere — while the market stayed open and tradable.
+#
+# GitHub Actions rather than a server: this is a periodic job with no state
+# between runs and no inbound traffic, so a VM would be a machine to patch for
+# no benefit. Scheduled runs can be delayed under load, which is fine here —
+# the contract enforces its own MIN_UPDATE_INTERVAL_SECS, and a late cycle
+# moves scores a little further per update rather than breaking anything.
+
+on:
+  schedule:
+    # Every 20 minutes, matching the oracle's own REFRESH_MIN default.
+    - cron: "*/20 * * * *"
+  # So a cycle can be forced after a deploy without waiting for the timer.
+  workflow_dispatch:
+    inputs:
+      push_onchain:
+        description: "Also push scores on-chain (uncheck to only refresh metrics)"
+        type: boolean
+        default: true
+
+# One cycle at a time. Two overlapping runs would both crawl the explorer,
+# doubling the request rate against the exact limit the pacing exists to
+# respect, and could submit conflicting score updates in the same window.
+concurrency:
+  group: oracle
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    # A full 108-wallet crawl is ~11 minutes unpaced by an API key, less with
+    # one. This is a ceiling, not a target: it exists so a wedged run cannot
+    # block the next cycle indefinitely.
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      # Score, then mirror the measurements into listing_metrics. Writes
+      # scores.json too, which the on-chain push reads below rather than
+      # crawling a second time — a second crawl would take another ~11 minutes
+      # and produce a slightly different distribution than the one just stored.
+      - name: Score and publish metrics
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          BLOCKSCOUT_API_KEY: ${{ secrets.BLOCKSCOUT_API_KEY }}
+        run: npx tsx oracle/publish.ts
+
+      - name: Push scores on-chain
+        if: github.event_name == 'schedule' || inputs.push_onchain
+        env:
+          ORACLE_AUTHORITY_PRIVATE_KEY: ${{ secrets.ORACLE_AUTHORITY_PRIVATE_KEY }}
+          MARKET_ADDRESS: ${{ secrets.MARKET_ADDRESS }}
+          ROBINHOOD_RPC_URL: ${{ secrets.ROBINHOOD_RPC_URL }}
+          ROBINHOOD_NETWORK: ${{ secrets.ROBINHOOD_NETWORK }}
+        run: npx tsx oracle/push-onchain-evm.ts --from-scores
+
+      # The manifest records which listings confirmed and which failed. Kept on
+      # a failed run especially, since that is when "which prices are stale"
+      # is the question worth answering.
+      - name: Upload run manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oracle-run-${{ github.run_number }}
+          path: |
+            oracle/.last-onchain-run-evm.json
+            public/scores.json
+          if-no-files-found: ignore
+          retention-days: 14
