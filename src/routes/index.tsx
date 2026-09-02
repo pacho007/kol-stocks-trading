@@ -111,11 +111,10 @@ function Splash() {
             letterSpacing: "0.04em",
             lineHeight: 0.9,
             fontSize: "clamp(3.4rem, 15vw, 13rem)",
-            backgroundImage:
-              "linear-gradient(180deg, #ffffff 0%, #ffe9f2 38%, #ff9dc4 62%, #d8partial 63%, #b7争 64%)",
-            color: "#fff",
+            color: "#ffffff",
             textShadow:
-              "0 1px 0 #ffd8e7, 0 2px 0 #ffc0d9, 0 3px 0 #ff a8cb, 0 6px 18px rgba(190,40,100,0.45), 0 0 70px rgba(255,255,255,0.5)",
+              "0 1px 0 #ffd8e7, 0 2px 0 #ffc0d9, 0 3px 0 #ffa8cb, 0 4px 0 #f58fb8, 0 10px 24px rgba(170,30,85,0.35), 0 0 80px rgba(255,255,255,0.55)",
+
           }}
         >
           SHARPS
