@@ -1,8 +1,8 @@
 /**
  * pricing.ts (frontend) — display-only price estimate, browser-safe.
  * --------------------------------------------------------------------
- * Once a listing exists on-chain (anchor/programs/sharps), its real price
- * lives in that listing's account (`Listing.price_lamports`) and is what
+ * Once a listing exists on-chain (evm/src/SharpsMarket.sol), its real price
+ * lives in that listing's `priceWei` and is what
  * src/lib/market-store.tsx actually trades against — this file is no
  * longer in that path. It exists only to show a reasonable estimated price
  * for listings that haven't been created on-chain yet (mid-rollout), so the

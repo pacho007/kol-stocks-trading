@@ -51,7 +51,7 @@ contract CreateListings is Script {
             address wallet = wallets[i];
             // Idempotent: a re-run after a partial failure skips what already
             // exists instead of reverting the whole script on ListingExists.
-            (,,,,,,, bool exists) = market.listings(wallet);
+            bool exists = market.getListing(wallet).exists;
             if (exists) {
                 skipped++;
                 continue;

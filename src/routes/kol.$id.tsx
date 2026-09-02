@@ -9,8 +9,8 @@ import { PriceChart } from "@/components/price-chart";
 import { ConnectWalletButton } from "@/components/site-header";
 import { getKol, fmtCompact, fmtPct, fmtUsd, perfScore, shortWallet } from "@/lib/kols";
 import { useMarket, useKolStats } from "@/lib/market-store";
-import { fetchBackingPerShareWad } from "@/lib/evm/market";
-import { getPublicClient } from "@/lib/evm/chain";
+import { fetchBackingPerShareWad, sharesForBudget, quoteSell } from "@/lib/evm/market";
+import { getPublicClient, ethToWei, weiToEth } from "@/lib/evm/chain";
 
 /** viem surfaces a contract revert's decoded reason on `shortMessage`;
  * anything else (a wallet rejection, a network error) falls back to its plain
@@ -106,13 +106,47 @@ function KolDetail() {
   const amt = Math.max(0, Number(amount) || 0);
   const maxSell = position?.shares ?? 0;
 
-  // buy: spend `amt` ETH -> derive shares at current price (an ESTIMATE —
-  // the actual fill, reported post-trade below, can differ slightly since
-  // price genuinely moves on-chain between quote and confirm)
-  const derivedShares = price > 0 ? Math.floor((amt * nativePriceUsd) / price) : 0;
-  // sell: `amt` shares -> ETH proceeds at the QUOTED price — the actual
-  // payout is min(this, pro-rata vault backing); see backingUsd above.
-  const sellProceedsNative = (amt * price) / nativePriceUsd;
+  // Quotes come from the contract, not from price * amount: shares sit on a
+  // bonding curve, so each one costs more than the last and a flat
+  // multiplication is always wrong. Falls back to a rough flat estimate only
+  // when the listing isn't on-chain yet and there's nothing to quote against.
+  const [quotedShares, setQuotedShares] = useState<number | null>(null);
+  const [quotedProceeds, setQuotedProceeds] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const client = getPublicClient();
+    const run = async () => {
+      if (amt <= 0) {
+        if (alive) {
+          setQuotedShares(null);
+          setQuotedProceeds(null);
+        }
+        return;
+      }
+      try {
+        if (side === "buy") {
+          const n = await sharesForBudget(client, kol.wallet as Address, ethToWei(amt));
+          if (alive) setQuotedShares(Number(n));
+        } else {
+          const out = await quoteSell(client, kol.wallet as Address, BigInt(Math.floor(amt)));
+          if (alive) setQuotedProceeds(weiToEth(out));
+        }
+      } catch {
+        if (alive) {
+          setQuotedShares(null);
+          setQuotedProceeds(null);
+        }
+      }
+    };
+    run();
+    return () => {
+      alive = false;
+    };
+  }, [amt, side, kol.wallet]);
+
+  const derivedShares =
+    quotedShares ?? (price > 0 ? Math.floor((amt * nativePriceUsd) / price) : 0);
+  const sellProceedsNative = quotedProceeds ?? (amt * price) / nativePriceUsd;
 
   const canSubmit =
     connected &&
@@ -193,7 +227,7 @@ function KolDetail() {
           </div>
           <p className="text-sm text-muted-foreground">{kol.name}</p>
           <div className="num mt-1 flex flex-wrap items-center gap-3 text-[10px] tracking-widest uppercase">
-            {kol.x ? (
+            {kol.x && kol.handle ? (
               <a
                 href={kol.x}
                 target="_blank"
@@ -202,9 +236,9 @@ function KolDetail() {
               >
                 {kol.handle}
               </a>
-            ) : (
+            ) : kol.handle ? (
               <span className="text-muted-foreground">{kol.handle}</span>
-            )}
+            ) : null}
             <button
               type="button"
               onClick={() => navigator.clipboard?.writeText(kol.wallet)}
@@ -295,31 +329,60 @@ function KolDetail() {
             </div>
 
             <dl className="mt-4 space-y-1.5 border-t border-border pt-3 text-xs">
-              <Row label="Quoted price / share" value={fmtUsd(price)} />
+              <Row label="Price / share now" value={fmtUsd(price)} />
               <Row
                 label="Backing / share"
                 value={backingUsd != null ? fmtUsd(backingUsd) : "—"}
-                tone={backingUsd != null && backingUsd < price ? "down" : undefined}
               />
               {side === "buy" ? (
                 <>
-                  <Row label="Est. shares received" value={derivedShares.toLocaleString()} />
+                  <Row label="Shares you'll get" value={derivedShares.toLocaleString()} />
+                  <Row label="Fee (2%)" value={`${(amt * 0.02).toFixed(4)} ETH`} />
                   <Row label="ETH balance" value={`${nativeBalance.toFixed(3)} ETH`} />
                 </>
               ) : (
                 <>
-                  <Row label="Est. ETH proceeds" value={`${sellProceedsNative.toFixed(3)} ETH`} />
+                  <Row label="You'll receive" value={`${sellProceedsNative.toFixed(4)} ETH`} />
+                  <Row label="Fee (2%)" value="included above" />
                   <Row label="Your shares" value={maxSell.toLocaleString()} />
                 </>
               )}
               <Row label="Session" value={marketOpen ? "OPEN" : "CLOSED"} />
             </dl>
-            {backingUsd != null && backingUsd < price && (
-              <p className="mt-2 text-[10px] text-down">
-                This listing is undercollateralized — selling pays the lower backing value, not the
-                quoted price.
-              </p>
-            )}
+
+            <div className="mt-3 space-y-2 rounded-md border border-border bg-muted/30 px-3 py-2.5 text-[10px] leading-relaxed text-muted-foreground">
+              {side === "buy" ? (
+                <>
+                  <p>
+                    <b className="text-foreground">Each share costs more than the last.</b> Shares
+                    sit on a curve, so buying pushes the price up as you go — the number above is
+                    the exact fill for this amount, not an average.
+                  </p>
+                  <p>
+                    <b className="text-foreground">You can always sell back.</b> The listing's
+                    reserve is what you and every other buyer paid in, and it always covers a sell
+                    at the curve price. There's no scenario where a sell can't be paid.
+                  </p>
+                  <p>
+                    A round trip costs about <b className="text-foreground">4%</b> (2% in, 2% out)
+                    before the price moves at all. Those fees stay in this listing's own reserve —
+                    the house takes nothing — and they're what lets a rising score lift the price.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    <b className="text-foreground">You're paid the full curve price.</b> Selling
+                    walks back down the same curve you bought on. The figure above is what actually
+                    lands in your wallet, not an estimate that can be cut short.
+                  </p>
+                  <p>
+                    Selling reduces the supply, so the price steps down for whoever holds next —
+                    the same way your buy stepped it up.
+                  </p>
+                </>
+              )}
+            </div>
 
             {connected ? (
               <button
@@ -345,6 +408,44 @@ function KolDetail() {
                 </p>
               </div>
             )}
+          </div>
+
+          <div className="panel p-4">
+            <p className="text-[10px] tracking-widest uppercase text-muted-foreground">
+              How ${kol.ticker} is priced
+            </p>
+            <ol className="mt-3 space-y-2.5 text-[11px] leading-relaxed text-muted-foreground">
+              <li>
+                <b className="text-foreground">1 · The score.</b> {kol.name}'s wallet is read
+                straight off Robinhood Chain — realized PnL, win rate, volume, trade count — and
+                ranked against every other listed trader. That produces the perf score of{" "}
+                <b className="text-foreground">{liveScore}</b> above. It's relative, so it falls
+                when they slip against the field, not just when they lose money.
+              </li>
+              <li>
+                <b className="text-foreground">2 · The score sets the multiplier.</b> A score of 50
+                is neutral (1×). Higher lifts the whole curve, lower drops it. The score itself
+                moves at most 25% toward its new target per update, so one good day can't reprice
+                the listing.
+              </li>
+              <li>
+                <b className="text-foreground">3 · The curve sets the price.</b> On top of that,
+                each share costs more than the one before it. Buying walks the price up, selling
+                walks it back down — and because every share bought is held in this listing's own
+                reserve, a sell can always be paid in full.
+              </li>
+              <li>
+                <b className="text-foreground">4 · Price can lag the score.</b> A score rise only
+                lifts the price as far as the reserve can actually back. A trader who's performing
+                but barely traded will show a high score and a price still catching up — that gap
+                is real, and shown rather than hidden.
+              </li>
+            </ol>
+            <p className="mt-3 border-t border-border pt-2.5 text-[10px] text-muted-foreground">
+              Market cap is price × the 10,000,000 share cap, so it moves in lockstep with price —
+              it isn't a measure of money actually in the listing. That's{" "}
+              <b className="text-foreground">backing / share</b> in the trade panel.
+            </p>
           </div>
 
           <div className="panel p-4">

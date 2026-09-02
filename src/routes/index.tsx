@@ -9,7 +9,7 @@ import { Sparkline } from "@/components/sparkline";
 import { TickerTape } from "@/components/ticker-tape";
 import { DocsDeck } from "@/components/docs-deck";
 import { ConnectWalletButton } from "@/components/site-header";
-import { KOLS, fmtCompact, fmtPct, perfScore } from "@/lib/kols";
+import { KOLS, fmtCompact, fmtPct, perfScore, shortWallet } from "@/lib/kols";
 import heroBanner from "@/assets/hero-banner.jpg";
 import { useSession } from "@/hooks/use-session";
 import { DAY_CLOSE, DAY_OPEN, fmtUtc } from "@/lib/sessions";
@@ -267,7 +267,7 @@ function Landing() {
                 >
                   <div className="min-w-0">
                     <p className="num text-xs font-bold tracking-widest group-hover:text-primary">${k.ticker}</p>
-                    <p className="truncate text-[10px] tracking-wider uppercase text-muted-foreground">{k.handle}</p>
+                    <p className="truncate text-[10px] tracking-wider uppercase text-muted-foreground">{k.handle || shortWallet(k.wallet)}</p>
                   </div>
                   <div className="text-right">
                     <LivePrice value={prices[k.id] ?? k.price} className="text-xs" />
@@ -325,7 +325,7 @@ function Landing() {
                   <AvatarMark gradient={k.avatar} label={k.ticker} src={k.image} size={34} />
                   <div className="min-w-0">
                     <p className="num text-sm font-bold tracking-widest">${k.ticker}</p>
-                    <p className="truncate text-xs text-muted-foreground">{k.handle}</p>
+                    <p className="truncate text-xs text-muted-foreground">{k.handle || shortWallet(k.wallet)}</p>
                   </div>
                   <Sparkline data={k.series} up={up} className="ml-auto hidden h-8 w-28 sm:block" />
                   <div className="hidden w-24 text-right md:block">

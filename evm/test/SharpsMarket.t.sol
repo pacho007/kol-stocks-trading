@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {SharpsMarket} from "../src/SharpsMarket.sol";
 import {ScoreLut} from "../src/lib/ScoreLut.sol";
+import {Curve} from "../src/lib/Curve.sol";
 
 contract SharpsMarketTest is Test {
     SharpsMarket market;
@@ -49,7 +50,8 @@ contract SharpsMarketTest is Test {
     // ------------------------------------------------------------- listing
 
     function test_createListing_opensAtScoreFiftyAndBasePrice() public view {
-        (uint8 score, uint256 priceWei,,,,,, bool exists) = market.listings(kol);
+        SharpsMarket.Listing memory L = market.getListing(kol);
+        uint8 score = L.score; uint256 priceWei = L.priceWei; bool exists = L.exists;
         assertTrue(exists);
         assertEq(score, 50);
         assertEq(priceWei, market.OPEN_PRICE_WEI());
@@ -73,17 +75,28 @@ contract SharpsMarketTest is Test {
         market.updatePrice(kol, 80);
     }
 
-    function test_updatePrice_movesTowardTargetByRateCap() public {
+    /// Price is no longer rate-capped independently — there is now ONE rate
+    /// cap, on the score, and the price follows it through the multiplier.
+    /// So a single update moves the price by exactly the ratio the capped
+    /// score implies, not by a separate 25% walk of its own.
+    function test_updatePrice_priceFollowsRateCappedScore() public {
         uint256 before = market.OPEN_PRICE_WEI();
-        uint256 target = ScoreLut.priceForScore(100);
 
         vm.prank(oracle);
         market.updatePrice(kol, 100);
 
-        (, uint256 priceWei,,,,,,) = market.listings(kol);
-        uint256 expectedStep = ((target - before) * 25) / 100;
-        assertEq(priceWei, before + expectedStep);
-        assertLt(priceWei, target); // rate-capped, doesn't snap straight to target
+        SharpsMarket.Listing memory L = market.getListing(kol);
+        // 50 -> 62 after one 25% step toward 100.
+        assertEq(L.score, 62);
+
+        // Empty book, so the multiplier applies in full: price is the curve's
+        // spot price scaled by LUT[62]/LUT[50].
+        uint256 expectedMult = (ScoreLut.priceForScore(62) * market.MULT_ONE()) / ScoreLut.priceForScore(50);
+        assertEq(L.scoreMult, expectedMult);
+        assertEq(L.priceWei, (Curve.spotPrice(0) * expectedMult) / market.MULT_ONE());
+
+        assertGt(L.priceWei, before); // moved up
+        assertLt(L.priceWei, (Curve.spotPrice(0) * 3)); // but nowhere near the score-100 ceiling
     }
 
     function test_updatePrice_revertsWhenTooSoon() public {
@@ -113,7 +126,7 @@ contract SharpsMarketTest is Test {
     function test_updatePrice_neverExceedsMaxOrMinRails() public {
         vm.prank(oracle);
         market.updatePrice(kol, 100);
-        (, uint256 priceWei,,,,,,) = market.listings(kol);
+        uint256 priceWei = market.getListing(kol).priceWei;
         assertLe(priceWei, market.MAX_PRICE_WEI());
         assertGe(priceWei, market.MIN_PRICE_WEI());
     }
@@ -127,7 +140,7 @@ contract SharpsMarketTest is Test {
         vm.prank(oracle);
         market.updatePrice(kol, 100); // raw target score is 100
 
-        (uint8 score,,,,,,,) = market.listings(kol);
+        uint8 score = market.getListing(kol).score;
         assertLt(score, 100); // did not jump straight to the raw target
         assertGt(score, 50); // but did move up from the neutral open score
     }
@@ -140,7 +153,7 @@ contract SharpsMarketTest is Test {
             vm.warp(block.timestamp + 30);
             vm.prank(oracle);
             market.updatePrice(kol, 100);
-            (uint8 score,,,,,,,) = market.listings(kol);
+            uint8 score = market.getListing(kol).score;
             assertGe(score, prevScore); // monotonically non-decreasing toward 100
             prevScore = score;
         }
@@ -166,8 +179,8 @@ contract SharpsMarketTest is Test {
 
         assertTrue(applied[0]);
         assertTrue(applied[1]);
-        (uint8 s1,,,,,,,) = market.listings(kol);
-        (uint8 s2,,,,,,,) = market.listings(kol2);
+        uint8 s1 = market.getListing(kol).score;
+        uint8 s2 = market.getListing(kol2).score;
         // Score is rate-capped exactly like price now, not a direct
         // assignment: from 50, moves 25% of the way toward the raw target.
         // 50 + (80-50)*25/100 = 57 (Solidity integer division truncates
@@ -204,16 +217,36 @@ contract SharpsMarketTest is Test {
     // --------------------------------------------------------------- buy
 
     function test_buy_mintsSharesAndRefundsRemainder() public {
-        uint256 price = market.OPEN_PRICE_WEI();
-        uint256 sendAmount = price * 3 + 1; // 1 extra wei should be refunded
+        uint256 exact = market.quoteBuy(kol, 3);
+        uint256 sendAmount = exact + 1; // 1 extra wei should be refunded
 
         vm.deal(buyer, sendAmount);
         vm.prank(buyer);
         market.buy{value: sendAmount}(kol, 3);
 
         assertEq(market.shareBalances(kol, buyer), 3);
-        assertEq(market.vaultBalance(kol), price * 3);
+        assertEq(market.vaultBalance(kol), exact);
         assertEq(buyer.balance, 1); // refund of the sub-share remainder
+    }
+
+    /// Each successive share costs more than the last — that's the curve, and
+    /// it's what lets a sell always be paid in full.
+    function test_buy_curveMakesEachShareDearer() public view {
+        uint256 one = market.quoteBuy(kol, 1);
+        uint256 two = market.quoteBuy(kol, 2);
+        uint256 three = market.quoteBuy(kol, 3);
+        assertGt(two - one, 0);
+        assertGt(three - two, two - one); // strictly increasing marginal cost
+    }
+
+    function test_quoteBuy_matchesActualCost() public {
+        uint256 quoted = market.quoteBuy(kol, 25);
+        vm.deal(buyer, quoted);
+        vm.prank(buyer);
+        market.buy{value: quoted}(kol, 25);
+
+        assertEq(market.shareBalances(kol, buyer), 25);
+        assertEq(buyer.balance, 0); // quote was exact, nothing to refund
     }
 
     function test_buy_revertsOnZeroValue() public {
@@ -223,11 +256,11 @@ contract SharpsMarketTest is Test {
     }
 
     function test_buy_revertsOnSlippage() public {
-        uint256 price = market.OPEN_PRICE_WEI();
-        vm.deal(buyer, price);
+        uint256 oneShare = market.quoteBuy(kol, 1);
+        vm.deal(buyer, oneShare);
         vm.prank(buyer);
         vm.expectRevert(SharpsMarket.SlippageExceeded.selector);
-        market.buy{value: price}(kol, 2); // only 1 share obtainable, asked for min 2
+        market.buy{value: oneShare}(kol, 2); // only 1 share affordable, asked for min 2
     }
 
     function test_buy_revertsWhenMarketPaused() public {
@@ -253,38 +286,100 @@ contract SharpsMarketTest is Test {
     }
 
     function test_buy_cappedAtSharesCap() public {
-        uint256 price = market.OPEN_PRICE_WEI();
         uint256 cap = market.SHARES_PER_LISTING();
-        uint256 hugeAmount = price * (cap + 1000);
+        // Buying the entire cap along a rising curve costs far more than
+        // cap * openPrice, so budget from the actual quote, then overshoot.
+        uint256 wholeCap = market.quoteBuy(kol, cap);
+        uint256 hugeAmount = wholeCap * 2;
 
         vm.deal(buyer, hugeAmount);
         vm.prank(buyer);
         market.buy{value: hugeAmount}(kol, 0);
 
         assertEq(market.shareBalances(kol, buyer), cap);
-        (,, uint256 sharesOutstanding,,,,,) = market.listings(kol);
-        assertEq(sharesOutstanding, cap);
+        assertEq(market.getListing(kol).sharesOutstanding, cap);
     }
 
     // --------------------------------------------------------------- sell
 
     function _buyShares(address who, uint256 shares) internal returns (uint256 cost) {
-        (, uint256 price,,,,,,) = market.listings(kol);
-        cost = price * shares;
+        cost = market.quoteBuy(kol, shares);
         vm.deal(who, cost);
         vm.prank(who);
         market.buy{value: cost}(kol, shares);
     }
 
-    function test_sell_fullyBackedPaysExactQuote() public {
+    /// A round trip costs exactly the two fees and nothing else — no hidden
+    /// spread, and critically no haircut.
+    function test_sell_roundTripCostsOnlyFees() public {
         uint256 cost = _buyShares(buyer, 10);
 
         vm.prank(buyer);
         market.sell(kol, 10, 0);
 
-        assertEq(buyer.balance, cost); // got back exactly what they put in
         assertEq(market.shareBalances(kol, buyer), 0);
-        assertEq(market.vaultBalance(kol), 0);
+        // Back to an empty book: buy fee + sell fee stay behind as reserve
+        // surplus, everything else returned.
+        uint256 returned = buyer.balance;
+        assertLt(returned, cost);
+        // ~4% total (2% in, 2% out); allow a little slack for integer rounding.
+        assertApproxEqRel(returned, (cost * 96) / 100, 0.01e18);
+        assertGt(market.vaultBalance(kol), 0); // retained fees
+    }
+
+    /// THE headline guarantee of the curve design: a seller is paid the full
+    /// curve price, always. The old model paid min(quote, pro-rata NAV) and
+    /// could hand back less than the screen said. There is no code path here
+    /// that can do that — this test exists to keep it that way.
+    function test_sell_alwaysPaysFullCurvePriceEvenAfterScoreRise() public {
+        _buyShares(buyer, 100);
+
+        // Drive the score (and so the multiplier) as high as it will go.
+        for (uint256 i = 0; i < 25; i++) {
+            vm.warp(block.timestamp + 30);
+            vm.prank(oracle);
+            market.updatePrice(kol, 100);
+        }
+
+        uint256 quoted = market.quoteSell(kol, 100);
+        uint256 before = buyer.balance;
+
+        vm.prank(buyer);
+        market.sell(kol, 100, quoted); // demand the full quote as the minimum
+
+        assertEq(buyer.balance - before, quoted); // paid exactly what was quoted
+    }
+
+    /// The reserve must never fall below the scaled curve integral of the
+    /// outstanding supply — that inequality IS the solvency guarantee.
+    function test_sell_reserveNeverBelowCurveIntegral() public {
+        _buyShares(buyer, 200);
+        _buyShares(buyer2, 50);
+
+        for (uint256 i = 0; i < 10; i++) {
+            vm.warp(block.timestamp + 30);
+            vm.prank(oracle);
+            market.updatePrice(kol, 100);
+        }
+
+        // Unwind in chunks, checking the invariant holds after every step.
+        for (uint256 i = 0; i < 4; i++) {
+            vm.prank(buyer);
+            market.sell(kol, 50, 0);
+            _assertSolvent();
+        }
+
+        vm.prank(buyer2);
+        market.sell(kol, 50, 0);
+        _assertSolvent();
+        assertEq(market.getListing(kol).sharesOutstanding, 0);
+    }
+
+    function _assertSolvent() internal view {
+        SharpsMarket.Listing memory L = market.getListing(kol);
+        uint256 baseReserve = Curve.reserveAt(L.sharesOutstanding);
+        uint256 required = (baseReserve * L.scoreMult) / market.MULT_ONE();
+        assertGe(market.vaultBalance(kol), required);
     }
 
     function test_sell_revertsOnInsufficientShares() public {
@@ -295,86 +390,57 @@ contract SharpsMarketTest is Test {
         market.sell(kol, 6, 0);
     }
 
-    function test_sell_haircutWhenUndercollateralized() public {
-        // buyer1 buys in at the open price, buyer2 buys in after the price
-        // has risen (paying more per share) — vault backing per share is
-        // now BELOW buyer1's quote, since buyer1's shares were priced at
-        // the old, lower quote.
-        _buyShares(buyer, 100);
+    /// A score rise on a listing with outstanding shares cannot lift the
+    /// multiplier beyond what the reserve backs — that bound is what stops
+    /// the old insolvency from reappearing through the score.
+    function test_score_increaseIsBoundedByReserve() public {
+        _buyShares(buyer, 500);
 
-        vm.prank(oracle);
-        market.updatePrice(kol, 100); // price rises
-
-        _buyShares(buyer2, 10);
-
-        // Force the price straight to a value the vault can't fully back,
-        // by repeatedly nudging the oracle upward past the rate cap's slow
-        // walk, to exercise the haircut path deterministically.
-        for (uint256 i = 0; i < 20; i++) {
+        for (uint256 i = 0; i < 25; i++) {
             vm.warp(block.timestamp + 30);
             vm.prank(oracle);
             market.updatePrice(kol, 100);
         }
 
-        (,, uint256 sharesOutstanding,,,,,) = market.listings(kol);
-        (, uint256 priceWei,,,,,,) = market.listings(kol);
-        uint256 requested = 100 * priceWei;
-        uint256 vaultBal = market.vaultBalance(kol);
-        // NAV for buyer's 100-of-sharesOutstanding stake — buyer2 also holds
-        // shares at this point, so this is NOT the same as vaultBal itself.
-        uint256 expectedNav = (vaultBal * 100) / sharesOutstanding;
-        assertLt(expectedNav, requested); // confirms this listing is genuinely thin
-
-        uint256 buyerBalBefore = buyer.balance;
-        vm.prank(buyer);
-        market.sell(kol, 100, 0);
-
-        uint256 payout = buyer.balance - buyerBalBefore;
-        assertLt(payout, requested); // haircut applied
-        assertEq(payout, expectedNav); // paid out exactly buyer's pro-rata NAV share
+        SharpsMarket.Listing memory L = market.getListing(kol);
+        assertEq(L.score, 100); // score itself fully caught up
+        // ...but the applied multiplier is capped by the reserve, so it lags
+        // the target the score is asking for.
+        assertLe(L.scoreMult, L.targetMult);
+        assertTrue(market.priceLagsScore(kol));
+        _assertSolvent();
     }
 
-    function test_sell_navPreservedAcrossSequentialSells() public {
-        _buyShares(buyer, 100);
-        vm.prank(oracle);
-        market.updatePrice(kol, 100);
-        _buyShares(buyer2, 10);
-        for (uint256 i = 0; i < 20; i++) {
+    /// With no shares outstanding there is no liability to back, so the
+    /// multiplier is free to track the score exactly.
+    function test_score_appliesFullyWhenNoSharesOutstanding() public {
+        for (uint256 i = 0; i < 25; i++) {
             vm.warp(block.timestamp + 30);
             vm.prank(oracle);
             market.updatePrice(kol, 100);
         }
 
-        // The NAV-preservation identity (payout = pro-rata NAV share =>
-        // NAV-per-share is unchanged for remaining holders) only holds when
-        // the sell is actually NAV-bound — i.e. haircut applies. If the
-        // listing were well-backed enough for this seller's stake, sell()
-        // instead pays the full quote, which does *not* preserve NAV/share
-        // (that's expected: a fully-backed sell isn't diluting anyone).
-        (,, uint256 sharesBefore,,,,,) = market.listings(kol);
-        (, uint256 priceBefore,,,,,,) = market.listings(kol);
-        uint256 vaultBefore = market.vaultBalance(kol);
-        uint256 navForSeller = (vaultBefore * 50) / sharesBefore;
-        uint256 requested = 50 * priceBefore;
-        bool isHaircut = navForSeller < requested;
+        SharpsMarket.Listing memory L = market.getListing(kol);
+        assertEq(L.scoreMult, L.targetMult);
+        assertFalse(market.priceLagsScore(kol));
+    }
 
-        uint256 navPerShareBefore = market.backingPerShareWad(kol);
+    /// A falling score applies immediately and in full — it shrinks the
+    /// liability, so it can never threaten solvency.
+    function test_score_decreaseAppliesImmediately() public {
+        _buyShares(buyer, 100);
 
-        vm.prank(buyer);
-        market.sell(kol, 50, 0);
-
-        uint256 navPerShareAfter = market.backingPerShareWad(kol);
-        if (isHaircut) {
-            // Selling at NAV should leave NAV-per-share unchanged (within
-            // integer-division rounding), i.e. selling order doesn't
-            // advantage any one holder once a listing is thin. Relative,
-            // not absolute, tolerance — these are WAD-scaled (1e18) values,
-            // so a fixed absolute delta is the wrong yardstick regardless of
-            // the actual magnitudes involved.
-            assertApproxEqRel(navPerShareAfter, navPerShareBefore, 1e9); // within 1e-9 relative
-        } else {
-            assertGe(navPerShareAfter, navPerShareBefore);
+        for (uint256 i = 0; i < 25; i++) {
+            vm.warp(block.timestamp + 30);
+            vm.prank(oracle);
+            market.updatePrice(kol, 0);
         }
+
+        SharpsMarket.Listing memory L = market.getListing(kol);
+        assertEq(L.score, 0);
+        assertEq(L.scoreMult, L.targetMult); // decrease fully applied
+        assertLt(L.scoreMult, market.MULT_ONE()); // below the neutral 1.0x
+        _assertSolvent();
     }
 
     // ------------------------------------------------------- transferShares

@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { AvatarMark } from "@/components/avatar-mark";
 import { LivePrice } from "@/components/live-price";
 import { Sparkline } from "@/components/sparkline";
-import { fmtCompact, fmtPct, type Kol } from "@/lib/kols";
+import { fmtCompact, fmtPct, shortWallet, type Kol } from "@/lib/kols";
 import { useKolStats, useKolHistory } from "@/lib/market-store";
 
 export function KolCard({ kol, price, index = 0 }: { kol: Kol; price: number; index?: number }) {
@@ -34,7 +34,7 @@ export function KolCard({ kol, price, index = 0 }: { kol: Kol; price: number; in
               {kol.chain}
             </span>
           </div>
-          <p className="truncate text-xs text-muted-foreground">{kol.handle}</p>
+          <p className="truncate text-xs text-muted-foreground">{kol.handle || shortWallet(kol.wallet)}</p>
         </div>
         <span
           className={`num ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${

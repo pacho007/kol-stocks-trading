@@ -19,7 +19,12 @@ export const MARKET_ABI = abi;
 /** Mirrors SharpsMarket.Listing (the public `listings` mapping getter). */
 export type OnChainListing = {
   score: number;
+  /** Marginal price of the NEXT share on the curve, already score-scaled. */
   priceWei: bigint;
+  /** Multiplier actually in effect, 10_000 = 1.0x. */
+  scoreMult: bigint;
+  /** Multiplier the score says it deserves; > scoreMult means price lags. */
+  targetMult: bigint;
   sharesOutstanding: bigint;
   sharesCap: bigint;
   lastUpdateTs: bigint;
@@ -29,19 +34,37 @@ export type OnChainListing = {
 };
 
 /** The tuple shape viem returns for the `listings` mapping getter. */
-type ListingTuple = readonly [number, bigint, bigint, bigint, bigint, bigint, boolean, boolean];
+type ListingTuple = readonly [
+  number,
+  bigint,
+  bigint,
+  bigint,
+  bigint,
+  bigint,
+  bigint,
+  bigint,
+  boolean,
+  boolean,
+];
 
 function toListing(t: ListingTuple): OnChainListing {
   return {
     score: Number(t[0]),
     priceWei: t[1],
-    sharesOutstanding: t[2],
-    sharesCap: t[3],
-    lastUpdateTs: t[4],
-    createdAt: t[5],
-    paused: t[6],
-    exists: t[7],
+    scoreMult: t[2],
+    targetMult: t[3],
+    sharesOutstanding: t[4],
+    sharesCap: t[5],
+    lastUpdateTs: t[6],
+    createdAt: t[7],
+    paused: t[8],
+    exists: t[9],
   };
+}
+
+/** True when the score wants a higher price than the reserve can back yet. */
+export function priceLagsScore(l: OnChainListing): boolean {
+  return l.targetMult > l.scoreMult;
 }
 
 /** Returns null if the contract isn't deployed/configured or has no listing. */
@@ -149,9 +172,80 @@ export async function fetchShareBalances(
 }
 
 /**
+ * How many whole shares `budgetWei` buys right now, fee included. Must come
+ * from the contract: on a curve each share costs more than the last, so
+ * budget / price always overestimates and would trip the slippage guard.
+ */
+export async function sharesForBudget(
+  client: PublicClient,
+  kolWallet: Address,
+  budgetWei: bigint,
+): Promise<bigint> {
+  if (!MARKET_ADDRESS || budgetWei <= 0n) return 0n;
+  try {
+    return (await client.readContract({
+      address: MARKET_ADDRESS,
+      abi: MARKET_ABI,
+      functionName: "sharesForBudget",
+      args: [kolWallet, budgetWei],
+    })) as bigint;
+  } catch {
+    return 0n;
+  }
+}
+
+/**
+ * Exact cost of buying `shares` right now, fee included — what the buyer must
+ * send. Ask the contract rather than multiplying price × shares: the curve
+ * makes each successive share dearer, so the naive product is always wrong
+ * (and under-sends, which the contract rejects as slippage).
+ */
+export async function quoteBuy(
+  client: PublicClient,
+  kolWallet: Address,
+  shares: bigint,
+): Promise<bigint> {
+  if (!MARKET_ADDRESS || shares <= 0n) return 0n;
+  try {
+    return (await client.readContract({
+      address: MARKET_ADDRESS,
+      abi: MARKET_ABI,
+      functionName: "quoteBuy",
+      args: [kolWallet, shares],
+    })) as bigint;
+  } catch {
+    return 0n;
+  }
+}
+
+/**
+ * Exact proceeds from selling `shares` right now, after fee. Unlike the old
+ * design this is what the seller genuinely receives — the curve reserve always
+ * covers it, so there is no "quoted price vs. actual payout" gap to warn about.
+ */
+export async function quoteSell(
+  client: PublicClient,
+  kolWallet: Address,
+  shares: bigint,
+): Promise<bigint> {
+  if (!MARKET_ADDRESS || shares <= 0n) return 0n;
+  try {
+    return (await client.readContract({
+      address: MARKET_ADDRESS,
+      abi: MARKET_ABI,
+      functionName: "quoteSell",
+      args: [kolWallet, shares],
+    })) as bigint;
+  } catch {
+    return 0n;
+  }
+}
+
+/**
  * Live backing per share, WAD-scaled (1e18), straight from the contract.
- * This — not priceWei — is what a seller actually receives once a listing is
- * undercollateralized. Returns 0 when nothing is outstanding.
+ * Kept for display: with the curve design the reserve always covers a sell at
+ * full price, so this is now a solvency read-out rather than a warning signal.
+ * Returns 0 when nothing is outstanding.
  */
 export async function fetchBackingPerShareWad(
   client: PublicClient,
@@ -195,7 +289,11 @@ export async function buy(
   });
 }
 
-/** sell() — burns `sharesIn` and pays min(quote, pro-rata NAV). */
+/**
+ * sell() — burns `sharesIn` and pays the FULL curve price, minus the sell fee.
+ * There is no NAV haircut path any more: the reserve is maintained at the
+ * curve integral, so quoteSell() is what actually lands.
+ */
 export async function sell(
   wallet: WalletClient,
   account: Address,

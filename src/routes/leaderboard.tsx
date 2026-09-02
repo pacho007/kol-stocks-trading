@@ -3,7 +3,7 @@ import { useState } from "react";
 import { AvatarMark } from "@/components/avatar-mark";
 import { LivePrice } from "@/components/live-price";
 import { Sparkline } from "@/components/sparkline";
-import { KOLS, fmtCompact, fmtPct, perfScore } from "@/lib/kols";
+import { KOLS, fmtCompact, fmtPct, perfScore, shortWallet } from "@/lib/kols";
 import { useMarket } from "@/lib/market-store";
 
 export const Route = createFileRoute("/leaderboard")({
@@ -81,7 +81,7 @@ function Leaderboard() {
             </span>
             <AvatarMark gradient={k.avatar} label={k.ticker} src={k.image} size={48} />
             <p className="num mt-4 text-lg font-bold tracking-widest">${k.ticker}</p>
-            <p className="text-xs text-muted-foreground">{k.handle}</p>
+            <p className="text-xs text-muted-foreground">{k.handle || shortWallet(k.wallet)}</p>
             <div className="mt-4 flex items-end justify-between">
               <LivePrice value={prices[k.id] ?? k.price} className="text-xl font-semibold -ml-1" />
               <span className="num text-xs text-muted-foreground">
@@ -119,7 +119,7 @@ function Leaderboard() {
                       <AvatarMark gradient={k.avatar} label={k.ticker} src={k.image} size={30} />
                       <div>
                         <p className="num text-sm font-bold tracking-widest">${k.ticker}</p>
-                        <p className="text-xs text-muted-foreground">{k.handle}</p>
+                        <p className="text-xs text-muted-foreground">{k.handle || shortWallet(k.wallet)}</p>
                       </div>
                     </Link>
                   </td>

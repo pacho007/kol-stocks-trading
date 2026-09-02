@@ -18,6 +18,8 @@ import { useEvmWallet } from "./evm/wallet-provider";
 import {
   fetchListings,
   fetchShareBalances,
+  sharesForBudget,
+  quoteSell,
   buy as buyOnChain,
   sell as sellOnChain,
   type OnChainListing,
@@ -362,7 +364,10 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       if (!listing) throw new Error("This listing isn't live on-chain yet");
 
       const valueWei = ethToWei(nativeIn);
-      const expectedShares = valueWei / listing.priceWei;
+      // Ask the contract, don't divide by price: the curve makes each share
+      // dearer than the last, so budget/price overestimates and would trip
+      // the slippage guard on the way in.
+      const expectedShares = await sharesForBudget(client, entry.wallet, valueWei);
       if (expectedShares === 0n) throw new Error("Amount is too small to buy a whole share");
       const minSharesOut =
         (expectedShares * BigInt(Math.floor((1 - SLIPPAGE_TOLERANCE) * 1000))) / 1000n;
@@ -417,7 +422,9 @@ export function MarketProvider({ children }: { children: ReactNode }) {
 
       const sharesIn = BigInt(Math.floor(shares)); // whole shares only
       if (sharesIn <= 0n) throw new Error("Enter at least one whole share");
-      const quotedOut = sharesIn * listing.priceWei;
+      // Curve price, not shares * spot: selling walks back DOWN the curve, so
+      // each share fetches slightly less than the current marginal price.
+      const quotedOut = await quoteSell(client, entry.wallet, sharesIn);
       const minWeiOut = (quotedOut * BigInt(Math.floor((1 - SLIPPAGE_TOLERANCE) * 1000))) / 1000n;
 
       const balBefore = await client.getBalance({ address });
