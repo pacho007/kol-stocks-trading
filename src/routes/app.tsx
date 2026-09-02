@@ -56,7 +56,7 @@ const STEPS = [
 function Landing() {
   const { prices } = useMarket();
   const idx = useIndexStats();
-  const { changePct, marketCapUsd } = useLiveMetrics();
+  const { changePct, marketCapUsd, volumeUsd24h } = useLiveMetrics();
   const session = useSession();
   const featured = [
     "cupsey",
@@ -231,9 +231,13 @@ function Landing() {
                   `${idx.listedOnChain} of ${idx.totalListings} live on-chain`,
                 ],
                 [
-                  "Listings on-chain",
-                  `${idx.listedOnChain}`,
-                  idx.live ? "shared live feed" : "connecting to feed",
+                  "24h volume",
+                  idx.volumeUsd24h === undefined
+                    ? "—"
+                    : `${(idx.volumeUsd24h / 1_000).toFixed(1)}K`,
+                  idx.volumeUsd24h === undefined
+                    ? "awaiting fills feed"
+                    : "shares traded, all listings",
                 ],
                 // Only wallets the oracle actually scored are averaged — a
                 // rate-limited wallet counted as 0% would look like a losing

@@ -24,6 +24,7 @@ import {
   isSupabaseConfigured,
   type ListingRow,
   type ListingMetricsRow,
+  type ListingVolumeRow,
 } from "./supabase";
 
 export type FeedPricePoint = { t: number; p: number };
@@ -35,6 +36,8 @@ type FeedCtx = {
   history: Record<string, FeedPricePoint[]>;
   /** Oracle measurements per kol id — win rate, PnL, biggest wins/losses. */
   metrics: Record<string, ListingMetricsRow>;
+  /** Rolling 24h share volume per kol id, from the fills view. */
+  volume: Record<string, ListingVolumeRow>;
   /** True once the initial load has completed (success or failure). */
   loaded: boolean;
   /** True while a live Realtime subscription is established. */
@@ -52,6 +55,7 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
   const [listings, setListings] = useState<Record<string, ListingRow>>({});
   const [history, setHistory] = useState<Record<string, FeedPricePoint[]>>({});
   const [metrics, setMetrics] = useState<Record<string, ListingMetricsRow>>({});
+  const [volume, setVolume] = useState<Record<string, ListingVolumeRow>>({});
   const [loaded, setLoaded] = useState(!isSupabaseConfigured);
   const [live, setLive] = useState(false);
 
@@ -61,20 +65,31 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
     let alive = true;
 
     (async () => {
-      const [{ data: listingRows }, { data: historyRows }, { data: metricRows }] =
-        await Promise.all([
-          supabase.from("listings").select("*"),
-          supabase
-            .from("price_history")
-            .select("kol_id, price_wei, block_timestamp")
-            .order("block_timestamp", { ascending: false })
-            .limit(HISTORY_LIMIT * 20),
-          // Fetched with the rest rather than lazily per listing: the market
-          // table and leaderboard need win rate for every row at once, and 108
-          // separate requests to render one page would be worse than one.
-          supabase.from("listing_metrics").select("*"),
-        ]);
+      const [
+        { data: listingRows },
+        { data: historyRows },
+        { data: metricRows },
+        { data: volumeRows },
+      ] = await Promise.all([
+        supabase.from("listings").select("*"),
+        supabase
+          .from("price_history")
+          .select("kol_id, price_wei, block_timestamp")
+          .order("block_timestamp", { ascending: false })
+          .limit(HISTORY_LIMIT * 20),
+        // Fetched with the rest rather than lazily per listing: the market
+        // table and leaderboard need win rate for every row at once, and 108
+        // separate requests to render one page would be worse than one.
+        supabase.from("listing_metrics").select("*"),
+        supabase.from("listing_volume_24h").select("*"),
+      ]);
       if (!alive) return;
+
+      if (volumeRows) {
+        setVolume(
+          Object.fromEntries(volumeRows.map((r) => [r.kol_id, r as unknown as ListingVolumeRow])),
+        );
+      }
 
       if (metricRows) {
         setMetrics(
@@ -162,6 +177,32 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
           setMetrics((prev) => ({ ...prev, [row.kol_id]: row }));
         },
       )
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "fills" }, (payload) => {
+        // listing_volume_24h is a view, so it cannot broadcast. Rather than
+        // re-query on every trade, apply the fill locally — the numbers agree
+        // because the view sums exactly these rows, and the next full load
+        // re-derives them and drops anything that has aged out of the window.
+        const row = payload.new as { kol_id?: string; wei?: string; trader?: string } | null;
+        if (!row?.kol_id || !row.wei) return;
+        const kolId = row.kol_id;
+        setVolume((prev) => {
+          const cur = prev[kolId];
+          const base = cur ?? {
+            kol_id: kolId,
+            volume_wei: "0",
+            fill_count: 0,
+            trader_count: 0,
+          };
+          return {
+            ...prev,
+            [kolId]: {
+              ...base,
+              volume_wei: (BigInt(base.volume_wei || "0") + BigInt(row.wei!)).toString(),
+              fill_count: base.fill_count + 1,
+            },
+          };
+        });
+      })
       .subscribe((status) => {
         setLive(status === "SUBSCRIBED");
       });
@@ -173,8 +214,8 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<FeedCtx>(
-    () => ({ listings, history, metrics, loaded, live, configured: isSupabaseConfigured }),
-    [listings, history, metrics, loaded, live],
+    () => ({ listings, history, metrics, volume, loaded, live, configured: isSupabaseConfigured }),
+    [listings, history, metrics, volume, loaded, live],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -189,6 +230,7 @@ export function useMarketFeed(): FeedCtx {
       listings: {},
       history: {},
       metrics: {},
+      volume: {},
       loaded: true,
       live: false,
       configured: false,

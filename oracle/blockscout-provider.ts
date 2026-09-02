@@ -65,7 +65,19 @@ const MAX_PAGES = Number(process.env["BLOCKSCOUT_MAX_PAGES"] ?? 6);
  * buy, and neither leaves score correctness dependent on someone else's
  * unmetered goodwill.
  */
-const MIN_GAP_MS = Number(process.env["BLOCKSCOUT_GAP_MS"] ?? 1000);
+const MIN_GAP_MS = Number(process.env["BLOCKSCOUT_GAP_MS"] ?? (hasApiKey() ? 250 : 1000));
+
+/**
+ * An API key raises the ceiling that pacing can only ration. Blockscout issues
+ * them free; with one the crawl can run roughly 4x faster, which is the
+ * difference between an 11 minute cycle and under 3.
+ *
+ * Read through a function rather than a const so MIN_GAP_MS above can consult
+ * it during module init without depending on declaration order.
+ */
+function hasApiKey(): boolean {
+  return Boolean(process.env["BLOCKSCOUT_API_KEY"]);
+}
 
 /** Only trades AFTER this point count — mirrors indexer.ts's LAUNCH GATE. */
 const LAUNCH_TS = Number(process.env["LAUNCH_TS"] ?? 0);
@@ -105,7 +117,14 @@ async function api<T>(path: string, tries = 6): Promise<T> {
   for (let attempt = 0; attempt < tries; attempt++) {
     await pace();
     try {
-      const res = await fetch(`${BASE_URL}${path}`, {
+      // The key goes in the query string, which is where Blockscout reads it.
+      // Appended rather than substituted so callers building paths stay
+      // unaware of it; `path` always already carries a `?` or an `&`.
+      const key = process.env["BLOCKSCOUT_API_KEY"];
+      const url = key
+        ? `${BASE_URL}${path}${path.includes("?") ? "&" : "?"}apikey=${encodeURIComponent(key)}`
+        : `${BASE_URL}${path}`;
+      const res = await fetch(url, {
         headers: { "User-Agent": UA, Accept: "application/json" },
       });
       if (res.status === 429 || res.status >= 500) {

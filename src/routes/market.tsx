@@ -34,14 +34,14 @@ const SORTS = [
   { id: "price", label: "Price" },
   { id: "gainers", label: "Gainers" },
   { id: "losers", label: "Losers" },
-  { id: "volume", label: "Trader volume" },
+  { id: "volume", label: "24h volume" },
 ] as const;
 
 type SortId = (typeof SORTS)[number]["id"];
 
 function Market() {
   const { prices, metrics } = useMarket();
-  const { changePct, marketCapUsd } = useLiveMetrics();
+  const { changePct, marketCapUsd, volumeUsd24h } = useLiveMetrics();
   const [sort, setSort] = useState<SortId>("cap");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [q, setQ] = useState("");
@@ -59,8 +59,7 @@ function Market() {
     if (sort === "price") s.sort((a, b) => b.price - a.price);
     if (sort === "gainers") s.sort((a, b) => (changePct[b.id] ?? 0) - (changePct[a.id] ?? 0));
     if (sort === "losers") s.sort((a, b) => (changePct[a.id] ?? 0) - (changePct[b.id] ?? 0));
-    if (sort === "volume")
-      s.sort((a, b) => (metrics[b.id]?.volumeEth ?? 0) - (metrics[a.id]?.volumeEth ?? 0));
+    if (sort === "volume") s.sort((a, b) => (volumeUsd24h[b.id] ?? 0) - (volumeUsd24h[a.id] ?? 0));
     return s;
   }, [sort, q]);
 
@@ -130,7 +129,7 @@ function Market() {
             <table className="w-full min-w-[760px]">
               <thead>
                 <tr className="border-b border-border bg-surface/60 text-left">
-                  {["Trader", "Price", "24h", "Market cap", "Trader volume", "Chart"].map((h) => (
+                  {["Trader", "Price", "24h", "Market cap", "24h volume", "Chart"].map((h) => (
                     <th
                       key={h}
                       className="px-4 py-2.5 text-[10px] font-medium tracking-widest uppercase text-muted-foreground"

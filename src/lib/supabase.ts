@@ -92,6 +92,21 @@ export type ListingMetricsRow = {
   updated_at: string | null;
 };
 
+/**
+ * Rolling 24h traded volume per listing — mirrors the listing_volume_24h view.
+ *
+ * A view rather than a maintained column, so it can never drift from the fills
+ * it summarises. This is real share turnover, distinct from the trader's own
+ * on-chain volume that the oracle measures; the two were briefly shown under
+ * the same word, which is exactly the confusion worth avoiding here.
+ */
+export type ListingVolumeRow = {
+  kol_id: string;
+  volume_wei: string;
+  fill_count: number;
+  trader_count: number;
+};
+
 /** wei (18dp) -> a float price in the chain's native token. */
 export function weiToNative(wei: string): number {
   return Number(wei) / 1e18;

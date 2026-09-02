@@ -705,17 +705,27 @@ export const SHARES_PER_LISTING = 10_000_000;
  * indexer subscribes to PriceUpdated only, so any number would be invented.
  */
 export function useLiveMetrics() {
-  const { prices } = useMarket();
+  const { prices, nativePriceUsd } = useMarket();
+  const feed = useMarketFeed();
   return useMemo(() => {
     const changePct: Record<string, number> = {};
     const marketCapUsd: Record<string, number> = {};
+    // Real share turnover from indexed Bought/Sold events, not the trader own
+    // on-chain volume the oracle measures. Undefined rather than 0 when the
+    // fills feed is not configured, so callers can show a dash instead of
+    // asserting that nothing traded.
+    const volumeUsd24h: Record<string, number | undefined> = {};
     for (const k of KOLS) {
       const price = prices[k.id] ?? OPEN_PRICE_USD;
       changePct[k.id] = ((price - OPEN_PRICE_USD) / OPEN_PRICE_USD) * 100;
       marketCapUsd[k.id] = price * SHARES_PER_LISTING;
+      const v = feed.volume[k.id];
+      volumeUsd24h[k.id] = feed.configured
+        ? (Number(v?.volume_wei ?? 0) / 1e18) * nativePriceUsd
+        : undefined;
     }
-    return { changePct, marketCapUsd };
-  }, [prices]);
+    return { changePct, marketCapUsd, volumeUsd24h };
+  }, [prices, feed.volume, feed.configured, nativePriceUsd]);
 }
 
 /**
@@ -737,7 +747,7 @@ export function useLiveMetrics() {
  * figure at all on a stat bar people read as live.
  */
 export function useIndexStats() {
-  const { prices, metrics, onChainListings } = useMarket();
+  const { prices, metrics, onChainListings, nativePriceUsd } = useMarket();
   const feed = useMarketFeed();
 
   return useMemo(() => {
@@ -747,6 +757,7 @@ export function useIndexStats() {
     let winSum = 0;
     let winCount = 0;
     let listedOnChain = 0;
+    let volumeWei = 0n;
 
     for (const k of KOLS) {
       const price = prices[k.id] ?? OPEN_PRICE_USD;
@@ -768,6 +779,8 @@ export function useIndexStats() {
       }
 
       if (onChainListings[k.id] || feed.listings[k.id]) listedOnChain++;
+      const v = feed.volume[k.id];
+      if (v?.volume_wei) volumeWei += BigInt(v.volume_wei);
     }
 
     return {
@@ -778,10 +791,21 @@ export function useIndexStats() {
       bestId,
       bestTicker: KOLS.find((k) => k.id === bestId)?.ticker ?? null,
       listedOnChain,
+      // Undefined rather than 0 when there is no fills feed: an authoritative
+      // $0K is a claim that nothing traded, which is not what we know.
+      volumeUsd24h: feed.configured ? (Number(volumeWei) / 1e18) * nativePriceUsd : undefined,
       totalListings: KOLS.length,
       live: feed.configured,
     };
-  }, [prices, metrics, onChainListings, feed.listings, feed.configured]);
+  }, [
+    prices,
+    metrics,
+    onChainListings,
+    feed.listings,
+    feed.volume,
+    feed.configured,
+    nativePriceUsd,
+  ]);
 }
 
 /** Timeframe windows in milliseconds for the price chart. */

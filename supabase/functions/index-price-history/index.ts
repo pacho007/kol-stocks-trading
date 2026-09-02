@@ -68,6 +68,24 @@ const PRICE_UPDATED = parseAbiItem(
   "event PriceUpdated(address indexed kolWallet, uint8 score, uint256 priceWei, uint256 timestamp)",
 );
 
+/**
+ * Trades. Indexed alongside PriceUpdated because nothing else records that a
+ * trade happened: PriceUpdated says the price changed, not how much changed
+ * hands. Without these, traded volume, fill counts and holder activity are
+ * unanswerable, and the product had to either hide the figure or substitute a
+ * different quantity under the same word.
+ *
+ * Scanned in the same block windows and inserted with the same
+ * (tx_hash, log_index) idempotency, so re-reads and retries cannot inflate
+ * volume — which is exactly the number double-counting would corrupt.
+ */
+const BOUGHT = parseAbiItem(
+  "event Bought(address indexed kolWallet, address indexed buyer, uint256 shares, uint256 weiCost, uint256 timestamp)",
+);
+const SOLD = parseAbiItem(
+  "event Sold(address indexed kolWallet, address indexed seller, uint256 shares, uint256 weiOut, bool haircut, uint256 timestamp)",
+);
+
 type Json = Record<string, unknown>;
 
 function jsonResponse(body: Json, status = 200): Response {
@@ -126,17 +144,69 @@ Deno.serve(async () => {
   let windows = 0;
   let inserted = 0;
   let skippedUnknownWallet = 0;
+  let fillsInserted = 0;
 
   while (fromBlock <= headBlock && windows < MAX_WINDOWS_PER_RUN) {
     const toBlock =
       fromBlock + BLOCK_WINDOW - 1n > headBlock ? headBlock : fromBlock + BLOCK_WINDOW - 1n;
 
-    const logs = await chain.getLogs({
-      address: MARKET_ADDRESS,
-      event: PRICE_UPDATED,
-      fromBlock,
-      toBlock,
-    });
+    // All three event types come from the same window in parallel — one extra
+    // round-trip per window rather than a second full scan of the chain.
+    const [logs, boughtLogs, soldLogs] = await Promise.all([
+      chain.getLogs({ address: MARKET_ADDRESS, event: PRICE_UPDATED, fromBlock, toBlock }),
+      chain.getLogs({ address: MARKET_ADDRESS, event: BOUGHT, fromBlock, toBlock }),
+      chain.getLogs({ address: MARKET_ADDRESS, event: SOLD, fromBlock, toBlock }),
+    ]);
+
+    // Fills first: a trade is what caused the price change indexed below, so
+    // recording it first means the two are never observed out of order.
+    const fillRows: Record<string, unknown>[] = [];
+    for (const log of boughtLogs) {
+      const wallet = String(log.args.kolWallet).toLowerCase();
+      const kolId = walletToId.get(wallet);
+      if (!kolId) continue;
+      fillRows.push({
+        kol_id: kolId,
+        kol_wallet: wallet,
+        side: "buy",
+        trader: String(log.args.buyer).toLowerCase(),
+        shares: String(log.args.shares),
+        wei: String(log.args.weiCost),
+        block_number: Number(log.blockNumber),
+        block_timestamp: new Date(Number(log.args.timestamp) * 1000).toISOString(),
+        tx_hash: log.transactionHash,
+        log_index: log.logIndex,
+      });
+    }
+    for (const log of soldLogs) {
+      const wallet = String(log.args.kolWallet).toLowerCase();
+      const kolId = walletToId.get(wallet);
+      if (!kolId) continue;
+      fillRows.push({
+        kol_id: kolId,
+        kol_wallet: wallet,
+        side: "sell",
+        trader: String(log.args.seller).toLowerCase(),
+        shares: String(log.args.shares),
+        wei: String(log.args.weiOut),
+        block_number: Number(log.blockNumber),
+        block_timestamp: new Date(Number(log.args.timestamp) * 1000).toISOString(),
+        tx_hash: log.transactionHash,
+        log_index: log.logIndex,
+      });
+    }
+    if (fillRows.length > 0) {
+      const { error: fillErr } = await db
+        .from("fills")
+        .upsert(fillRows, { onConflict: "tx_hash,log_index", ignoreDuplicates: true });
+      if (fillErr) {
+        return jsonResponse(
+          { error: `fills insert failed at blocks ${fromBlock}-${toBlock}: ${fillErr.message}` },
+          500,
+        );
+      }
+      fillsInserted += fillRows.length;
+    }
 
     if (logs.length > 0) {
       const rows = [];
@@ -234,6 +304,7 @@ Deno.serve(async () => {
     caughtUp: fromBlock > headBlock,
     windowsScanned: windows,
     rowsInserted: inserted,
+    fillsInserted,
     skippedUnknownWallet,
   });
 });
