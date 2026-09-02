@@ -5,6 +5,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -138,6 +139,9 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // The landing page is pre-app: it brings its own minimal nav and footer, so
+  // the trading chrome (wallet, session clock, oracle status) stays out of it.
+  const isLanding = useRouterState({ select: (s) => s.location.pathname === "/" });
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -155,14 +159,16 @@ function RootComponent() {
               aria-hidden
               className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[32rem] bg-[radial-gradient(60rem_22rem_at_50%_-8rem,color-mix(in_oklab,var(--primary)_14%,transparent),transparent_70%)] dark:bg-[radial-gradient(60rem_22rem_at_50%_-8rem,color-mix(in_oklab,var(--primary)_5%,transparent),transparent_70%)]"
             />
-            <div className="relative z-50">
-              <SiteHeader />
-            </div>
+            {!isLanding && (
+              <div className="relative z-50">
+                <SiteHeader />
+              </div>
+            )}
             <main className="relative z-10 flex-1">
               <Outlet />
             </main>
 
-            <SiteFooter />
+            {!isLanding && <SiteFooter />}
           </div>
           <Toaster position="bottom-right" />
         </MarketProvider>
