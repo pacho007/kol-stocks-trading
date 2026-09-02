@@ -591,3 +591,10 @@
     animation: none;
   }
 }
+
+/* Keep the entrance animation when the wordmark is also a fade-up target. */
+.fade-up.glass-text {
+  animation:
+    splash-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) both,
+    glass-drift 9s linear infinite;
+}
