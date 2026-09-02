@@ -163,8 +163,8 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   } = useEvmWallet();
 
   const [scores, setScores] = useState<Record<string, number>>(SEED_SCORES);
-  const [metrics, setMetrics] = useState<Record<string, KolMetrics>>({});
-  const [breakdowns, setBreakdowns] = useState<Record<string, ScoreBreakdown>>({});
+  const [localMetrics, setMetrics] = useState<Record<string, KolMetrics>>({});
+  const [localBreakdowns, setBreakdowns] = useState<Record<string, ScoreBreakdown>>({});
   const [onChainListings, setOnChainListings] = useState<Record<string, OnChainListing>>({});
   const [nativeBalance, setNativeBalance] = useState(0);
   const [positions, setPositions] = useState<Position[]>([]);
@@ -367,6 +367,52 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     // would silently stop the board updating.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feed.listings, onChainListings, scores, nativePriceUsd]);
+
+  /**
+   * Metrics, preferring the shared feed over the local scores.json snapshot.
+   *
+   * Both sources carry the same numbers, but only one of them exists in
+   * production: scores.json is generated and gitignored, so a deployed build
+   * has no /scores.json to fetch and every panel below the price would be
+   * empty. The feed is also the fair source — two people reading a listing get
+   * the same row from Postgres, rather than whatever each browser last managed
+   * to fetch.
+   *
+   * scores.json remains the fallback so the app is still fully usable with no
+   * backend configured at all.
+   */
+  const metrics = useMemo<Record<string, KolMetrics>>(() => {
+    if (!feed.configured) return localMetrics;
+    const next: Record<string, KolMetrics> = { ...localMetrics };
+    for (const [id, m] of Object.entries(feed.metrics)) {
+      next[id] = {
+        realizedPnlEth: m.realized_pnl_eth,
+        volumeEth: m.volume_eth,
+        winRate: m.win_rate,
+        trades: m.trades,
+        topWins: m.top_wins ?? [],
+        topLosses: m.top_losses ?? [],
+      };
+    }
+    return next;
+  }, [feed.configured, feed.metrics, localMetrics]);
+
+  const breakdowns = useMemo<Record<string, ScoreBreakdown>>(() => {
+    if (!feed.configured) return localBreakdowns;
+    const next: Record<string, ScoreBreakdown> = { ...localBreakdowns };
+    for (const [id, m] of Object.entries(feed.metrics)) {
+      const b = m.breakdown;
+      if (!b) continue;
+      next[id] = {
+        pnlPct: b.pnlPct ?? 0.5,
+        winPct: b.winPct ?? 0.5,
+        volPct: b.volPct ?? 0.5,
+        tradesPct: b.tradesPct ?? 0.5,
+        confidence: m.confidence ?? 0,
+      };
+    }
+    return next;
+  }, [feed.configured, feed.metrics, localBreakdowns]);
 
   const backingPerShare = useMemo(() => {
     // Populated lazily by kol.$id.tsx via fetchBackingPerShareWad (a live read

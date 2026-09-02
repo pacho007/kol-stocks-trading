@@ -60,6 +60,38 @@ export type ListingRow = {
   last_update_ts: string | null;
 };
 
+/** One closed trade, as stored in listing_metrics.top_wins / top_losses. */
+export type FeedClosedTrade = {
+  symbol: string;
+  pnl: number;
+  proceeds: number;
+  ts: number;
+  multiple: number | null;
+};
+
+/**
+ * The oracle's measurements for one listing — mirrors public.listing_metrics.
+ *
+ * This is everything the UI shows beneath the price: win rate, realized PnL,
+ * volume, trade count, biggest wins and losses, and the percentile breakdown
+ * behind the score. It comes through the shared feed rather than scores.json
+ * because scores.json is generated, therefore gitignored, therefore absent in
+ * production — where the fetch 404s and every one of those panels renders
+ * empty.
+ */
+export type ListingMetricsRow = {
+  kol_id: string;
+  realized_pnl_eth: number;
+  volume_eth: number;
+  win_rate: number;
+  trades: number;
+  top_wins: FeedClosedTrade[];
+  top_losses: FeedClosedTrade[];
+  breakdown: { pnlPct?: number; winPct?: number; volPct?: number; tradesPct?: number } | null;
+  confidence: number;
+  updated_at: string | null;
+};
+
 /** wei (18dp) -> a float price in the chain's native token. */
 export function weiToNative(wei: string): number {
   return Number(wei) / 1e18;

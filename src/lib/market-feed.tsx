@@ -18,15 +18,13 @@
  * renders before the backend is wired up.
  */
 
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
-import { supabase, isSupabaseConfigured, type ListingRow } from "./supabase";
+  supabase,
+  isSupabaseConfigured,
+  type ListingRow,
+  type ListingMetricsRow,
+} from "./supabase";
 
 export type FeedPricePoint = { t: number; p: number };
 
@@ -35,6 +33,8 @@ type FeedCtx = {
   listings: Record<string, ListingRow>;
   /** Shared price history per kol id, oldest first. */
   history: Record<string, FeedPricePoint[]>;
+  /** Oracle measurements per kol id — win rate, PnL, biggest wins/losses. */
+  metrics: Record<string, ListingMetricsRow>;
   /** True once the initial load has completed (success or failure). */
   loaded: boolean;
   /** True while a live Realtime subscription is established. */
@@ -51,6 +51,7 @@ const HISTORY_LIMIT = 500;
 export function MarketFeedProvider({ children }: { children: ReactNode }) {
   const [listings, setListings] = useState<Record<string, ListingRow>>({});
   const [history, setHistory] = useState<Record<string, FeedPricePoint[]>>({});
+  const [metrics, setMetrics] = useState<Record<string, ListingMetricsRow>>({});
   const [loaded, setLoaded] = useState(!isSupabaseConfigured);
   const [live, setLive] = useState(false);
 
@@ -60,15 +61,26 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
     let alive = true;
 
     (async () => {
-      const [{ data: listingRows }, { data: historyRows }] = await Promise.all([
-        supabase.from("listings").select("*"),
-        supabase
-          .from("price_history")
-          .select("kol_id, price_wei, block_timestamp")
-          .order("block_timestamp", { ascending: false })
-          .limit(HISTORY_LIMIT * 20),
-      ]);
+      const [{ data: listingRows }, { data: historyRows }, { data: metricRows }] =
+        await Promise.all([
+          supabase.from("listings").select("*"),
+          supabase
+            .from("price_history")
+            .select("kol_id, price_wei, block_timestamp")
+            .order("block_timestamp", { ascending: false })
+            .limit(HISTORY_LIMIT * 20),
+          // Fetched with the rest rather than lazily per listing: the market
+          // table and leaderboard need win rate for every row at once, and 108
+          // separate requests to render one page would be worse than one.
+          supabase.from("listing_metrics").select("*"),
+        ]);
       if (!alive) return;
+
+      if (metricRows) {
+        setMetrics(
+          Object.fromEntries(metricRows.map((r) => [r.kol_id, r as unknown as ListingMetricsRow])),
+        );
+      }
 
       if (listingRows) {
         setListings(Object.fromEntries(listingRows.map((r) => [r.kol_id, r as ListingRow])));
@@ -111,15 +123,11 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
 
     const channel = client
       .channel("market-feed")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "listings" },
-        (payload) => {
-          const row = payload.new as ListingRow | null;
-          if (!row?.kol_id) return;
-          setListings((prev) => ({ ...prev, [row.kol_id]: row }));
-        },
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "listings" }, (payload) => {
+        const row = payload.new as ListingRow | null;
+        if (!row?.kol_id) return;
+        setListings((prev) => ({ ...prev, [row.kol_id]: row }));
+      })
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "price_history" },
@@ -143,6 +151,17 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
           });
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "listing_metrics" },
+        (payload) => {
+          // Upserted wholesale once per oracle cycle, so the new row is the
+          // complete current state for that listing — no merge needed.
+          const row = payload.new as ListingMetricsRow | null;
+          if (!row?.kol_id) return;
+          setMetrics((prev) => ({ ...prev, [row.kol_id]: row }));
+        },
+      )
       .subscribe((status) => {
         setLive(status === "SUBSCRIBED");
       });
@@ -154,8 +173,8 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<FeedCtx>(
-    () => ({ listings, history, loaded, live, configured: isSupabaseConfigured }),
-    [listings, history, loaded, live],
+    () => ({ listings, history, metrics, loaded, live, configured: isSupabaseConfigured }),
+    [listings, history, metrics, loaded, live],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -166,7 +185,14 @@ export function useMarketFeed(): FeedCtx {
   if (!ctx) {
     // Unmounted provider is a programming error, but returning an inert feed
     // keeps a missing provider from white-screening the whole app.
-    return { listings: {}, history: {}, loaded: true, live: false, configured: false };
+    return {
+      listings: {},
+      history: {},
+      metrics: {},
+      loaded: true,
+      live: false,
+      configured: false,
+    };
   }
   return ctx;
 }

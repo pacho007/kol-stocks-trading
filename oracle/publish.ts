@@ -194,6 +194,8 @@ async function once(): Promise<void> {
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, json, "utf8");
   }
+
+  await publishMetricsToSupabase(published);
   const top = published.rows
     .filter((r) => r.score !== 50)
     .sort((a, b) => b.score - a.score)
@@ -210,6 +212,69 @@ async function once(): Promise<void> {
             .join("\n")
         : `\n  (all at neutral 50 — no post-launch trades counted yet)`),
   );
+}
+
+/**
+ * Mirror the run's measurements into public.listing_metrics.
+ *
+ * scores.json alone cannot reach production: it is generated, so it is
+ * gitignored, so it never ships, so the deployed app fetches /scores.json and
+ * gets a 404. Everything under the price — win rate, PnL, biggest wins and
+ * losses, the score breakdown — silently renders empty even though the oracle
+ * computed all of it. This gives that data the same path price and score
+ * already take.
+ *
+ * Optional by design: with no Supabase credentials this is a no-op and the
+ * local scores.json still works, so `npm run oracle:publish` stays useful for
+ * development with no backend at all.
+ *
+ * Uses the SERVICE ROLE key, the only writer RLS permits. That key bypasses
+ * RLS entirely — server-side only, never in a VITE_ var.
+ */
+async function publishMetricsToSupabase(published: Published): Promise<void> {
+  const url = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) {
+    console.log(
+      "Supabase not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY) — " +
+        "wrote scores.json only. The deployed app reads metrics from Postgres, " +
+        "so set both when running this for production.",
+    );
+    return;
+  }
+
+  const { createClient } = await import("@supabase/supabase-js");
+  const db = createClient(url, serviceKey, { auth: { persistSession: false } });
+
+  const rows = published.rows.map((r) => ({
+    kol_id: r.id,
+    realized_pnl_eth: r.metrics.realizedPnlEth,
+    volume_eth: r.metrics.volumeEth,
+    win_rate: r.metrics.winRate,
+    trades: r.metrics.trades,
+    top_wins: r.metrics.topWins ?? [],
+    top_losses: r.metrics.topLosses ?? [],
+    breakdown: r.breakdown ?? {},
+    confidence: r.confidence ?? 0,
+    updated_at: new Date().toISOString(),
+  }));
+
+  // Upsert on the primary key: one current row per listing, replaced wholesale
+  // each cycle. No history table here on purpose — price_history already
+  // carries the time series, and keeping every metrics snapshot would grow
+  // without anything reading it.
+  const { error } = await db.from("listing_metrics").upsert(rows, { onConflict: "kol_id" });
+
+  if (error) {
+    // Deliberately not fatal. The scores are already written and, for
+    // push-onchain, already on their way to the chain; failing the whole run
+    // because a mirror write failed would be a worse outcome than a stale
+    // metrics panel until the next cycle.
+    console.error(`Supabase metrics write failed: ${error.message}`);
+    console.error("  scores.json was still written; the UI will fall back to it locally.");
+    return;
+  }
+  console.log(`Mirrored ${rows.length} metric rows into public.listing_metrics.`);
 }
 
 async function main() {
