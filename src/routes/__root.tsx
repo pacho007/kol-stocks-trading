@@ -5,6 +5,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -138,6 +139,9 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // The splash route is a full-bleed landing page: it renders its own chrome,
+  // so the app header/footer/brand wash must not appear behind it.
+  const isSplash = useRouterState({ select: (s) => s.location.pathname === "/" });
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -148,6 +152,10 @@ function RootComponent() {
         <MarketFeedProvider>
         <MarketProvider>
           <div className="relative flex min-h-screen flex-col">
+            {isSplash ? (
+              <Outlet />
+            ) : (
+              <>
             {/* Brand wash behind the header. Much weaker in dark mode: at
                 14% it tints the entire top of a black page pink, which is
                 what made dark mode read purple rather than matte. */}
@@ -163,6 +171,8 @@ function RootComponent() {
             </main>
 
             <SiteFooter />
+              </>
+            )}
           </div>
           <Toaster position="bottom-right" />
         </MarketProvider>
