@@ -9,16 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as MarketRouteImport } from './routes/market'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as KolIdRouteImport } from './routes/kol.$id'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsRoute = DocsRouteImport.update({
@@ -48,7 +48,7 @@ const KolIdRoute = KolIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/app': typeof AppRoute
   '/docs': typeof DocsRoute
   '/leaderboard': typeof LeaderboardRoute
   '/market': typeof MarketRoute
@@ -56,7 +56,7 @@ export interface FileRoutesByFullPath {
   '/kol/$id': typeof KolIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/app': typeof AppRoute
   '/docs': typeof DocsRoute
   '/leaderboard': typeof LeaderboardRoute
   '/market': typeof MarketRoute
@@ -65,7 +65,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/app': typeof AppRoute
   '/docs': typeof DocsRoute
   '/leaderboard': typeof LeaderboardRoute
   '/market': typeof MarketRoute
@@ -75,12 +75,12 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/docs' | '/leaderboard' | '/market' | '/portfolio' | '/kol/$id'
+    '/app' | '/docs' | '/leaderboard' | '/market' | '/portfolio' | '/kol/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/docs' | '/leaderboard' | '/market' | '/portfolio' | '/kol/$id'
+  to: '/app' | '/docs' | '/leaderboard' | '/market' | '/portfolio' | '/kol/$id'
   id:
     | '__root__'
-    | '/'
+    | '/app'
     | '/docs'
     | '/leaderboard'
     | '/market'
@@ -89,7 +89,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRoute
   DocsRoute: typeof DocsRoute
   LeaderboardRoute: typeof LeaderboardRoute
   MarketRoute: typeof MarketRoute
@@ -99,11 +99,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs': {
@@ -145,7 +145,7 @@ declare module '@tanstack/react-router' {
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  AppRoute: AppRoute,
   DocsRoute: DocsRoute,
   LeaderboardRoute: LeaderboardRoute,
   MarketRoute: MarketRoute,
