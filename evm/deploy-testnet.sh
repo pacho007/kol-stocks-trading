@@ -98,19 +98,33 @@ forge script script/Deploy.s.sol:Deploy --rpc-url "$RPC" --broadcast | tee /tmp/
 ADDR=$(grep -oE 'SharpsMarket deployed at: 0x[0-9a-fA-F]{40}' /tmp/sharps-deploy.log | tail -1 | grep -oE '0x[0-9a-fA-F]{40}' || true)
 [ -n "$ADDR" ] || { echo; echo "Could not parse the deployed address from the output above."; exit 1; }
 
-# Verify what actually landed on chain matches what we just built. This is the
-# check that would have caught three consecutive stale deploys immediately
-# instead of after the fact.
+# Verify what landed on chain came from the build we just made — the check that
+# would have caught three consecutive stale deploys immediately.
+#
+# Compared by SIZE, not by bytes. SharpsMarket has immutables (OPEN_PRICE_WEI,
+# MIN_PRICE_WEI, MAX_PRICE_WEI), and those are substituted into the runtime
+# code at construction while `forge inspect deployedBytecode` returns the
+# compiler's template with the slots zeroed. The two are therefore never
+# byte-equal, and an equality check false-alarms on every correct deploy —
+# which is worse than no check, because a warning that always fires gets
+# ignored on the one occasion it is real.
+#
+# Size still catches the failure this exists for: a stale artifact is a
+# different build of different source, and the length gave it away last time
+# (11,119 stale versus 11,249 current).
 sleep 2
 ONCHAIN=$(cast code "$ADDR" --rpc-url "$RPC")
-if [ "${ONCHAIN,,}" = "${LOCAL_CODE,,}" ]; then
-  echo "Deployed bytecode matches the local build."
+ON_LEN=$(( (${#ONCHAIN} - 2) / 2 ))
+BUILT_LEN=$(( (${#LOCAL_CODE} - 2) / 2 ))
+if [ "$ON_LEN" -eq "$BUILT_LEN" ]; then
+  echo "Deployed code is $ON_LEN bytes, matching the fresh build."
 else
   echo
-  echo "WARNING: deployed bytecode does NOT match the build from this source."
-  echo "  on chain: $(( (${#ONCHAIN} - 2) / 2 )) bytes"
-  echo "  built:    $(( (${#LOCAL_CODE} - 2) / 2 )) bytes"
-  echo "Do not create listings against this address until that is understood."
+  echo "WARNING: deployed code size does not match the build from this source."
+  echo "  on chain: $ON_LEN bytes"
+  echo "  built:    $BUILT_LEN bytes"
+  echo "That is the signature of a stale artifact. Do not create listings"
+  echo "against this address until it is understood."
   exit 1
 fi
 
