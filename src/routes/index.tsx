@@ -2,8 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { KOLS } from "@/lib/kols";
-import bgVideo from "@/assets/sharps-bg-4k.mp4.asset.json";
-import heroPoster from "@/assets/hero-banner.jpg";
+import bgVideo from "@/assets/sharps-hero-pink.mp4.asset.json";
+import heroPoster from "@/assets/sharps-hero-poster.jpg.asset.json";
 
 /**
  * Starts false so the server and the first client render agree — reading
@@ -49,7 +49,7 @@ function Splash() {
   const reduceMotion = usePrefersReducedMotion();
 
   return (
-    <div className="relative isolate flex min-h-[100svh] flex-col overflow-hidden bg-[#05060c]">
+    <div className="relative isolate flex min-h-[100svh] flex-col overflow-hidden bg-white">
       {/* 4K video backdrop.
           The file is ~40MB, so how it loads matters more than that it loads:
           - poster paints the hero instantly instead of leaving a black box
@@ -63,7 +63,7 @@ function Splash() {
         <video
           className="pointer-events-none absolute inset-0 -z-20 size-full object-cover"
           src={bgVideo.url}
-          poster={heroPoster}
+          poster={heroPoster.url}
           autoPlay
           muted
           loop
@@ -75,7 +75,7 @@ function Splash() {
       {/* Reduced-motion and pre-roll both fall back to the still, so the hero
           never renders as a bare black rectangle. */}
       <img
-        src={heroPoster}
+        src={heroPoster.url}
         alt=""
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-30 size-full object-cover"
