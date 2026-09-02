@@ -26,16 +26,16 @@ function usePrefersReducedMotion() {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "SHARPS · The Exchange for On-Chain Traders" },
+      { title: "SHARPS · The Platform for On-Chain Traders" },
       {
         name: "description",
         content:
-          "SHARPS lists on-chain crypto traders as tradable stocks. Their performance is their share price. Enter the exchange and scout talent before the market does.",
+          "SHARPS lists on-chain crypto traders as tradable stocks. Their performance is their share price. Enter the platform and scout talent before the tape does.",
       },
-      { property: "og:title", content: "SHARPS · The Exchange for On-Chain Traders" },
+      { property: "og:title", content: "SHARPS · The Platform for On-Chain Traders" },
       {
         property: "og:description",
-        content: "Their on-chain performance is their share price. Enter the exchange.",
+        content: "Their on-chain performance is their share price. Enter the platform.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -102,7 +102,7 @@ function Splash() {
       </header>
 
       {/* hero */}
-      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-16 text-center">
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-24 text-center">
         <h1
           className="fade-up select-none"
           style={{
@@ -122,7 +122,7 @@ function Splash() {
           className="fade-up mt-8 max-w-lg text-balance text-[15px] leading-relaxed text-[#3d1024]/80"
           style={{ animationDelay: "0.5s" }}
         >
-          The exchange where on-chain traders are listed like stocks. Every green day gaps them up,
+          The platform where on-chain traders are listed like stocks. Every green day gaps them up,
           every blowup gaps them down. Scout the talent before the tape does.
         </p>
 
