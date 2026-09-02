@@ -5,9 +5,9 @@
 -- something invokes it by hand, which means the shared price feed silently
 -- stops updating the moment you stop poking it.
 --
--- BEFORE RUNNING THIS, replace the two placeholders below:
---   <PROJECT_REF>        e.g. ncsydqwcbtjppfgwxyvt (supabase/config.toml)
+-- BEFORE RUNNING THIS, replace the one remaining placeholder:
 --   <SERVICE_ROLE_KEY>   Project Settings -> API -> service_role
+-- (the project ref is already filled in)
 --
 -- On the service role key: it bypasses RLS entirely. Putting it in a migration
 -- means it lands in your git history, so DO NOT commit this file with the key
@@ -32,7 +32,7 @@ select cron.schedule(
   '*/5 * * * *',
   $$
   select net.http_post(
-    url     := 'https://<PROJECT_REF>.supabase.co/functions/v1/index-price-history',
+    url     := 'https://ncsydqwcbtjppfgwxyvt.supabase.co/functions/v1/index-price-history',
     headers := jsonb_build_object(
       'Content-Type',  'application/json',
       'Authorization', 'Bearer <SERVICE_ROLE_KEY>'
@@ -60,7 +60,7 @@ select cron.schedule(
 --     'index-price-history', '*/5 * * * *',
 --     $$
 --     select net.http_post(
---       url     := 'https://<PROJECT_REF>.supabase.co/functions/v1/index-price-history',
+--       url     := 'https://ncsydqwcbtjppfgwxyvt.supabase.co/functions/v1/index-price-history',
 --       headers := jsonb_build_object(
 --         'Content-Type',  'application/json',
 --         'Authorization', 'Bearer ' || (
