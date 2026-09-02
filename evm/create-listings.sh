@@ -14,12 +14,33 @@
 set -euo pipefail
 
 RPC="https://rpc.testnet.chain.robinhood.com"
-export MARKET_ADDRESS="0x4546baeE5e02b65E60AA713D1A8586c08d1305Ed"
 EXPECTED_ADMIN="0x013222Ee20f2c0e7C8B46B24d0dEe760CC10d065"
 
 export PATH="$HOME/.foundry/bin:$PATH"
 cd "$(dirname "$0")"
 REPO_ROOT="$(cd .. && pwd)"
+
+# Address comes from whatever deploy-testnet.sh last produced, not a constant.
+# A hardcoded address that has gone stale does not fail loudly: createListing
+# would succeed against the PREVIOUS deployment and print 108 happy lines,
+# leaving the current contract with no listings at all.
+if [ -f .deployed ]; then
+  # shellcheck disable=SC1091
+  . ./.deployed
+  export MARKET_ADDRESS
+  echo "Using contract from evm/.deployed: $MARKET_ADDRESS"
+else
+  echo "evm/.deployed not found — run deploy-testnet.sh first, or set"
+  echo "MARKET_ADDRESS yourself before running this."
+  [ -n "${MARKET_ADDRESS:-}" ] || exit 1
+  export MARKET_ADDRESS
+  echo "Using MARKET_ADDRESS from the environment: $MARKET_ADDRESS"
+fi
+
+# Refuse to list against an address with no contract at it — a typo or a stale
+# value would otherwise revert 108 times in a row for no obvious reason.
+CODE=$(cast code "$MARKET_ADDRESS" --rpc-url "$RPC" 2>/dev/null || echo 0x)
+[ "${#CODE}" -gt 2 ] || { echo "No contract deployed at $MARKET_ADDRESS."; exit 1; }
 
 command -v forge >/dev/null || { echo "forge not found."; exit 1; }
 

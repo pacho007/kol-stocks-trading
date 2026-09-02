@@ -550,4 +550,53 @@ contract SharpsMarketTest is Test {
         vm.expectRevert(SharpsMarket.InsufficientShares.selector);
         market.transferShares(kol, buyer2, 4);
     }
+
+    // ------------------------------------------------- price feed on trades
+    //
+    // The off-chain indexer (supabase/functions/index-price-history) subscribes
+    // to PriceUpdated and nothing else, and the shared chart is built purely
+    // from what it stores. So a trade that moves the price without emitting
+    // PriceUpdated is invisible to every client's chart, even while the live
+    // price they poll from this contract climbs. These tests pin that coupling
+    // in place: they fail if someone removes the emit as redundant.
+
+    function test_buy_emitsPriceUpdatedSoTheChartMoves() public {
+        vm.expectEmit(true, false, false, false);
+        emit SharpsMarket.PriceUpdated(kol, 0, 0, 0); // topic only; values checked below
+
+        vm.deal(buyer, 10 ether);
+        vm.prank(buyer);
+        market.buy{value: 1 ether}(kol, 0);
+
+        (, uint256 priceAfter,,,,,,,,) = market.listings(kol);
+        assertGt(priceAfter, market.OPEN_PRICE_WEI(), "buying should raise the stored spot price");
+    }
+
+    function test_sell_emitsPriceUpdatedSoTheChartMoves() public {
+        _buyShares(buyer, 20);
+        (, uint256 priceAfterBuy,,,,,,,,) = market.listings(kol);
+
+        vm.expectEmit(true, false, false, false);
+        emit SharpsMarket.PriceUpdated(kol, 0, 0, 0);
+
+        vm.prank(buyer);
+        market.sell(kol, 10, 0);
+
+        (, uint256 priceAfterSell,,,,,,,,) = market.listings(kol);
+        assertLt(priceAfterSell, priceAfterBuy, "selling should lower the stored spot price");
+    }
+
+    /// A trade reports the CURRENT score unchanged — it moves price, not score.
+    /// If these ever diverge, the indexer would write a fabricated score into
+    /// the shared feed on every trade.
+    function test_tradeEmitsCurrentScoreNotAMutatedOne() public {
+        vm.prank(oracle);
+        market.updatePrice(kol, 70);
+        (uint8 scoreBefore,,,,,,,,,) = market.listings(kol);
+
+        _buyShares(buyer, 5);
+
+        (uint8 scoreAfter,,,,,,,,,) = market.listings(kol);
+        assertEq(scoreAfter, scoreBefore, "a trade must not change the score");
+    }
 }

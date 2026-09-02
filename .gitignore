@@ -50,4 +50,4 @@ oracle/.last-*.json
 evm/lib/
 evm/out/
 evm/cache/
-evm/.gitmodules
+evm/.deployed

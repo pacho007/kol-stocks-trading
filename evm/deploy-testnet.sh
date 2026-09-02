@@ -79,12 +79,21 @@ forge script script/Deploy.s.sol:Deploy --rpc-url "$RPC" --broadcast | tee /tmp/
 ADDR=$(grep -oE 'SharpsMarket deployed at: 0x[0-9a-fA-F]{40}' /tmp/sharps-deploy.log | tail -1 | grep -oE '0x[0-9a-fA-F]{40}' || true)
 [ -n "$ADDR" ] || { echo; echo "Could not parse the deployed address from the output above."; exit 1; }
 
+# Hand the address to create-listings.sh rather than making someone paste it
+# between the two steps. A stale hardcoded address there would not error — it
+# would open 108 listings on the previous deployment, which looks like success.
+cat > .deployed <<EOF
+MARKET_ADDRESS=$ADDR
+MARKET_DEPLOY_BLOCK=$DEPLOY_BLOCK
+EOF
+
 echo
 echo "==================================================================="
 echo "  SharpsMarket:        $ADDR"
 echo "  MARKET_DEPLOY_BLOCK: $DEPLOY_BLOCK"
 echo "  Explorer: https://explorer.testnet.chain.robinhood.com/address/$ADDR"
 echo "==================================================================="
+echo "  (also written to evm/.deployed for the next step)"
 echo
 echo "Confirm the Admin and Oracle lines above are NOT the deployer address."
 echo "If either is, the env vars did not apply and privilege separation is lost."

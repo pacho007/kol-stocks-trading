@@ -430,6 +430,13 @@ contract SharpsMarket {
         l.priceWei = (Curve.spotPrice(l.sharesOutstanding) * l.scoreMult) / MULT_ONE;
 
         emit Bought(kolWallet, msg.sender, shares, total, block.timestamp);
+        // A trade moves the price just as much as a score update does, and the
+        // off-chain price feed indexes PriceUpdated only. Without this, the
+        // shared chart would flatline between oracle cycles no matter how much
+        // trading happened — every client polls the live price from this
+        // contract, so the number would climb while the chart it is drawn on
+        // stayed still. Score is unchanged here; the price is what moved.
+        emit PriceUpdated(kolWallet, l.score, l.priceWei, block.timestamp);
 
         if (refund > 0) {
             (bool ok,) = msg.sender.call{value: refund}("");
@@ -496,6 +503,9 @@ contract SharpsMarket {
         l.priceWei = (Curve.spotPrice(l.sharesOutstanding) * l.scoreMult) / MULT_ONE;
 
         emit Sold(kolWallet, msg.sender, sharesIn, payout, false, block.timestamp);
+        // Same reasoning as buy(): the curve moved down, so the feed needs to
+        // hear about it or the chart misses every sell.
+        emit PriceUpdated(kolWallet, l.score, l.priceWei, block.timestamp);
 
         (bool ok,) = msg.sender.call{value: payout}("");
         if (!ok) revert TransferFailed();
