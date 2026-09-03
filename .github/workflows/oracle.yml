@@ -15,8 +15,11 @@ name: Oracle
 
 on:
   schedule:
-    # Every 20 minutes, matching the oracle's own REFRESH_MIN default.
-    - cron: "*/20 * * * *"
+    # Hourly. Not every 20 minutes: an unauthenticated crawl of 108 wallets
+    # takes longer than 20 minutes to finish, so a tighter schedule would just
+    # queue runs behind each other forever. With a BLOCKSCOUT_API_KEY the crawl
+    # drops to a few minutes and this can go back to being frequent.
+    - cron: "0 * * * *"
   # So a cycle can be forced after a deploy without waiting for the timer.
   workflow_dispatch:
     inputs:
@@ -35,10 +38,12 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    # A full 108-wallet crawl is ~11 minutes unpaced by an API key, less with
-    # one. This is a ceiling, not a target: it exists so a wedged run cannot
-    # block the next cycle indefinitely.
-    timeout-minutes: 25
+    # A 108-wallet crawl against the free Blockscout endpoint runs 30-45
+    # minutes: one request per second, up to six pages per wallet. The first
+    # attempt at 25 minutes was cancelled mid-crawl, which wastes the whole run
+    # since scores are only written at the end. This is a ceiling to catch a
+    # wedged run, not a target.
+    timeout-minutes: 55
 
     steps:
       - uses: actions/checkout@v4
