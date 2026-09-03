@@ -100,7 +100,18 @@ function KolDetail() {
         if (!alive) return;
         // backingPerShareWad returns 0 when nothing is outstanding — that's
         // "no backing to report yet", not "backing is zero", so show "—".
-        setBackingUsd(wad === 0n ? null : (Number(wad) / 1e18) * nativePriceUsd);
+        //
+        // Units: the contract computes (vaultBalance * 1e18) / sharesOutstanding
+        // with vaultBalance in WEI, so the result is wei-per-share scaled by
+        // 1e18 — not ether-per-share scaled by 1e18. Dividing by 1e18 once
+        // leaves wei and then multiplies by a dollar rate, which rendered
+        // "$10,000,387,095,013,552.00" for a share actually backed by about a
+        // penny.
+        //
+        // The first division is done in bigint so no precision is lost before
+        // the value is small enough for a double to hold exactly.
+        const weiPerShare = wad / 1_000_000_000_000_000_000n;
+        setBackingUsd(wad === 0n ? null : (Number(weiPerShare) / 1e18) * nativePriceUsd);
       } catch {
         if (alive) setBackingUsd(null);
       }
@@ -459,6 +470,31 @@ function KolDetail() {
             )}
           </div>
 
+          {position && (
+            <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
+              <p className="text-[10px] tracking-widest uppercase text-muted-foreground">
+                Your position
+              </p>
+              <dl className="mt-2 space-y-1.5 text-xs">
+                <Row label="Shares" value={position.shares.toFixed(2)} />
+                <Row
+                  label="Avg entry"
+                  value={position.entry != null ? fmtUsd(position.entry) : "—"}
+                />
+                <Row label="Value" value={fmtUsd(position.shares * price)} />
+                {position.entry != null ? (
+                  <Row
+                    label="Unrealized P&L"
+                    value={fmtUsd((price - position.entry) * position.shares)}
+                    tone={price >= position.entry ? "up" : "down"}
+                  />
+                ) : (
+                  <Row label="Unrealized P&L" value="—" />
+                )}
+              </dl>
+            </div>
+          )}
+
           <div className="panel p-4">
             <p className="text-[10px] tracking-widest uppercase text-muted-foreground">
               How ${kol.ticker} is priced
@@ -502,31 +538,6 @@ function KolDetail() {
               displayed a fake measurement. Share balances live in a Solidity
               mapping, which isn't enumerable, so a real count needs the
               Bought/Sold events indexed first — bring this back then. */}
-
-          {position && (
-            <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
-              <p className="text-[10px] tracking-widest uppercase text-muted-foreground">
-                Your position
-              </p>
-              <dl className="mt-2 space-y-1.5 text-xs">
-                <Row label="Shares" value={position.shares.toFixed(2)} />
-                <Row
-                  label="Avg entry"
-                  value={position.entry != null ? fmtUsd(position.entry) : "—"}
-                />
-                <Row label="Value" value={fmtUsd(position.shares * price)} />
-                {position.entry != null ? (
-                  <Row
-                    label="Unrealized P&L"
-                    value={fmtUsd((price - position.entry) * position.shares)}
-                    tone={price >= position.entry ? "up" : "down"}
-                  />
-                ) : (
-                  <Row label="Unrealized P&L" value="—" />
-                )}
-              </dl>
-            </div>
-          )}
         </div>
       </div>
     </div>

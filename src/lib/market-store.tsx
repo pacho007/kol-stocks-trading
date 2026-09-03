@@ -11,6 +11,7 @@ import {
 import type { Address } from "viem";
 import { KOLS } from "./kols";
 import { useMarketFeed } from "./market-feed";
+import { supabase, isSupabaseConfigured } from "./supabase";
 import { OPEN_PRICE_USD, scoreToPriceUsd } from "./pricing";
 import { sessionState } from "./sessions";
 import { getPublicClient, weiToEth, ethToWei, MARKET_ADDRESS } from "./evm/chain";
@@ -97,6 +98,8 @@ export type Trade = {
 
 type Ctx = {
   prices: Record<string, number>;
+  /** Same prices in wei — the ETH-independent basis for change-since-open. */
+  pricesWei: Record<string, bigint>;
   scores: Record<string, number>;
   history: Record<string, PricePoint[]>;
   metrics: Record<string, KolMetrics>;
@@ -212,8 +215,12 @@ export function MarketProvider({ children }: { children: ReactNode }) {
 
   // Real positions — the contract's own share ledger for this wallet, read in
   // one multicall rather than the Solana build's per-token-account scan.
-  // Cost basis isn't derivable from balances alone (needs a fills indexer),
-  // so entry stays null until the Bought/Sold events are indexed.
+  //
+  // Cost basis is not derivable from a balance: the chain knows you hold 49
+  // shares, not what you paid. It now comes from public.fills, which records
+  // every Bought/Sold event — so avg entry, P&L and return can finally be
+  // shown instead of three dashes on a page whose entire job is telling you
+  // how your position is doing.
   useEffect(() => {
     if (!connected || !address || !MARKET_ADDRESS) {
       setPositions([]);
@@ -224,11 +231,51 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       try {
         const balances = await fetchShareBalances(client, KOL_WALLETS, address);
         if (!alive) return;
+
+        // Average cost of the shares still held, from this wallet's own fills.
+        // Average-cost rather than FIFO: it matches how the oracle accounts
+        // for the traders themselves, so "entry" means the same thing whether
+        // you are reading your own position or someone else's record.
+        const entries: Record<string, number> = {};
+        if (supabase && isSupabaseConfigured) {
+          const { data } = await supabase
+            .from("fills")
+            .select("kol_id, side, shares, wei")
+            .eq("trader", address.toLowerCase())
+            .order("block_timestamp", { ascending: true });
+          if (!alive) return;
+          const acc: Record<string, { shares: number; cost: number }> = {};
+          for (const f of data ?? []) {
+            const id = String(f.kol_id);
+            const a = (acc[id] ??= { shares: 0, cost: 0 });
+            const n = Number(f.shares);
+            const wei = Number(f.wei);
+            if (f.side === "buy") {
+              a.shares += n;
+              a.cost += wei;
+            } else {
+              // Selling removes shares at the running average, leaving the
+              // average of what remains unchanged — which is the property that
+              // makes a partial exit not distort the entry price shown.
+              const avg = a.shares > 0 ? a.cost / a.shares : 0;
+              a.shares = Math.max(0, a.shares - n);
+              a.cost = Math.max(0, a.cost - avg * n);
+            }
+          }
+          for (const [id, a] of Object.entries(acc)) {
+            if (a.shares > 0) {
+              entries[id] = (a.cost / a.shares / 1e18) * nativePriceRef.current;
+            }
+          }
+        }
+
         setPositions(
           Object.entries(balances).map(([id, shares]) => ({
             id,
             shares: Number(shares),
-            entry: null,
+            // null, never 0, when unknown — the UI shows a dash rather than
+            // claiming the position was free.
+            entry: entries[id] ?? null,
           })),
         );
       } catch {
@@ -241,7 +288,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       alive = false;
       clearInterval(id);
     };
-  }, [connected, address, client]);
+  }, [connected, address, client, nativePriceUsd]);
 
   // REAL ORACLE FEED (display/breakdown data). Fetches scores.json published
   // by oracle/publish.ts. Falls back to seed scores if the file isn't there
@@ -367,6 +414,34 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     // would silently stop the board updating.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feed.listings, onChainListings, scores, nativePriceUsd]);
+
+  /**
+   * Each listing's price in wei, kept alongside the USD figures.
+   *
+   * Change-since-open has to be measured here, not in USD. The USD price is
+   * wei x a live ETH rate, so comparing it to a fixed dollar constant folds
+   * every move in ETH into what is supposed to be a measure of one trader's
+   * performance. With OPEN_PRICE_USD at $0.01 and the contract's actual open
+   * of 4e12 wei worth about $0.0096, every untouched listing reported roughly
+   * -4.4% — a loss it had not made, on a board where the whole point is that
+   * listings start equal and only diverge on merit.
+   *
+   * In wei the comparison is exact and ETH-independent: an unchanged listing
+   * reads 0.00%, and a move means the score or the curve moved.
+   */
+  const pricesWei = useMemo(() => {
+    const next: Record<string, bigint> = {};
+    for (const k of KOLS) {
+      const fromFeed = feed.listings[k.id];
+      if (fromFeed) {
+        next[k.id] = BigInt(fromFeed.price_wei);
+        continue;
+      }
+      const onChain = onChainListings[k.id];
+      if (onChain) next[k.id] = onChain.priceWei;
+    }
+    return next;
+  }, [feed.listings, onChainListings]);
 
   /**
    * Metrics, preferring the shared feed over the local scores.json snapshot.
@@ -589,6 +664,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       prices,
+      pricesWei,
       scores,
       metrics,
       breakdowns,
@@ -620,6 +696,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     }),
     [
       prices,
+      pricesWei,
       scores,
       metrics,
       breakdowns,
@@ -662,14 +739,14 @@ export function useMarket() {
  *  - changePct: move since the equal open (so day-one = 0%)
  */
 export function useKolStats(id: string) {
-  const { prices, scores, metrics, breakdowns, onChainListings } = useMarket();
+  const { prices, pricesWei, scores, metrics, breakdowns, onChainListings } = useMarket();
   const feed = useMarketFeed();
   const price = prices[id] ?? OPEN_PRICE_USD;
   // Prefer the score every other trader is seeing (shared feed), then the
   // direct on-chain read, then the scores.json snapshot which can lag.
   const score = feed.listings[id]?.score ?? onChainListings[id]?.score ?? scores[id] ?? 50;
   const marketCapUsd = price * 10_000_000; // SHARES_PER_LISTING
-  const changePct = ((price - OPEN_PRICE_USD) / OPEN_PRICE_USD) * 100;
+  const changePct = changePctFromWei(pricesWei[id]) ?? 0;
   const m = metrics[id];
   return {
     price,
@@ -684,6 +761,26 @@ export function useKolStats(id: string) {
     topLosses: m?.topLosses ?? [],
     breakdown: breakdowns[id],
   };
+}
+
+/** The contract's opening price (SharpsMarket.OPEN_PRICE_WEI, score 50). */
+export const OPEN_PRICE_WEI = 4_000_000_000_000n;
+
+/**
+ * Change since the equal open, measured in wei.
+ *
+ * Deliberately not derived from the USD price. USD is wei x a live ETH rate,
+ * so comparing it to a fixed dollar constant mixes ETH's movement into a
+ * number that is supposed to describe one trader. That is what made every
+ * untouched listing read about -4.4%: the constant said /usr/bin/bash.01 and 4e12 wei
+ * was worth /usr/bin/bash.0096.
+ *
+ * Returns null when there is no on-chain price yet, so callers can show a dash
+ * rather than assert a move that has not happened.
+ */
+function changePctFromWei(wei: bigint | undefined): number | null {
+  if (wei === undefined) return null;
+  return (Number(wei - OPEN_PRICE_WEI) / Number(OPEN_PRICE_WEI)) * 100;
 }
 
 /** Shares minted per listing — the denominator behind every market cap here. */
@@ -705,7 +802,7 @@ export const SHARES_PER_LISTING = 10_000_000;
  * indexer subscribes to PriceUpdated only, so any number would be invented.
  */
 export function useLiveMetrics() {
-  const { prices, nativePriceUsd } = useMarket();
+  const { prices, pricesWei, nativePriceUsd } = useMarket();
   const feed = useMarketFeed();
   return useMemo(() => {
     const changePct: Record<string, number> = {};
@@ -717,7 +814,7 @@ export function useLiveMetrics() {
     const volumeUsd24h: Record<string, number | undefined> = {};
     for (const k of KOLS) {
       const price = prices[k.id] ?? OPEN_PRICE_USD;
-      changePct[k.id] = ((price - OPEN_PRICE_USD) / OPEN_PRICE_USD) * 100;
+      changePct[k.id] = changePctFromWei(pricesWei[k.id]) ?? 0;
       marketCapUsd[k.id] = price * SHARES_PER_LISTING;
       const v = feed.volume[k.id];
       volumeUsd24h[k.id] = feed.configured
@@ -725,7 +822,7 @@ export function useLiveMetrics() {
         : undefined;
     }
     return { changePct, marketCapUsd, volumeUsd24h };
-  }, [prices, feed.volume, feed.configured, nativePriceUsd]);
+  }, [prices, pricesWei, feed.volume, feed.configured, nativePriceUsd]);
 }
 
 /**
@@ -747,7 +844,7 @@ export function useLiveMetrics() {
  * figure at all on a stat bar people read as live.
  */
 export function useIndexStats() {
-  const { prices, metrics, onChainListings, nativePriceUsd } = useMarket();
+  const { prices, pricesWei, metrics, onChainListings, nativePriceUsd } = useMarket();
   const feed = useMarketFeed();
 
   return useMemo(() => {
@@ -763,7 +860,7 @@ export function useIndexStats() {
       const price = prices[k.id] ?? OPEN_PRICE_USD;
       capUsd += price * SHARES_PER_LISTING;
 
-      const changePct = ((price - OPEN_PRICE_USD) / OPEN_PRICE_USD) * 100;
+      const changePct = changePctFromWei(pricesWei[k.id]) ?? 0;
       if (bestId === null || changePct > bestChangePct) {
         bestChangePct = changePct;
         bestId = k.id;
