@@ -835,7 +835,7 @@ export const SHARES_PER_LISTING = 10_000_000;
  * indexer subscribes to PriceUpdated only, so any number would be invented.
  */
 export function useLiveMetrics() {
-  const { prices, pricesWei, nativePriceUsd } = useMarket();
+  const { prices, pricesWei, nativePriceUsd, scores: rawScores, onChainListings } = useMarket();
   const feed = useMarketFeed();
   return useMemo(() => {
     const changePct: Record<string, number> = {};
@@ -845,17 +845,32 @@ export function useLiveMetrics() {
     // fills feed is not configured, so callers can show a dash instead of
     // asserting that nothing traded.
     const volumeUsd24h: Record<string, number | undefined> = {};
+    // Same precedence useKolStats applies, in bulk: the shared feed is what
+    // every other trader is seeing, the direct chain read is the fallback, and
+    // scores.json is last because a deployed build has none.
+    const score: Record<string, number> = {};
     for (const k of KOLS) {
       const price = prices[k.id] ?? OPEN_PRICE_USD;
       changePct[k.id] = changePctFromWei(pricesWei[k.id]) ?? 0;
       marketCapUsd[k.id] = price * SHARES_PER_LISTING;
       const v = feed.volume[k.id];
+      score[k.id] =
+        feed.listings[k.id]?.score ?? onChainListings[k.id]?.score ?? rawScores[k.id] ?? 50;
       volumeUsd24h[k.id] = feed.configured
         ? (Number(v?.volume_wei ?? 0) / 1e18) * nativePriceUsd
         : undefined;
     }
-    return { changePct, marketCapUsd, volumeUsd24h };
-  }, [prices, pricesWei, feed.volume, feed.configured, nativePriceUsd]);
+    return { changePct, marketCapUsd, volumeUsd24h, score };
+  }, [
+    prices,
+    pricesWei,
+    feed.volume,
+    feed.listings,
+    feed.configured,
+    nativePriceUsd,
+    rawScores,
+    onChainListings,
+  ]);
 }
 
 /**

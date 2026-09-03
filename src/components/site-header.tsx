@@ -1,4 +1,5 @@
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SharpsMark } from "@/components/brand";
 import { Link } from "@tanstack/react-router";
 import { Wallet, Menu, ChevronDown } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -204,7 +205,15 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4">
       <div className="mx-auto max-w-[80rem]">
         <div className="flex h-14 items-center gap-6 px-1 sm:px-2">
-          <Link to="/app" className="group flex items-center gap-2.5">
+          <Link
+            to="/app"
+            aria-label="SHARPS home"
+            className="group flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <SharpsMark
+              size={20}
+              className="text-primary transition-transform duration-300 group-hover:-translate-y-px"
+            />
             <span className="display text-[13px] font-extrabold tracking-[0.3em] uppercase">
               Sharps
             </span>
@@ -276,7 +285,8 @@ export function SiteFooter() {
   return (
     <footer className="border-t border-border bg-surface/40">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-8 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p className="num tracking-wide">
+        <p className="num flex items-center gap-2 tracking-wide">
+          <SharpsMark size={14} className="shrink-0 text-primary/70" />
           SHARPS © 2026, {ACTIVE_CHAIN.name}. Not financial advice.
         </p>
         <p className="num tracking-wide">

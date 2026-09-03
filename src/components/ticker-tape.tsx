@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { KOLS, fmtPct } from "@/lib/kols";
+import { KOLS, fmtPct, fmtUsd } from "@/lib/kols";
 import { useMarket, useLiveMetrics } from "@/lib/market-store";
 
 export function TickerTape() {
@@ -22,9 +22,7 @@ export function TickerTape() {
               className="flex shrink-0 items-center gap-2.5 text-xs transition-opacity hover:opacity-70"
             >
               <span className="num font-semibold tracking-widest text-foreground">${k.ticker}</span>
-              <span className="num text-muted-foreground">
-                {(prices[k.id] ?? k.price).toFixed(2)}
-              </span>
+              <span className="num text-muted-foreground">{fmtUsd(prices[k.id] ?? k.price)}</span>
               <span className={`num font-medium ${up ? "text-up" : "text-down"}`}>
                 {fmtPct(changePct[k.id] ?? 0)}
               </span>

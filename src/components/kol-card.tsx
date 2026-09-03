@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { ScorePill } from "@/components/score-pill";
 import { AvatarMark } from "@/components/avatar-mark";
 import { LivePrice } from "@/components/live-price";
 import { Sparkline } from "@/components/sparkline";
@@ -58,9 +59,9 @@ export function KolCard({ kol, price, index = 0 }: { kol: Kol; price: number; in
           <p className="text-[10px] tracking-widest uppercase text-muted-foreground">Mkt cap</p>
           <p className="num text-sm text-foreground/80">{fmtCompact(marketCapUsd)}</p>
         </div>
-        <div className="text-right">
+        <div className="flex flex-col items-end gap-1">
           <p className="text-[10px] tracking-widest uppercase text-muted-foreground">Perf score</p>
-          <p className="num text-sm text-foreground/80">{score}</p>
+          <ScorePill score={score} id={kol.id} />
         </div>
       </div>
     </Link>

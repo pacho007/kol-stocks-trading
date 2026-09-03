@@ -3,8 +3,10 @@ import { useState } from "react";
 import { AvatarMark } from "@/components/avatar-mark";
 import { LivePrice } from "@/components/live-price";
 import { Sparkline } from "@/components/sparkline";
+import { ScorePill } from "@/components/score-pill";
 import { KOLS, fmtCompact, fmtPct, perfScore, shortWallet } from "@/lib/kols";
-import { useMarket } from "@/lib/market-store";
+import { useMarket, useLiveMetrics } from "@/lib/market-store";
+import { OPEN_PRICE_USD } from "@/lib/pricing";
 
 export const Route = createFileRoute("/leaderboard")({
   head: () => ({
@@ -26,13 +28,18 @@ export const Route = createFileRoute("/leaderboard")({
 });
 
 function Leaderboard() {
-  const { prices, scores, metrics } = useMarket();
+  const { prices, metrics } = useMarket();
+  // Same derivations the rest of the product uses. This page had its own:
+  // scores straight from scores.json (which a deployed build never has, so
+  // every row read a flat 50), change measured against a hardcoded $0.01
+  // rather than the contract opening price, and a magic share count.
+  const { changePct, marketCapUsd, score } = useLiveMetrics();
   const [mode, setMode] = useState<"cap" | "score">("cap");
 
-  const liveScore = (id: string) => scores[id] ?? 50;
-  const livePrice = (id: string) => prices[id] ?? 0.01;
-  const liveCap = (id: string) => livePrice(id) * 10_000_000;
-  const liveChange = (id: string) => ((livePrice(id) - 0.01) / 0.01) * 100;
+  const liveScore = (id: string) => score[id] ?? 50;
+  const livePrice = (id: string) => prices[id] ?? OPEN_PRICE_USD;
+  const liveCap = (id: string) => marketCapUsd[id] ?? 0;
+  const liveChange = (id: string) => changePct[id] ?? 0;
 
   const rows = [...KOLS].sort((a, b) =>
     mode === "cap" ? liveCap(b.id) - liveCap(a.id) : liveScore(b.id) - liveScore(a.id),
@@ -155,8 +162,8 @@ function Leaderboard() {
                   <td className="num px-4 py-3 text-sm text-muted-foreground">
                     {fmtCompact(liveCap(k.id))}
                   </td>
-                  <td className="num px-4 py-3 text-sm font-semibold text-primary">
-                    {liveScore(k.id)}
+                  <td className="px-4 py-3">
+                    <ScorePill score={liveScore(k.id)} id={k.id} />
                   </td>
                   <td className="px-4 py-3">
                     <Sparkline data={k.series} up={up} className="h-8 w-24" />
