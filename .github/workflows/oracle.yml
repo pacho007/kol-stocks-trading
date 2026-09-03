@@ -56,6 +56,13 @@ jobs:
       # and produce a slightly different distribution than the one just stored.
       - name: Score and publish metrics
         env:
+          # Preferred: post metrics to the app, which holds the service role
+          # server-side. Lovable Cloud never exposes that key, and an unattended
+          # job is the wrong place to keep the one credential that bypasses
+          # every RLS policy anyway.
+          ORACLE_SYNC_URL: ${{ secrets.ORACLE_SYNC_URL }}
+          ORACLE_SYNC_SECRET: ${{ secrets.ORACLE_SYNC_SECRET }}
+          # Fallback, for a Supabase project whose service role key is reachable.
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           BLOCKSCOUT_API_KEY: ${{ secrets.BLOCKSCOUT_API_KEY }}

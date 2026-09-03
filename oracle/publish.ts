@@ -259,20 +259,6 @@ async function once(): Promise<void> {
  * RLS entirely — server-side only, never in a VITE_ var.
  */
 async function publishMetricsToSupabase(published: Published): Promise<void> {
-  const url = process.env["SUPABASE_URL"];
-  const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
-  if (!url || !serviceKey) {
-    console.log(
-      "Supabase not configured (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY) — " +
-        "wrote scores.json only. The deployed app reads metrics from Postgres, " +
-        "so set both when running this for production.",
-    );
-    return;
-  }
-
-  const { createClient } = await import("@supabase/supabase-js");
-  const db = createClient(url, serviceKey, { auth: { persistSession: false } });
-
   const rows = published.rows.map((r) => ({
     kol_id: r.id,
     realized_pnl_eth: r.metrics.realizedPnlEth,
@@ -283,22 +269,69 @@ async function publishMetricsToSupabase(published: Published): Promise<void> {
     top_losses: r.metrics.topLosses ?? [],
     breakdown: r.breakdown ?? {},
     confidence: r.confidence ?? 0,
-    updated_at: new Date().toISOString(),
   }));
 
-  // Upsert on the primary key: one current row per listing, replaced wholesale
-  // each cycle. No history table here on purpose — price_history already
-  // carries the time series, and keeping every metrics snapshot would grow
-  // without anything reading it.
-  const { error } = await db.from("listing_metrics").upsert(rows, { onConflict: "kol_id" });
+  // PREFERRED PATH: post to the app's own sync endpoint, which performs the
+  // write with the service role it already holds server-side.
+  //
+  // The point is that this process never holds that key. Lovable Cloud does
+  // not expose it at all, and even where it can be obtained, an unattended
+  // scheduled job is a poor place to keep the one credential that bypasses
+  // every RLS policy in the database. What the oracle carries instead is a
+  // secret whose entire authority is "may write listing metrics" — a far
+  // smaller thing to lose, and one that cannot touch any other table.
+  const syncUrl = process.env["ORACLE_SYNC_URL"];
+  const syncSecret = process.env["ORACLE_SYNC_SECRET"];
+  if (syncUrl && syncSecret) {
+    try {
+      const res = await fetch(syncUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-cron-secret": syncSecret },
+        body: JSON.stringify({ rows }),
+      });
+      if (!res.ok) {
+        // Status only, never the body: a 401 from this endpoint is bare by
+        // design, and echoing any other response risks putting request detail
+        // into CI logs.
+        console.error(`Metrics sync failed: HTTP ${res.status}`);
+        console.error("  scores.json was still written; the UI falls back to it locally.");
+        return;
+      }
+      const body = (await res.json()) as { written?: number };
+      console.log(`Synced ${body.written ?? rows.length} metric rows via the app endpoint.`);
+      return;
+    } catch (e) {
+      console.error(`Metrics sync request failed: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
+  }
 
+  // FALLBACK: write straight to Postgres. Only usable when running against a
+  // Supabase project whose service role key is actually obtainable.
+  const url = process.env["SUPABASE_URL"];
+  const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  if (!url || !serviceKey) {
+    console.log(
+      "No metrics destination configured — wrote scores.json only.\n" +
+        "  Set ORACLE_SYNC_URL + ORACLE_SYNC_SECRET (preferred), or\n" +
+        "  SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY to write directly.\n" +
+        "  Prices and scores are unaffected either way; only win rate, PnL and\n" +
+        "  biggest wins/losses stay blank on the deployed site.",
+    );
+    return;
+  }
+
+  const { createClient } = await import("@supabase/supabase-js");
+  const db = createClient(url, serviceKey, { auth: { persistSession: false } });
+  const { error } = await db.from("listing_metrics").upsert(
+    rows.map((r) => ({ ...r, updated_at: new Date().toISOString() })),
+    { onConflict: "kol_id" },
+  );
   if (error) {
-    // Deliberately not fatal. The scores are already written and, for
-    // push-onchain, already on their way to the chain; failing the whole run
-    // because a mirror write failed would be a worse outcome than a stale
-    // metrics panel until the next cycle.
+    // Not fatal: the scores are already written and may already be on their
+    // way on-chain. Failing a whole cycle over a stale metrics panel is the
+    // worse outcome.
     console.error(`Supabase metrics write failed: ${error.message}`);
-    console.error("  scores.json was still written; the UI will fall back to it locally.");
     return;
   }
   console.log(`Mirrored ${rows.length} metric rows into public.listing_metrics.`);
