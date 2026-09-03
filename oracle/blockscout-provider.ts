@@ -55,13 +55,18 @@ const MAX_PAGES = Number(process.env["BLOCKSCOUT_MAX_PAGES"] ?? 6);
  * from an inactive one, and stops being priced on their record until a later
  * cycle happens to reach them.
  */
-const MIN_GAP_MS = Number(process.env["BLOCKSCOUT_GAP_MS"] ?? (hasApiKey() ? 250 : 400));
+const MIN_GAP_MS = Number(process.env["BLOCKSCOUT_GAP_MS"] ?? (hasApiKey() ? 120 : 400));
 
 /**
  * How many requests may be open at once. The endpoint is latency-bound rather
  * than rate-limited, so overlapping them is what actually shortens a cycle.
+ *
+ * 16 with a key, measured rather than guessed: ramping 6, 12 and 20 concurrent
+ * against the authenticated endpoint produced no 429 at any level. 6 stays the
+ * default without one, since the unauthenticated limit is the one that was
+ * actually hit.
  */
-const MAX_INFLIGHT = Number(process.env["BLOCKSCOUT_CONCURRENCY"] ?? 6);
+const MAX_INFLIGHT = Number(process.env["BLOCKSCOUT_CONCURRENCY"] ?? (hasApiKey() ? 16 : 6));
 
 /**
  * An API key raises the ceiling that pacing can only ration. Blockscout issues

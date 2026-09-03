@@ -19,7 +19,7 @@ on:
     # takes longer than 20 minutes to finish, so a tighter schedule would just
     # queue runs behind each other forever. With a BLOCKSCOUT_API_KEY the crawl
     # drops to a few minutes and this can go back to being frequent.
-    - cron: "0 * * * *"
+    - cron: "*/5 * * * *"
   # So a cycle can be forced after a deploy without waiting for the timer.
   workflow_dispatch:
     inputs:
@@ -43,7 +43,7 @@ jobs:
     # attempt at 25 minutes was cancelled mid-crawl, which wastes the whole run
     # since scores are only written at the end. This is a ceiling to catch a
     # wedged run, not a target.
-    timeout-minutes: 55
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4

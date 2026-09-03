@@ -61,8 +61,11 @@ const robinhoodTestnet = defineChain({
   name: "Robinhood Chain Testnet",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: { http: [process.env["ROBINHOOD_RPC_URL"] ?? "https://rpc.testnet.chain.robinhood.com"] },
+    default: {
+      http: [process.env["ROBINHOOD_RPC_URL"] ?? "https://rpc.testnet.chain.robinhood.com"],
+    },
   },
+  contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
 });
 
 const robinhoodMainnet = defineChain({
@@ -70,8 +73,11 @@ const robinhoodMainnet = defineChain({
   name: "Robinhood Chain",
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: {
-    default: { http: [process.env["ROBINHOOD_RPC_URL"] ?? "https://rpc.mainnet.chain.robinhood.com"] },
+    default: {
+      http: [process.env["ROBINHOOD_RPC_URL"] ?? "https://rpc.mainnet.chain.robinhood.com"],
+    },
   },
+  contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
 });
 
 async function loadFullListings(): Promise<ListingInput[] | null> {
@@ -180,6 +186,61 @@ async function once(
     console.log(`Indexing ${listings.length} wallets for on-chain price push...`);
     rows = await runOracle(listings, EvmPnlProvider, {});
   }
+
+  // Only push scores that would actually change something.
+  //
+  // updatePrice is not free and it is not idempotent-for-free: writing a score
+  // identical to the one already stored still costs a full storage write and
+  // still emits PriceUpdated, so an unchanged listing bought nothing and put a
+  // meaningless point on its own chart.
+  //
+  // That barely matters on testnet, where gas is 0.01 gwei. On mainnet a full
+  // 108-listing push measures 6.58M gas, about 0.0048 ETH, and at a five minute
+  // cadence that is roughly 1.38 ETH a day — most of it rewriting values that
+  // did not move. Scores converge under the rate cap and then sit still, so in
+  // steady state the large majority of any given cycle is redundant.
+  //
+  // Read current on-chain scores first (one multicall) and push only the
+  // differences. A listing that has already reached its target costs nothing.
+  const current = await publicClient.multicall({
+    contracts: rows.map((r) => ({
+      address: marketAddress,
+      abi: marketAbi,
+      functionName: "listings",
+      args: [r.wallet as Address],
+    })),
+    allowFailure: true,
+  });
+
+  const changed: typeof rows = [];
+  let unchanged = 0;
+  let unreadable = 0;
+  rows.forEach((r, i) => {
+    const res = current[i];
+    if (!res || res.status !== "success") {
+      // Could not read it, so do not assume. Pushing a listing that turns out
+      // to be current wastes a little gas; skipping one that actually moved
+      // leaves a stale price on the board, which is the worse error.
+      unreadable++;
+      changed.push(r);
+      return;
+    }
+    const onChainScore = Number((res.result as unknown as unknown[])[0]);
+    if (onChainScore === r.score) unchanged++;
+    else changed.push(r);
+  });
+
+  console.log(
+    `Scores to push: ${changed.length} changed, ${unchanged} already at target` +
+      (unreadable ? `, ${unreadable} unreadable (pushed anyway)` : ""),
+  );
+
+  if (changed.length === 0) {
+    console.log("Nothing to push — every listing already matches its target score.");
+    return;
+  }
+
+  rows = changed;
 
   const manifest: Manifest = {
     cycleStartedAt: new Date().toISOString(),

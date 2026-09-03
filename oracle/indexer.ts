@@ -382,9 +382,21 @@ export async function runOracle(
     `Indexing ${listings.length} wallets since launch ${new Date(LAUNCH_TS * 1000).toISOString()}...`,
   );
 
-  // Concurrency-limited batching so hundreds of wallets don't hammer Helius.
-  // CONCURRENCY simultaneous requests; tune down if you hit rate limits.
-  const CONCURRENCY = Number(process.env["INDEXER_CONCURRENCY"] ?? 4);
+  // How many wallets are worked on at once.
+  //
+  // This is the real ceiling on request parallelism, and it took a while to
+  // see. Each wallet walks its pages sequentially, so at most CONCURRENCY
+  // requests can ever be open — raising the provider's own MAX_INFLIGHT above
+  // this number does nothing at all, because there is nobody to fill the extra
+  // slots. Both had to move together.
+  //
+  // 16 when a key is present, matching the provider's in-flight cap, measured
+  // against the endpoint rather than guessed: ramps at 6, 12 and 20 concurrent
+  // returned no 429 at any level. 4 stays the default without a key, where the
+  // limit is real and was actually hit.
+  const CONCURRENCY = Number(
+    process.env["INDEXER_CONCURRENCY"] ?? (process.env["BLOCKSCOUT_API_KEY"] ? 16 : 4),
+  );
   const raw: RawMetrics[] = new Array(listings.length);
   let done = 0;
 
