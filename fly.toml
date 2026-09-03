@@ -19,8 +19,10 @@ primary_region = "iad"
   dockerfile = "oracle/Dockerfile"
 
 [env]
-  # Pause between cycles. A warm cycle measures ~10-30s, so this is a real
-  # cadence rather than an aspiration.
+  # Pause BETWEEN cycles, so the effective cadence is cycle + pause. A warm
+  # cycle measures 109.5s over 108 wallets unauthenticated, and should be
+  # near 40s with BLOCKSCOUT_API_KEY set — so this yields roughly a 70s
+  # cadence with a key, ~140s without. Set the key.
   CYCLE_SECONDS = "30"
   ROBINHOOD_NETWORK = "testnet"
 

@@ -180,9 +180,24 @@ then pauses `CYCLE_SECONDS` (default 30) and does it again.
 It has to be a service rather than a cron job. The Blockscout provider caches
 each wallet's history in-process and pages back only as far as rows it hasn't
 seen, so the first cycle pays for a full crawl and every cycle after it reads
-one page per wallet. Measured on a single wallet: **9.6s cold, 1.7s warm, with
-byte-identical metrics**. That cache is the whole reason cycles drop from
-minutes to seconds, and it only exists while the process does.
+one page per wallet. That cache only exists while the process does.
+
+Measured over all 108 wallets, unauthenticated:
+
+| | cold (cycle 1) | warm (cycle 2) |
+|---|---|---|
+| full cohort | 550.5s | **109.5s** |
+| single wallet | 9.6s | 1.7s |
+
+Metrics are byte-identical between the two paths — the warm pass is not a
+cheaper approximation, it just stops reading history that hasn't changed.
+
+A warm cycle is **rate-floor bound, not latency bound**: 108 wallets x 3
+endpoints is ~324 requests, and without a key `MIN_GAP_MS` spaces request
+starts 400ms apart. `BLOCKSCOUT_API_KEY` drops that to 120ms and raises
+concurrency 4 -> 16, which should put a warm cycle near 40s — derived from
+those constants, not yet measured. Get the key; it is free and it is the
+single biggest lever on cadence.
 
 Two things also come free from staying up: the rate cap's `prevAnchors` carry
 across cycles instead of restarting from `BASE_PRICE`, and a cycle can never

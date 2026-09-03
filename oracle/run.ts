@@ -18,8 +18,14 @@
  * (see createIncrementalBlockscoutProvider). The first cycle costs a full
  * crawl; every cycle after it reads one page per wallet, because Blockscout
  * returns newest-first and there is no reason to re-read history that has not
- * changed. Cycles drop from minutes to seconds, and the cache lives in this
- * process — which is precisely why this has to be a process and not a job.
+ * changed. Measured over 108 wallets unauthenticated: 550.5s cold, 109.5s
+ * warm, identical metrics either way. The cache lives in this process — which
+ * is precisely why this has to be a process and not a job.
+ *
+ * A warm cycle is bound by MIN_GAP_MS, not by latency: ~324 requests spaced
+ * 400ms apart without an API key. With BLOCKSCOUT_API_KEY that spacing drops
+ * to 120ms and concurrency goes 4 -> 16, which should land a warm cycle near
+ * 40s. That is derived from the constants rather than measured.
  *
  * Two properties come free from staying up, which the batch could never have:
  *   - prevAnchors carries across cycles, so the rate cap actually smooths
