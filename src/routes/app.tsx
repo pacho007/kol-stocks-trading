@@ -1,4 +1,6 @@
 import { SessionClock } from "@/components/session-clock";
+import { TradeTape } from "@/components/trade-tape";
+import { LiveDot } from "@/components/live-dot";
 import { useMarket, useIndexStats, useLiveMetrics } from "@/lib/market-store";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
@@ -327,9 +329,21 @@ function Landing() {
             </p>
           </div>
 
+          {/* Live trades, above the movers list: what is happening right now
+              beats what has happened since the open. */}
+          <div className="panel overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
+              <span className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">
+                Live trades
+              </span>
+              <LiveDot />
+            </div>
+            <TradeTape limit={10} />
+          </div>
+
           <div className="panel overflow-hidden">
             <div className="border-b border-border px-3 py-2.5 text-[10px] tracking-[0.22em] uppercase text-muted-foreground">
-              Session tape
+              Session movers
             </div>
             {[...KOLS]
               .sort((a, b) => (changePct[b.id] ?? 0) - (changePct[a.id] ?? 0))

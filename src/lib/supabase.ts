@@ -107,6 +107,24 @@ export type ListingVolumeRow = {
   trader_count: number;
 };
 
+/**
+ * One executed trade — mirrors a row of public.fills.
+ *
+ * This is the only record that a trade happened at all: PriceUpdated says the
+ * price moved, not that anyone bought. Surfacing these is what separates a
+ * board of numbers from a market you can see other people trading in.
+ */
+export type FillRow = {
+  id: number;
+  kol_id: string;
+  side: "buy" | "sell";
+  trader: string;
+  shares: string;
+  wei: string;
+  block_timestamp: string;
+  tx_hash: string;
+};
+
 /** wei (18dp) -> a float price in the chain's native token. */
 export function weiToNative(wei: string): number {
   return Number(wei) / 1e18;

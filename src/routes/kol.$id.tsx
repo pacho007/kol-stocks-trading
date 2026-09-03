@@ -4,6 +4,8 @@ import { ArrowLeft, Users } from "lucide-react";
 import { toast } from "sonner";
 import type { Address } from "viem";
 import { AvatarMark } from "@/components/avatar-mark";
+import { TradeTape } from "@/components/trade-tape";
+import { LiveDot } from "@/components/live-dot";
 import { LivePrice } from "@/components/live-price";
 import { PriceChart } from "@/components/price-chart";
 import { ConnectWalletButton } from "@/components/site-header";
@@ -305,6 +307,26 @@ function KolDetail() {
                 <p className="num mt-0.5 text-sm font-semibold">{value}</p>
               </div>
             ))}
+          </div>
+
+          {/* Two different kinds of trade, deliberately kept apart. Below is
+              what the TRADER did with their own money, which is what the score
+              is measured from. This is what people did with THIS LISTING —
+              buying and selling shares in them. Conflating the two would make
+              a share purchase look like a trading win. */}
+          <div className="panel overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <div>
+                <p className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">
+                  Share activity
+                </p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  People buying and selling ${kol.ticker}
+                </p>
+              </div>
+              <LiveDot />
+            </div>
+            <TradeTape kolId={kol.id} limit={8} />
           </div>
 
           <BiggestTradesPanel wins={topWins} losses={topLosses} nativePriceUsd={nativePriceUsd} />

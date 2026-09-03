@@ -25,6 +25,7 @@ import {
   type ListingRow,
   type ListingMetricsRow,
   type ListingVolumeRow,
+  type FillRow,
 } from "./supabase";
 
 export type FeedPricePoint = { t: number; p: number };
@@ -38,6 +39,8 @@ type FeedCtx = {
   metrics: Record<string, ListingMetricsRow>;
   /** Rolling 24h share volume per kol id, from the fills view. */
   volume: Record<string, ListingVolumeRow>;
+  /** Most recent executed trades across the whole market, newest first. */
+  fills: FillRow[];
   /** True once the initial load has completed (success or failure). */
   loaded: boolean;
   /** True while a live Realtime subscription is established. */
@@ -51,11 +54,15 @@ const Ctx = createContext<FeedCtx | null>(null);
 /** How many history points to load per listing for the chart. */
 const HISTORY_LIMIT = 500;
 
+/** How many recent trades to keep for the live tape. */
+const FILL_LIMIT = 40;
+
 export function MarketFeedProvider({ children }: { children: ReactNode }) {
   const [listings, setListings] = useState<Record<string, ListingRow>>({});
   const [history, setHistory] = useState<Record<string, FeedPricePoint[]>>({});
   const [metrics, setMetrics] = useState<Record<string, ListingMetricsRow>>({});
   const [volume, setVolume] = useState<Record<string, ListingVolumeRow>>({});
+  const [fills, setFills] = useState<FillRow[]>([]);
   const [loaded, setLoaded] = useState(!isSupabaseConfigured);
   const [live, setLive] = useState(false);
 
@@ -70,6 +77,7 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
         { data: historyRows },
         { data: metricRows },
         { data: volumeRows },
+        { data: fillRows },
       ] = await Promise.all([
         supabase.from("listings").select("*"),
         supabase
@@ -82,8 +90,18 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
         // separate requests to render one page would be worse than one.
         supabase.from("listing_metrics").select("*"),
         supabase.from("listing_volume_24h").select("*"),
+        // Recent trades for the live tape. Capped hard: this is a "what is
+        // happening right now" view, not a history, and an unbounded fetch
+        // would grow without limit as the market gets busier.
+        supabase
+          .from("fills")
+          .select("id, kol_id, side, trader, shares, wei, block_timestamp, tx_hash")
+          .order("block_timestamp", { ascending: false })
+          .limit(FILL_LIMIT),
       ]);
       if (!alive) return;
+
+      if (fillRows) setFills(fillRows as unknown as FillRow[]);
 
       if (volumeRows) {
         setVolume(
@@ -185,6 +203,10 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
         const row = payload.new as { kol_id?: string; wei?: string; trader?: string } | null;
         if (!row?.kol_id || !row.wei) return;
         const kolId = row.kol_id;
+        // Prepend to the tape immediately. This is the one place the product can
+        // show that somebody else is trading right now, so it should not wait
+        // for a refetch.
+        setFills((prev) => [payload.new as FillRow, ...prev].slice(0, FILL_LIMIT));
         setVolume((prev) => {
           const cur = prev[kolId];
           const base = cur ?? {
@@ -214,8 +236,17 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<FeedCtx>(
-    () => ({ listings, history, metrics, volume, loaded, live, configured: isSupabaseConfigured }),
-    [listings, history, metrics, volume, loaded, live],
+    () => ({
+      listings,
+      history,
+      metrics,
+      volume,
+      fills,
+      loaded,
+      live,
+      configured: isSupabaseConfigured,
+    }),
+    [listings, history, metrics, volume, fills, loaded, live],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -231,6 +262,7 @@ export function useMarketFeed(): FeedCtx {
       history: {},
       metrics: {},
       volume: {},
+      fills: [],
       loaded: true,
       live: false,
       configured: false,
