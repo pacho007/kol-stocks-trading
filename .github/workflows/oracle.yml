@@ -48,7 +48,16 @@ jobs:
           node-version: "22"
           cache: npm
 
-      - run: npm ci
+      # npm install, not npm ci. `ci` demands the lockfile match package.json
+      # exactly and hard-fails otherwise, which is the right trade for a build
+      # that ships code and the wrong one for a scheduled data refresh: this
+      # job reads a chain and writes some numbers, and it failing because a
+      # lockfile drifted costs fresh prices and buys no safety in return.
+      #
+      # Drift is not hypothetical here — two package managers write to this
+      # repo, npm from the command line and bun from the hosted editor, so the
+      # two lockfiles can disagree without anyone doing anything wrong.
+      - run: npm install --no-audit --no-fund
 
       # Score, then mirror the measurements into listing_metrics. Writes
       # scores.json too, which the on-chain push reads below rather than
