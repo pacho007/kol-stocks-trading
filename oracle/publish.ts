@@ -29,7 +29,7 @@ import { scoreToPriceUsd, SHARES_PER_LISTING } from "./pricing.js";
  * (e.g. downloaded on its own), this import won't resolve — we catch that and
  * fall back to the sample, so the publisher never crashes.
  */
-async function loadFullListings(): Promise<ListingInput[] | null> {
+export async function loadFullListings(): Promise<ListingInput[] | null> {
   const candidates = [
     "../src/lib/kols.js",
     "../src/lib/kols.ts",
@@ -87,7 +87,7 @@ let listings: ListingInput[] = SAMPLE_LISTINGS; // resolved in main()
  * settled in wei by the contract — but a stale number here still misprices
  * every USD figure in the UI, so it's worth fetching rather than hardcoding.
  */
-async function fetchNativePriceUsd(): Promise<number> {
+export async function fetchNativePriceUsd(): Promise<number> {
   const FALLBACK = 2400;
   const sources: Array<() => Promise<number | null>> = [
     // Blockscout (same explorer the PnL indexer uses — already chain-native)
@@ -170,7 +170,7 @@ type PublishedRow = {
   confidence: number;
 };
 
-type Published = {
+export type Published = {
   updatedAt: string;
   nativePriceUsd: number;
   sharesPerListing: number;
@@ -184,7 +184,21 @@ async function once(): Promise<void> {
   const nativePriceUsd = await fetchNativePriceUsd();
   const rows = await runOracle(listings, EvmPnlProvider, prevAnchors);
   prevAnchors = Object.fromEntries(rows.map((r) => [r.id, r.targetAnchor]));
+  await publishScores(rows, nativePriceUsd);
+}
 
+/**
+ * Turn scored rows into the published snapshot: public/scores.json for the
+ * app, and public.listing_metrics for everyone connected to the shared feed.
+ *
+ * Split out of `once` so a caller that has already indexed — oracle/run.ts,
+ * which then pushes the same numbers on chain — can publish without indexing
+ * the whole cohort a second time.
+ */
+export async function publishScores(
+  rows: Awaited<ReturnType<typeof runOracle>>,
+  nativePriceUsd: number,
+): Promise<Published> {
   const published: Published = {
     updatedAt: new Date().toISOString(),
     nativePriceUsd,
@@ -239,6 +253,7 @@ async function once(): Promise<void> {
             .join("\n")
         : `\n  (all at neutral 50 — no post-launch trades counted yet)`),
   );
+  return published;
 }
 
 /**
@@ -258,7 +273,7 @@ async function once(): Promise<void> {
  * Uses the SERVICE ROLE key, the only writer RLS permits. That key bypasses
  * RLS entirely — server-side only, never in a VITE_ var.
  */
-async function publishMetricsToSupabase(published: Published): Promise<void> {
+export async function publishMetricsToSupabase(published: Published): Promise<void> {
   const rows = published.rows.map((r) => ({
     kol_id: r.id,
     realized_pnl_eth: r.metrics.realizedPnlEth,
@@ -368,7 +383,18 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+/**
+ * CLI only when this file is the program. oracle/run.ts imports publishScores
+ * and loadFullListings from here; without this guard that import would also
+ * kick off a full indexing run as a side effect.
+ */
+const invokedDirectly =
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase();
+
+if (invokedDirectly) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}

@@ -74,8 +74,9 @@ cd evm && forge install foundry-rs/forge-std && forge test
 | `npm run lint`           | ESLint. Clean; the remaining warnings are dev-only fast-refresh hints |
 | `npm run format`         | Prettier                                                              |
 | `npm run seed:listings`  | writes `src/lib/kols.ts` into Postgres                                |
-| `npm run oracle:publish` | scores wallets, writes JSON (no chain writes)                         |
-| `npm run oracle:push`    | scores wallets and pushes on-chain                                    |
+| `npm run oracle:publish` | one pass: scores wallets, writes JSON (no chain writes)                |
+| `npm run oracle:push`    | one pass: scores wallets and pushes on-chain                          |
+| `npm run oracle:run`     | **the live oracle** — stays up, cycles continuously                    |
 
 ---
 
@@ -172,8 +173,39 @@ mid-run re-reads that range instead of skipping it.
 
 ### 5. Oracle
 
-Runs off-chain on a schedule, holding `ORACLE_AUTHORITY_PRIVATE_KEY`. This is
-the only component that needs a hot key, so isolate it.
+`oracle/run.ts` — a process that stays up, not a scheduled job. Each cycle it
+indexes the cohort, publishes scores, and pushes the ones that moved on chain,
+then pauses `CYCLE_SECONDS` (default 30) and does it again.
+
+It has to be a service rather than a cron job. The Blockscout provider caches
+each wallet's history in-process and pages back only as far as rows it hasn't
+seen, so the first cycle pays for a full crawl and every cycle after it reads
+one page per wallet. Measured on a single wallet: **9.6s cold, 1.7s warm, with
+byte-identical metrics**. That cache is the whole reason cycles drop from
+minutes to seconds, and it only exists while the process does.
+
+Two things also come free from staying up: the rate cap's `prevAnchors` carry
+across cycles instead of restarting from `BASE_PRICE`, and a cycle can never
+run concurrently with itself.
+
+```bash
+MARKET_ADDRESS=0x… ORACLE_AUTHORITY_PRIVATE_KEY=0x… \
+BLOCKSCOUT_API_KEY=… npm run oracle:run
+```
+
+Deploy it with `oracle/Dockerfile` (`fly.toml` is set up for Fly.io: one
+always-on machine, no HTTP listener, never scaled to zero — a suspended machine
+loses the cache and every wake-up pays for a cold crawl again).
+
+`PUSH_ONCHAIN=0` runs the indexer with no key at all, which is the right way to
+run a staging copy.
+
+This is the only component that needs a hot key, so isolate it.
+
+**`.github/workflows/oracle.yml` is now only a manual fallback.** It was the
+oracle, on a five-minute cron, and it could not be: a run took ~10.5 minutes,
+and GitHub delivered roughly three of those triggers a day rather than 288.
+Don't tighten its schedule — two writers pushing the same scores both pay gas.
 
 ### 6. Frontend
 

@@ -4,14 +4,18 @@ import { AvatarMark } from "@/components/avatar-mark";
 import { LivePrice } from "@/components/live-price";
 import { Sparkline } from "@/components/sparkline";
 import { fmtCompact, fmtPct, shortWallet, type Kol } from "@/lib/kols";
-import { useKolStats, useKolHistory } from "@/lib/market-store";
+import { useKolStats, useKolHistory, SINCE_OPEN } from "@/lib/market-store";
 
 export function KolCard({ kol, price, index = 0 }: { kol: Kol; price: number; index?: number }) {
   const { marketCapUsd, changePct, score } = useKolStats(kol.id);
   const up = changePct >= 0;
-  // real mini price history (last 5 min) — flat until data accrues
-  const hist = useKolHistory(kol.id, 5 * 60_000);
-  const series = hist.length >= 2 ? hist.map((p) => p.p) : [price, price];
+  // The percentage beside this chart is measured since the listing opened, so
+  // the chart is too. It used to be a five-minute window, which at a five-
+  // minute oracle cadence is one or two readings — a card could show +88% next
+  // to a line that hadn't moved, because the two were describing different
+  // spans of time.
+  const hist = useKolHistory(kol.id, SINCE_OPEN);
+  const series = hist.map((p) => p.p);
 
   return (
     <Link
@@ -40,6 +44,7 @@ export function KolCard({ kol, price, index = 0 }: { kol: Kol; price: number; in
           </p>
         </div>
         <span
+          title="Change since this listing opened. Every listing opens at the same price, so this is the whole of its move so far — not a 24-hour figure."
           className={`num ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${
             up ? "bg-up/12 text-up" : "bg-down/12 text-down"
           }`}
@@ -48,7 +53,19 @@ export function KolCard({ kol, price, index = 0 }: { kol: Kol; price: number; in
         </span>
       </div>
 
-      <Sparkline data={series} up={up} className="h-12 w-full" />
+      {series.length >= 2 ? (
+        <Sparkline data={series} up={up} className="h-12 w-full" />
+      ) : (
+        // A flat line here would read as "the price hasn't moved". It hasn't
+        // been measured yet, which is a different claim.
+        <div className="flex h-12 items-center gap-3">
+          <span className="h-px flex-1 border-t border-dashed border-border" />
+          <span className="text-[10px] tracking-widest uppercase text-muted-foreground">
+            Awaiting first reading
+          </span>
+          <span className="h-px flex-1 border-t border-dashed border-border" />
+        </div>
+      )}
 
       <div className="flex items-end justify-between border-t border-border/70 pt-3">
         <div>

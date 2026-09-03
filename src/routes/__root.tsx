@@ -102,7 +102,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Archivo:wght@500;600;700;800;900&family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=Nunito:wght@700;800;900&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;600;700;800&display=swap",
       },
       { rel: "icon", type: "image/png", href: "/favicon.png" },
     ],
@@ -162,7 +162,12 @@ function RootComponent() {
                     aria-hidden
                     className="pointer-events-none fixed inset-x-0 top-0 z-0 h-[32rem] bg-[radial-gradient(60rem_22rem_at_50%_-8rem,color-mix(in_oklab,var(--primary)_14%,transparent),transparent_70%)] dark:bg-[radial-gradient(60rem_22rem_at_50%_-8rem,color-mix(in_oklab,var(--primary)_5%,transparent),transparent_70%)]"
                   />
-                  <div className="relative z-50">
+                  {/* The sticky lives here, not on <header>. A sticky element is
+                      confined to its parent's box, so a header wrapped in a
+                      plain div can only stick for the div's own height — i.e.
+                      not at all. With 108 listings that meant losing the nav on
+                      the first scroll tick. */}
+                  <div className="sticky top-0 z-50">
                     <SiteHeader />
                   </div>
                   <main className="relative z-10 flex-1">

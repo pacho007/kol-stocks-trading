@@ -202,7 +202,10 @@ export function SiteHeader() {
   const session = useSession();
 
   return (
-    <header className="sticky top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4">
+    /* Now that this actually sticks (see __root.tsx), it needs a ground —
+       otherwise the market grid scrolls visibly through the nav. Blur rather
+       than an opaque bar, so the brand wash behind it still reads. */
+    <header className="border-b border-border/60 bg-background/72 px-3 pt-3 pb-3 backdrop-blur-xl sm:px-5 sm:pt-4">
       <div className="mx-auto max-w-[80rem]">
         <div className="flex h-14 items-center gap-6 px-1 sm:px-2">
           <Link

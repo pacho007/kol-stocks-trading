@@ -209,6 +209,9 @@ type TokenTransfer = {
   to: { hash: string } | null;
   token: { address?: string; address_hash?: string; symbol?: string; decimals?: string } | null;
   total: { value: string; decimals: string } | null;
+  /** Present in Blockscout responses; used only to identify a row uniquely. */
+  log_index?: number | string;
+  block_number?: number;
 };
 
 type Tx = {
@@ -224,6 +227,9 @@ type InternalTx = {
   value: string;
   from: { hash: string } | null;
   to: { hash: string } | null;
+  /** Present in Blockscout responses; used only to identify a row uniquely. */
+  index?: number;
+  block_number?: number;
 };
 
 type Paged<T> = { items?: T[]; next_page_params?: NextPageParams };
@@ -251,6 +257,83 @@ async function fetchAllPages<T>(basePath: string): Promise<T[]> {
   }
   return out;
 }
+
+/**
+ * Page only far enough back to reach rows we already hold.
+ *
+ * This is what makes a continuous oracle possible. fetchAllPages re-walks a
+ * wallet's entire history on every pass, so one cycle over 108 wallets is
+ * ~10.5 minutes of requests and gets slower as those wallets keep trading —
+ * which is why a five-minute schedule could never be met. Blockscout returns
+ * newest-first, so once a page contains nothing we haven't seen, everything
+ * older is already in the store and there is no reason to keep reading.
+ *
+ * A cold wallet still costs a full walk (bounded by MAX_PAGES); every pass
+ * after that costs one page. The store keeps the merged history, so metrics
+ * are computed from the same complete picture either way — average-cost
+ * accounting needs the early buys to price a later sell, so this caches rows
+ * rather than narrowing the window.
+ *
+ * Returns how many rows were new, so a caller can tell a quiet wallet from a
+ * busy one.
+ */
+async function fetchNewPages<T>(
+  basePath: string,
+  store: Map<string, T>,
+  keyOf: (row: T) => string,
+): Promise<number> {
+  let next: NextPageParams = null;
+  let added = 0;
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const sep = basePath.includes("?") ? "" : "?";
+    const data: Paged<T> = await api<Paged<T>>(`${basePath}${sep}${qs(next)}`);
+    const items = data.items ?? [];
+    let newOnPage = 0;
+    for (const row of items) {
+      const k = keyOf(row);
+      if (store.has(k)) continue;
+      store.set(k, row);
+      newOnPage++;
+    }
+    added += newOnPage;
+    // The early stop. Note it is "nothing new on this page", not "saw a known
+    // row": a page that straddles the boundary still has new rows on it and
+    // must not end the walk.
+    if (newOnPage === 0) break;
+    if (!data.next_page_params || items.length === 0) break;
+    next = data.next_page_params;
+  }
+  return added;
+}
+
+/**
+ * Merged per-wallet history, held for the life of the process.
+ *
+ * Identity keys prefer the explicit position a row has on chain (log index for
+ * a transfer, call index for an internal transfer) and fall back to the row's
+ * contents. The fallback can collide when one transaction contains two
+ * genuinely identical internal transfers, which would drop the second and
+ * understate that transaction's native delta — Blockscout does return the
+ * index fields, so this is a guard for a malformed response rather than the
+ * expected path.
+ */
+type WalletRows = {
+  transfers: Map<string, TokenTransfer>;
+  txs: Map<string, Tx>;
+  internals: Map<string, InternalTx>;
+};
+
+const transferKey = (t: TokenTransfer) =>
+  t.log_index !== undefined
+    ? `${t.transaction_hash}#${t.log_index}`
+    : `${t.transaction_hash}|${t.from?.hash ?? ""}|${t.to?.hash ?? ""}|${
+        t.token?.address ?? t.token?.address_hash ?? ""
+      }|${t.total?.value ?? ""}`;
+
+const internalKey = (i: InternalTx) =>
+  i.index !== undefined
+    ? `${i.transaction_hash}#${i.index}`
+    : `${i.transaction_hash}|${i.from?.hash ?? ""}|${i.to?.hash ?? ""}|${i.value}`;
 
 const eq = (a?: string | null, b?: string | null) =>
   !!a && !!b && a.toLowerCase() === b.toLowerCase();
@@ -294,14 +377,33 @@ type Movement = {
   symbol?: string;
 };
 
-async function movementsForWallet(wallet: string): Promise<Movement[]> {
+async function movementsForWallet(wallet: string, rows?: WalletRows): Promise<Movement[]> {
   const addr = wallet.toLowerCase();
 
-  const [transfers, txs, internals] = await Promise.all([
-    fetchAllPages<TokenTransfer>(`/api/v2/addresses/${addr}/token-transfers?type=ERC-20`),
-    fetchAllPages<Tx>(`/api/v2/addresses/${addr}/transactions`),
-    fetchAllPages<InternalTx>(`/api/v2/addresses/${addr}/internal-transactions`),
-  ]);
+  let transfers: TokenTransfer[];
+  let txs: Tx[];
+  let internals: InternalTx[];
+
+  if (rows) {
+    await Promise.all([
+      fetchNewPages(
+        `/api/v2/addresses/${addr}/token-transfers?type=ERC-20`,
+        rows.transfers,
+        transferKey,
+      ),
+      fetchNewPages(`/api/v2/addresses/${addr}/transactions`, rows.txs, (t) => t.hash),
+      fetchNewPages(`/api/v2/addresses/${addr}/internal-transactions`, rows.internals, internalKey),
+    ]);
+    transfers = [...rows.transfers.values()];
+    txs = [...rows.txs.values()];
+    internals = [...rows.internals.values()];
+  } else {
+    [transfers, txs, internals] = await Promise.all([
+      fetchAllPages<TokenTransfer>(`/api/v2/addresses/${addr}/token-transfers?type=ERC-20`),
+      fetchAllPages<Tx>(`/api/v2/addresses/${addr}/transactions`),
+      fetchAllPages<InternalTx>(`/api/v2/addresses/${addr}/internal-transactions`),
+    ]);
+  }
 
   // native delta per tx: direct value + internal transfers + WETH legs
   const nativeByTx = new Map<string, number>();
@@ -462,3 +564,33 @@ export const BlockscoutPnlProvider: PnlProvider = {
     return metricsFromMovements(wallet, movements);
   },
 };
+
+/**
+ * The same provider, but it remembers what it has already read.
+ *
+ * Use this one for a process that stays up. The first pass costs exactly what
+ * BlockscoutPnlProvider costs; every pass after it reads one page per wallet
+ * instead of the whole history, which is the difference between a cycle that
+ * takes ten minutes and one that takes seconds — and therefore between an
+ * oracle that runs a few times a day and one that is always current.
+ *
+ * The cache is per process and deliberately not persisted: it is a read cache
+ * for a public API, so a restart costs one slow cycle and nothing else. It
+ * grows with the wallets' trading, which for 108 wallets is megabytes, not
+ * gigabytes.
+ */
+export function createIncrementalBlockscoutProvider(): PnlProvider {
+  const byWallet = new Map<string, WalletRows>();
+  return {
+    async metrics(wallet: string): Promise<RawMetrics> {
+      const key = wallet.toLowerCase();
+      let rows = byWallet.get(key);
+      if (!rows) {
+        rows = { transfers: new Map(), txs: new Map(), internals: new Map() };
+        byWallet.set(key, rows);
+      }
+      const movements = await movementsForWallet(wallet, rows);
+      return metricsFromMovements(wallet, movements);
+    },
+  };
+}

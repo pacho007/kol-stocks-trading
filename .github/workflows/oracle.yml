@@ -7,19 +7,35 @@ name: Oracle
 # someone ran the push by hand, which on mainnet would mean prices freezing the
 # moment attention moved elsewhere — while the market stayed open and tradable.
 #
-# GitHub Actions rather than a server: this is a periodic job with no state
-# between runs and no inbound traffic, so a VM would be a machine to patch for
-# no benefit. Scheduled runs can be delayed under load, which is fine here —
-# the contract enforces its own MIN_UPDATE_INTERVAL_SECS, and a late cycle
-# moves scores a little further per update rather than breaking anything.
+# THIS IS THE FALLBACK, NOT THE ORACLE. The live oracle is oracle/run.ts,
+# running continuously as a service (see oracle/Dockerfile and fly.toml).
+#
+# This workflow used to be the oracle, on a five-minute cron, and it could not
+# be. Two independent reasons, both measured on this repo rather than guessed:
+#
+#   - A run took ~10.5 minutes, because every run re-walked each wallet's
+#     entire history. A five-minute cron cannot be met by a ten-minute job; the
+#     concurrency group below just cancelled the overlap. Worse, the cost grew
+#     with the wallets' trading, so it was getting further behind over time.
+#   - GitHub treats `schedule` as best-effort and drops most triggers on a
+#     quiet repo. Actual delivery here was roughly three runs a day: 08:20,
+#     13:04, 17:21. `workflow_dispatch` fires on time; `schedule` does not.
+#
+# oracle/run.ts fixes the first by caching per-wallet history in the process
+# (see createIncrementalBlockscoutProvider), which is only possible in
+# something that stays up — hence a service, not a job.
+#
+# What is left here is a manual safety net: a way to force a cycle from the
+# GitHub UI if the service is down or being redeployed. The schedule is
+# deliberately infrequent, so a forgotten workflow cannot quietly fight the
+# service for the same on-chain writes.
 
 on:
   schedule:
-    # Hourly. Not every 20 minutes: an unauthenticated crawl of 108 wallets
-    # takes longer than 20 minutes to finish, so a tighter schedule would just
-    # queue runs behind each other forever. With a BLOCKSCOUT_API_KEY the crawl
-    # drops to a few minutes and this can go back to being frequent.
-    - cron: "*/5 * * * *"
+    # Every 6 hours, as a backstop only. Do not tighten this to chase a live
+    # cadence — that is the service's job now, and two writers pushing the same
+    # scores would both pay gas to do it.
+    - cron: "0 */6 * * *"
   # So a cycle can be forced after a deploy without waiting for the timer.
   workflow_dispatch:
     inputs:

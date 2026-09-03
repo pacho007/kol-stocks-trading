@@ -820,6 +820,29 @@ function changePctFromWei(wei: bigint | undefined): number | null {
 export const SHARES_PER_LISTING = 10_000_000;
 
 /**
+ * Real price series per listing, keyed by id, for list views.
+ *
+ * The list views were all charting `kol.series`, which is a constant of ninety
+ * zeros in lib/kols.ts — a drawn flat line with nothing behind it. That is
+ * worse than showing no chart: it asserts a price that did not move. This is
+ * the same shared-feed history the detail page charts, in bulk, because a
+ * table cannot call useKolHistory once per row.
+ *
+ * Ids with fewer than two readings are simply absent, so callers fall through
+ * to an empty state rather than drawing a line through one point.
+ */
+export function useLiveSeries(): Record<string, number[]> {
+  const { history } = useMarket();
+  return useMemo(() => {
+    const out: Record<string, number[]> = {};
+    for (const [id, points] of Object.entries(history)) {
+      if (points.length >= 2) out[id] = points.map((pt) => pt.p);
+    }
+    return out;
+  }, [history]);
+}
+
+/**
  * Live per-listing figures, keyed by id, for anywhere rendering a list.
  *
  * useKolStats covers a single listing, but it is a hook, so a table cannot
@@ -966,6 +989,13 @@ export const TIMEFRAMES = [
 ] as const;
 
 export type TimeframeKey = (typeof TIMEFRAMES)[number]["key"];
+
+/**
+ * Every point there is, for callers whose x-axis is "since this listing
+ * opened" rather than a rolling window. Passing this to useKolHistory is not a
+ * trick: `t >= Date.now() - Infinity` is true for every point.
+ */
+export const SINCE_OPEN = Number.POSITIVE_INFINITY;
 
 /** This KOL's shared-feed price points within the chosen timeframe window. */
 export function useKolHistory(id: string, tfMs: number): PricePoint[] {

@@ -5,7 +5,7 @@ import { LivePrice } from "@/components/live-price";
 import { Sparkline } from "@/components/sparkline";
 import { ScorePill } from "@/components/score-pill";
 import { KOLS, fmtCompact, fmtPct, perfScore, shortWallet } from "@/lib/kols";
-import { useMarket, useLiveMetrics } from "@/lib/market-store";
+import { useMarket, useLiveMetrics, useLiveSeries } from "@/lib/market-store";
 import { OPEN_PRICE_USD } from "@/lib/pricing";
 
 export const Route = createFileRoute("/leaderboard")({
@@ -34,6 +34,7 @@ function Leaderboard() {
   // every row read a flat 50), change measured against a hardcoded $0.01
   // rather than the contract opening price, and a magic share count.
   const { changePct, marketCapUsd, score } = useLiveMetrics();
+  const series = useLiveSeries();
   const [mode, setMode] = useState<"cap" | "score">("cap");
 
   const liveScore = (id: string) => score[id] ?? 50;
@@ -166,7 +167,7 @@ function Leaderboard() {
                     <ScorePill score={liveScore(k.id)} id={k.id} />
                   </td>
                   <td className="px-4 py-3">
-                    <Sparkline data={k.series} up={up} className="h-8 w-24" />
+                    <Sparkline data={series[k.id] ?? []} up={up} className="h-8 w-24" />
                   </td>
                 </tr>
               );

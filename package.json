@@ -15,7 +15,8 @@
     "verify": "npm run typecheck && npm run lint && npm run test:contracts",
     "seed:listings": "tsx supabase/seed-listings.ts",
     "oracle:publish": "tsx oracle/publish.ts",
-    "oracle:push": "tsx oracle/push-onchain-evm.ts"
+    "oracle:push": "tsx oracle/push-onchain-evm.ts",
+    "oracle:run": "tsx oracle/run.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

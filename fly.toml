@@ -1,0 +1,38 @@
+# Fly.io config for the SHARPS oracle.
+#
+# Deliberately NOT a web service: there is no HTTP listener, nothing routes to
+# it, and it must never be scaled to zero — it is a worker whose whole job is
+# to stay up and keep reading the chain.
+#
+# Deploy:
+#   fly launch --no-deploy --copy-config    (first time only)
+#   fly secrets set MARKET_ADDRESS=0x... \
+#                   ORACLE_AUTHORITY_PRIVATE_KEY=0x... \
+#                   BLOCKSCOUT_API_KEY=... \
+#                   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=...
+#   fly deploy
+
+app = "sharps-oracle"
+primary_region = "iad"
+
+[build]
+  dockerfile = "oracle/Dockerfile"
+
+[env]
+  # Pause between cycles. A warm cycle measures ~10-30s, so this is a real
+  # cadence rather than an aspiration.
+  CYCLE_SECONDS = "30"
+  ROBINHOOD_NETWORK = "testnet"
+
+# One machine, always on. auto_stop_machines would suspend the process, throw
+# away the incremental cache, and make every wake-up pay for a cold crawl —
+# which is the batch behaviour this replaced.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[processes]
+  oracle = "npx tsx oracle/run.ts"
+
+# No [http_service] block on purpose: nothing should be able to reach this
+# from the internet. It holds the oracle authority key.

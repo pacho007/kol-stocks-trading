@@ -18,7 +18,6 @@ export type Kol = {
   avgHold: string;
   chain: string;
   bio: string;
-  series: number[];
 };
 
 type Seed = {
@@ -1143,8 +1142,6 @@ const SEEDS: Seed[] = [
   },
 ];
 
-const FLAT = Array.from({ length: 90 }, () => 0);
-
 export const KOLS: Kol[] = SEEDS.map((s) => ({
   id: s.id,
   // Empty when the trader has no linked social — deliberately NOT falling back
@@ -1169,7 +1166,6 @@ export const KOLS: Kol[] = SEEDS.map((s) => ({
   avgHold: "n/a",
   chain: "Robinhood Chain",
   bio: `On-chain trader tracked from wallet ${s.wallet.slice(0, 6)}...${s.wallet.slice(-4)}. Listing opens at $0.01; share price moves with the trader's live on-chain performance since launch.`,
-  series: FLAT,
 }));
 
 export function getKol(id: string) {

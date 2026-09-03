@@ -4,7 +4,7 @@ import { LivePrice } from "@/components/live-price";
 import { Sparkline } from "@/components/sparkline";
 import { ConnectWalletButton } from "@/components/site-header";
 import { getKol, fmtPct, fmtUsd } from "@/lib/kols";
-import { useMarket } from "@/lib/market-store";
+import { useMarket, useLiveSeries } from "@/lib/market-store";
 
 export const Route = createFileRoute("/portfolio")({
   head: () => ({
@@ -28,6 +28,7 @@ export const Route = createFileRoute("/portfolio")({
 function Portfolio() {
   const { connected, nativeBalance, nativePriceUsd, positions, trades, prices, reset } =
     useMarket();
+  const series = useLiveSeries();
   const cashUsd = nativeBalance * nativePriceUsd;
 
   const rows = positions
@@ -180,7 +181,11 @@ function Portfolio() {
                     {r.pnlPct != null ? fmtPct(r.pnlPct) : "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <Sparkline data={r.kol.series} up={(r.pnl ?? 0) >= 0} className="h-8 w-24" />
+                    <Sparkline
+                      data={series[r.kol.id] ?? []}
+                      up={(r.pnl ?? 0) >= 0}
+                      className="h-8 w-24"
+                    />
                   </td>
                 </tr>
               ))}

@@ -8,7 +8,7 @@ import { Sparkline } from "@/components/sparkline";
 import { TickerTape } from "@/components/ticker-tape";
 import { Link } from "@tanstack/react-router";
 import { KOLS, fmtCompact, fmtPct } from "@/lib/kols";
-import { useMarket, useLiveMetrics } from "@/lib/market-store";
+import { useMarket, useLiveMetrics, useLiveSeries } from "@/lib/market-store";
 
 export const Route = createFileRoute("/market")({
   head: () => ({
@@ -42,6 +42,7 @@ type SortId = (typeof SORTS)[number]["id"];
 function Market() {
   const { prices, metrics } = useMarket();
   const { changePct, marketCapUsd, volumeUsd24h } = useLiveMetrics();
+  const series = useLiveSeries();
   const [sort, setSort] = useState<SortId>("cap");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [q, setQ] = useState("");
@@ -178,7 +179,7 @@ function Market() {
                         {metrics[k.id] ? `${metrics[k.id]!.volumeEth.toFixed(1)} ETH` : "—"}
                       </td>
                       <td className="px-4 py-3">
-                        <Sparkline data={k.series} up={up} className="h-8 w-32" />
+                        <Sparkline data={series[k.id] ?? []} up={up} className="h-8 w-32" />
                       </td>
                     </tr>
                   );

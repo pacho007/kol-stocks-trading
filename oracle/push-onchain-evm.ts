@@ -148,6 +148,13 @@ async function once(
   walletClient: ReturnType<typeof createWalletClient>,
   marketAddress: Address,
   listings: ListingInput[],
+  /**
+   * Scores the caller has already computed this cycle. oracle/run.ts passes
+   * these so a continuous cycle indexes once and pushes what it just derived,
+   * rather than crawling the whole cohort a second time and pushing a
+   * distribution that no longer matches the one it published.
+   */
+  precomputed?: { id: string; wallet: string; score: number }[],
 ) {
   // --from-scores reuses the scores publish.ts already computed instead of
   // crawling Blockscout again. A full cohort pass is ~25 minutes at the rate
@@ -158,7 +165,9 @@ async function once(
   // The default still re-indexes, because a scheduled --watch push should read
   // the chain fresh rather than whatever file happens to be on disk.
   let rows: Awaited<ReturnType<typeof runOracle>>;
-  if (process.argv.includes("--from-scores")) {
+  if (precomputed) {
+    rows = precomputed as typeof rows;
+  } else if (process.argv.includes("--from-scores")) {
     const path = resolve(__dirname, "../public/scores.json");
     const snap = JSON.parse(readFileSync(path, "utf8")) as {
       updatedAt: string;
@@ -301,6 +310,83 @@ async function once(
   );
 }
 
+/**
+ * Connect as the oracle authority and run every preflight before anything is
+ * signed: the contract exists, this key is the authority the contract expects,
+ * and the wallet can pay for gas.
+ *
+ * Exported so a long-running process does these checks once at boot rather
+ * than discovering a misconfiguration one reverted batch at a time. Throws
+ * rather than calling process.exit, because a supervisor needs to decide what
+ * a failure means — the CLI below still exits.
+ */
+export async function connectOracle(): Promise<{
+  publicClient: ReturnType<typeof createPublicClient>;
+  walletClient: ReturnType<typeof createWalletClient>;
+  marketAddress: Address;
+  oracleAddress: Address;
+}> {
+  const privateKey = loadOracleAuthority();
+  const account = privateKeyToAccount(privateKey);
+
+  const marketAddressStr = process.env["MARKET_ADDRESS"];
+  if (!marketAddressStr) {
+    throw new Error("Missing MARKET_ADDRESS (the deployed SharpsMarket contract address).");
+  }
+  const marketAddress = marketAddressStr as Address;
+
+  const isMainnet = process.env["ROBINHOOD_NETWORK"] === "mainnet";
+  const chain = isMainnet ? robinhoodMainnet : robinhoodTestnet;
+
+  const publicClient = createPublicClient({ chain, transport: http() });
+  const walletClient = createWalletClient({ account, chain, transport: http() });
+
+  const deployedCode = await publicClient.getBytecode({ address: marketAddress });
+  if (!deployedCode || deployedCode === "0x") {
+    throw new Error(`No contract deployed at ${marketAddress}. Check MARKET_ADDRESS.`);
+  }
+
+  const onChainOracle = (await publicClient.readContract({
+    address: marketAddress,
+    abi: marketAbi,
+    functionName: "oracleAuthority",
+  })) as Address;
+  if (onChainOracle.toLowerCase() !== account.address.toLowerCase()) {
+    throw new Error(
+      `This key is not the contract's oracle authority.\n` +
+        `  contract expects: ${onChainOracle}\n` +
+        `  key derives to:   ${account.address}\n` +
+        `Every batch would revert.`,
+    );
+  }
+
+  const balance = await publicClient.getBalance({ address: account.address });
+  if (balance === 0n) {
+    throw new Error(
+      `Oracle wallet ${account.address} has no ETH and cannot sign.\n` +
+        `Fund it: bash evm/fund-oracle.sh`,
+    );
+  }
+
+  console.log(`Network: ${chain.name} (chain id ${chain.id})`);
+  console.log(`Oracle authority: ${account.address}`);
+  console.log(`Market: ${marketAddress}`);
+  console.log(`Oracle balance: ${Number(balance) / 1e18} ETH`);
+
+  return { publicClient, walletClient, marketAddress, oracleAddress: account.address };
+}
+
+/** One on-chain push of already-computed scores. See `once`. */
+export async function pushScoresOnChain(
+  publicClient: ReturnType<typeof createPublicClient>,
+  walletClient: ReturnType<typeof createWalletClient>,
+  marketAddress: Address,
+  listings: ListingInput[],
+  scores: { id: string; wallet: string; score: number }[],
+): Promise<void> {
+  await once(publicClient, walletClient, marketAddress, listings, scores);
+}
+
 async function main() {
   const watch = process.argv.includes("--watch");
   const privateKey = loadOracleAuthority();
@@ -385,7 +471,19 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+/**
+ * Only run the CLI when this file IS the program. oracle/run.ts imports
+ * pushScoresOnChain from here to do the on-chain half of a continuous cycle,
+ * and without this guard that import would also start a second, independent
+ * push run as a side effect of loading the module.
+ */
+const invokedDirectly =
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase();
+
+if (invokedDirectly) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}

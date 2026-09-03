@@ -1,7 +1,7 @@
 import { SessionClock } from "@/components/session-clock";
 import { TradeTape } from "@/components/trade-tape";
 import { LiveDot } from "@/components/live-dot";
-import { useMarket, useIndexStats, useLiveMetrics } from "@/lib/market-store";
+import { useMarket, useIndexStats, useLiveMetrics, useLiveSeries } from "@/lib/market-store";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { AvatarMark } from "@/components/avatar-mark";
@@ -59,6 +59,7 @@ function Landing() {
   const { prices } = useMarket();
   const idx = useIndexStats();
   const { changePct, marketCapUsd, volumeUsd24h } = useLiveMetrics();
+  const series = useLiveSeries();
   const session = useSession();
   const featured = [
     "cupsey",
@@ -426,7 +427,11 @@ function Landing() {
                       {k.handle || shortWallet(k.wallet)}
                     </p>
                   </div>
-                  <Sparkline data={k.series} up={up} className="ml-auto hidden h-8 w-28 sm:block" />
+                  <Sparkline
+                    data={series[k.id] ?? []}
+                    up={up}
+                    className="ml-auto hidden h-8 w-28 sm:block"
+                  />
                   <div className="hidden w-24 text-right md:block">
                     <p className="text-[10px] tracking-widest uppercase text-muted-foreground">
                       Score
