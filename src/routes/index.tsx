@@ -1,21 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { KOLS } from "@/lib/kols";
 import bgVideo from "@/assets/sharps-dunes.mp4.asset.json";
 import heroPoster from "@/assets/sharps-dunes-poster.jpg.asset.json";
-/**
- * Stand-in for the hero still when it cannot be fetched — see Splash below.
- *
- * A gradient rather than one of the bundled images: hero-banner.jpg is the
- * dark gold artwork from an earlier direction, and dropping it in here turns
- * the hero into a different design and leaves the maroon body copy unreadable
- * on top of it. This is only meant to stand in for the pink wash, so it is
- * built from the same palette as the page around it and nothing else.
- */
-const HERO_FALLBACK_WASH =
-  "radial-gradient(120% 90% at 50% 30%, #f7e3e9 0%, #efd2dc 40%, transparent 72%), " +
-  "linear-gradient(170deg, #fdf7f9 0%, #f3dae2 45%, #e9cdd7 100%)";
 
 /**
  * Starts false so the server and the first client render agree — reading
@@ -60,29 +48,6 @@ function Splash() {
   const tape = KOLS.slice(0, 22);
   const reduceMotion = usePrefersReducedMotion();
 
-  /**
-   * The hero still, with a bundled fallback.
-   *
-   * heroPoster.url points at Lovable's asset host (/__l5e/...), which resolves
-   * on Lovable and nowhere else — so running the dev server locally, it and the
-   * video both 404 and the hero paints plain white.
-   *
-   * onError alone does not catch it. This image is server-rendered, so the
-   * browser has already requested and failed it while parsing the HTML, long
-   * before React hydrates and attaches a handler; the error event is gone by
-   * then. The effect covers that case by asking the DOM directly whether the
-   * image finished loading with no dimensions, which is what a failed load
-   * looks like after the fact. onError stays for a failure after hydration.
-   *
-   * Nothing changes on Lovable or in production, where the hosted still loads.
-   */
-  const posterRef = useRef<HTMLImageElement>(null);
-  const [posterFailed, setPosterFailed] = useState(false);
-  useEffect(() => {
-    const img = posterRef.current;
-    if (img && img.complete && img.naturalWidth === 0) setPosterFailed(true);
-  }, []);
-
   return (
     <div className="relative isolate flex min-h-[100svh] flex-col overflow-hidden bg-white">
       {/* 4K video backdrop.
@@ -108,29 +73,13 @@ function Splash() {
         />
       )}
       {/* Reduced-motion and pre-roll both fall back to the still, so the hero
-          never renders as a bare black rectangle.
-
-          onError covers a third case: heroPoster.url points at Lovable's asset
-          host (/__l5e/...), which only resolves on Lovable. Running the dev
-          server locally, both it and the video 404 and the hero paints plain
-          white. hero-banner.jpg is bundled with the app, so it is there in
-          every environment. This changes nothing on Lovable or in production —
-          the handler only fires when the hosted still is genuinely unreachable. */}
+          never renders as a bare black rectangle. */}
       <img
-        ref={posterRef}
         src={heroPoster.url}
-        onError={() => setPosterFailed(true)}
         alt=""
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-30 size-full object-cover"
       />
-      {posterFailed && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-40"
-          style={{ background: HERO_FALLBACK_WASH }}
-        />
-      )}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(120%_80%_at_50%_45%,rgba(255,255,255,0.35)_0%,transparent_55%,rgba(255,255,255,0.35)_100%)]"
@@ -217,5 +166,6 @@ function Splash() {
         </div>
       </footer>
     </div>
+
   );
 }
