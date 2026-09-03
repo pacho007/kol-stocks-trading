@@ -190,6 +190,27 @@ export function EvmWalletProvider({ children }: { children: ReactNode }) {
 
   const disconnect = useCallback(() => {
     // EIP-1193 has no "disconnect" — the dapp simply forgets the account.
+    //
+    // Forgetting on our side is not enough on its own. The wallet keeps its
+    // own record that this site is approved, so the next connect re-attaches
+    // the same account with no prompt: the app looks disconnected while the
+    // wallet still considers the two paired, and there is no way to pick a
+    // different account.
+    //
+    // wallet_revokePermissions drops that pairing, so the next connect asks
+    // again. It is a MetaMask extension to EIP-1193 rather than part of the
+    // standard, so this is best-effort: wallets without it simply keep the
+    // old behaviour, which is why local state is cleared regardless and not
+    // conditionally on the call succeeding.
+    const provider = selected?.provider;
+    if (provider) {
+      void provider
+        .request({ method: "wallet_revokePermissions", params: [{ eth_accounts: {} }] })
+        .catch(() => {
+          /* wallet doesn't implement it — local disconnect still applies */
+        });
+    }
+
     setAddress(null);
     setSelected(null);
     setChainId(null);
@@ -198,14 +219,17 @@ export function EvmWalletProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [selected]);
 
   const switchChain = useCallback(async () => {
     const provider = selected?.provider;
     if (!provider) return;
     const hexId = `0x${ACTIVE_CHAIN.id.toString(16)}`;
     try {
-      await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hexId }] });
+      await provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: hexId }],
+      });
     } catch (e) {
       // 4902 = chain unknown to the wallet; offer to add it.
       const code = (e as { code?: number }).code;
@@ -241,7 +265,17 @@ export function EvmWalletProvider({ children }: { children: ReactNode }) {
       disconnect,
       switchChain,
     }),
-    [wallets, selected, address, connecting, walletClient, chainId, connect, disconnect, switchChain],
+    [
+      wallets,
+      selected,
+      address,
+      connecting,
+      walletClient,
+      chainId,
+      connect,
+      disconnect,
+      switchChain,
+    ],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -114,12 +114,17 @@ export function ConnectWalletButton({
       <button
         onClick={() => {
           disconnect();
-          toast("Wallet disconnected");
+          // Say what actually happened. "Disconnected" alone left people
+          // clicking connect again and getting the same account back with no
+          // prompt, because the wallet had not been told anything.
+          toast("Wallet disconnected", {
+            description: "Your wallet will ask which account to use next time.",
+          });
         }}
         className={`group inline-flex items-center justify-center gap-2 rounded-lg border text-[11px] font-semibold tracking-[0.12em] uppercase transition-colors duration-200 ${
           size === "lg" ? "h-12 px-6" : "h-9 px-4"
         } ${full ? "w-full" : ""} border-up/30 bg-up/8 text-up hover:bg-up/14`}
-        title={`${selected?.info.name ?? "Wallet"} · ${ACTIVE_CHAIN.name} · click to disconnect`}
+        title={`${selected?.info.name ?? "Wallet"} · ${ACTIVE_CHAIN.name} · click to disconnect and choose a different account`}
       >
         <Wallet className="size-3.5 opacity-80" />
         {shortAddress(address)}
