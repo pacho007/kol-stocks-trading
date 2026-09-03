@@ -39,33 +39,29 @@ const UA =
 /** Bound work per wallet so one hyperactive address can't stall a whole cycle. */
 const MAX_PAGES = Number(process.env["BLOCKSCOUT_MAX_PAGES"] ?? 6);
 /**
- * Blockscout's public API rate-limits aggressively. This gap is applied
- * before EVERY request including retries (see `pace()`), and the whole
- * module shares one queue, so raising oracle/indexer.ts's INDEXER_CONCURRENCY
- * does not increase the request rate here — it only adds wallets waiting on
- * the same queue.
+ * Minimum spacing between request STARTS. Requests overlap now (see pace()),
+ * so this caps the rate rather than serialising the crawl.
  *
- * Raised from 400ms after a full 108-wallet run: at 400ms (2.5 req/s) the
- * limiter did not merely delay requests, it exhausted all six retries on
- * individual wallets — 1.5s through 48s of backoff was not enough to get back
- * under the limit. An exhausted wallet yields all-zero metrics, which
- * scoreCohort's fresh-start branch reads as "has not traded yet" and scores at
- * a neutral 50 with confidence 0. So no false ranking is invented; the cost is
- * that a rate-limited trader is indistinguishable from an inactive one, and
- * quietly stops being priced on their actual record until a later cycle
- * happens to fetch them.
+ * 400ms was refused once with sustained 429s, back when it was the only
+ * control and every request ran strictly back to back — so the limit is real.
+ * With at most MAX_INFLIGHT open at a time and roughly 2.5s of latency each,
+ * actual throughput settles near 2.4 requests/second and never approaches that
+ * ceiling. This is a floor for safety, not the thing setting the pace.
  *
- * A full cycle is roughly 108 wallets x up to MAX_PAGES requests, so at 1s
- * that is ~11 minutes: still inside the oracle's default 20 minute refresh,
- * with room to spare.
- *
- * For production this wants an authenticated endpoint rather than a slower
- * crawl of a free public one. Blockscout issues API keys, and Alchemy supports
- * Robinhood Chain; either raises the ceiling far above what pacing alone can
- * buy, and neither leaves score correctness dependent on someone else's
- * unmetered goodwill.
+ * An exhausted wallet is worth understanding, because it fails quietly: it
+ * yields all-zero metrics, which scoreCohort's fresh-start branch reads as
+ * "has not traded yet" and scores at a neutral 50 with confidence 0. No false
+ * ranking is invented, but a rate-limited trader becomes indistinguishable
+ * from an inactive one, and stops being priced on their record until a later
+ * cycle happens to reach them.
  */
-const MIN_GAP_MS = Number(process.env["BLOCKSCOUT_GAP_MS"] ?? (hasApiKey() ? 250 : 1000));
+const MIN_GAP_MS = Number(process.env["BLOCKSCOUT_GAP_MS"] ?? (hasApiKey() ? 250 : 400));
+
+/**
+ * How many requests may be open at once. The endpoint is latency-bound rather
+ * than rate-limited, so overlapping them is what actually shortens a cycle.
+ */
+const MAX_INFLIGHT = Number(process.env["BLOCKSCOUT_CONCURRENCY"] ?? 6);
 
 /**
  * An API key raises the ceiling that pacing can only ration. Blockscout issues
@@ -84,26 +80,69 @@ const LAUNCH_TS = Number(process.env["LAUNCH_TS"] ?? 0);
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-let lastCall = 0;
-let chain: Promise<void> = Promise.resolve();
+/**
+ * Request admission control: a rate limit AND a concurrency limit.
+ *
+ * The original gate serialised every request through a single promise chain,
+ * so however many wallets were being worked on, exactly one request was ever
+ * in flight. That was the correct shape when 429s were the problem. Measuring
+ * the endpoint showed they are not: twelve back-to-back unpaced requests
+ * returned twelve 200s and no 429 at all.
+ *
+ * What the endpoint actually costs is latency — roughly 2.5s per request, and
+ * 3.5s without an API key. Serialised, 108 wallets at up to six pages each is
+ * about 27 minutes of pure waiting, which is why a run took 40 minutes and got
+ * cancelled at 25. Pacing was never the dominant cost.
+ *
+ * So requests now overlap, bounded two ways:
+ *   - MAX_INFLIGHT caps how many are open at once, so a slow endpoint cannot
+ *     be turned into a stampede.
+ *   - MIN_GAP_MS still spaces the *starts*, so the request rate stays under
+ *     whatever limit does exist. It was hit once at 400ms, so the floor is
+ *     real even if latency usually keeps us well below it.
+ *
+ * Six in flight at ~2.5s each is about 2.4 requests/second — comfortably under
+ * the 2.5/s that 400ms spacing was refused at, while cutting a full cycle from
+ * ~30 minutes to about five.
+ */
+let lastStart = 0;
+let inFlight = 0;
+const waiters: Array<() => void> = [];
+
+function releaseSlot(): void {
+  const next = waiters.shift();
+  if (next) {
+    // Hand the slot straight to the next waiter rather than decrementing and
+    // letting it re-increment: that gap is where a burst could slip past
+    // MAX_INFLIGHT.
+    next();
+    return;
+  }
+  inFlight--;
+}
+
+async function acquireSlot(): Promise<void> {
+  if (inFlight < MAX_INFLIGHT) {
+    inFlight++;
+    return;
+  }
+  // Queued. releaseSlot() hands the slot over without decrementing below the
+  // waiter, so the count is already correct when this resolves — incrementing
+  // again here would leak a slot per queued request until nothing could run.
+  await new Promise<void>((resolve) => waiters.push(resolve));
+}
 
 /**
- * Take a slot in the global request queue. Every attempt goes through this —
- * including retries. Acquiring it only once per api() call was the original
- * bug: a 429 would then retry immediately and unpaced, so a rate limit turned
- * into a burst that guaranteed more rate limiting.
+ * Take a slot, then wait out the minimum spacing since the last request
+ * started. Every attempt goes through this, including retries — acquiring only
+ * once per api() call was the original bug: a 429 would then retry immediately
+ * and unpaced, turning a rate limit into a burst that guaranteed more of them.
  */
 async function pace(): Promise<void> {
-  const run = chain.then(async () => {
-    const wait = Math.max(0, MIN_GAP_MS - (Date.now() - lastCall));
-    if (wait) await sleep(wait);
-    lastCall = Date.now();
-  });
-  chain = run.then(
-    () => undefined,
-    () => undefined,
-  );
-  await run;
+  await acquireSlot();
+  const wait = Math.max(0, MIN_GAP_MS - (Date.now() - lastStart));
+  if (wait) await sleep(wait);
+  lastStart = Date.now();
 }
 
 /**
@@ -128,11 +167,11 @@ async function api<T>(path: string, tries = 6): Promise<T> {
         headers: { "User-Agent": UA, Accept: "application/json" },
       });
       if (res.status === 429 || res.status >= 500) {
-        // Back off hard and, crucially, push the shared queue's next slot out
-        // too — otherwise every other in-flight wallet keeps hammering while
-        // this one waits, and the limiter never gets a chance to recover.
+        // Back off hard and push the shared limiter's next start out too —
+        // otherwise every other in-flight request keeps hammering while this
+        // one waits, and the limiter never gets a chance to recover.
         const backoff = 1500 * 2 ** attempt;
-        lastCall = Date.now() + backoff;
+        lastStart = Date.now() + backoff;
         throw new Error(`Blockscout ${res.status}`);
       }
       if (!res.ok) throw new Error(`Blockscout ${res.status} for ${path}`);
@@ -142,6 +181,11 @@ async function api<T>(path: string, tries = 6): Promise<T> {
     } catch (e) {
       lastErr = e;
       await sleep(600 * (attempt + 1));
+    } finally {
+      // Must run on every path — success, failure, or the early return above.
+      // A slot taken and not given back is permanent: after MAX_INFLIGHT of
+      // them the whole crawl blocks forever with no error to show for it.
+      releaseSlot();
     }
   }
   throw new Error(
