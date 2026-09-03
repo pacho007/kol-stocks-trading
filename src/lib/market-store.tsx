@@ -175,7 +175,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const [live, setLive] = useState(false);
   const [marketOpen, setMarketOpen] = useState(true);
   const [nativePriceUsd, setNativePriceUsd] = useState(NATIVE_PRICE_USD);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [localLastUpdated, setLastUpdated] = useState<string | null>(null);
   const nativePriceRef = useRef(NATIVE_PRICE_USD);
   nativePriceRef.current = nativePriceUsd;
 
@@ -488,6 +488,39 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     }
     return next;
   }, [feed.configured, feed.metrics, localBreakdowns]);
+
+  /**
+   * When the oracle last published, for the "Oracle N ago" badge.
+   *
+   * This used to read only scores.json's updatedAt. That file is generated and
+   * therefore gitignored, so a deployed build has none to fetch: the badge read
+   * "Oracle offline" permanently, on a site whose oracle was running perfectly
+   * well every cycle. Saying a live system is offline is worse than saying
+   * nothing — it invites people to distrust prices that are actually fresh.
+   *
+   * The shared feed knows better anyway. listing_metrics.updated_at is written
+   * on every oracle cycle, so the newest of those IS the last publish time, and
+   * it is the same answer for every visitor rather than depending on what each
+   * browser managed to fetch. scores.json stays the fallback for local
+   * development with no backend.
+   */
+  const lastUpdated = useMemo<string | null>(() => {
+    if (feed.configured) {
+      let newest: number | null = null;
+      let iso: string | null = null;
+      for (const m of Object.values(feed.metrics)) {
+        if (!m.updated_at) continue;
+        const t = new Date(m.updated_at).getTime();
+        if (!Number.isFinite(t)) continue;
+        if (newest === null || t > newest) {
+          newest = t;
+          iso = m.updated_at;
+        }
+      }
+      if (iso) return iso;
+    }
+    return localLastUpdated;
+  }, [feed.configured, feed.metrics, localLastUpdated]);
 
   const backingPerShare = useMemo(() => {
     // Populated lazily by kol.$id.tsx via fetchBackingPerShareWad (a live read

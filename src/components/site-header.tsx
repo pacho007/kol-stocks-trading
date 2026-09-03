@@ -298,11 +298,20 @@ function OracleStatus() {
   }, []);
 
   if (!lastUpdated) {
+    // "Offline" was wrong for every case it actually appeared in. It showed on
+    // a deployed site whose oracle was running fine (nothing had published a
+    // timestamp the browser could see) and before the first run had ever
+    // happened. Claiming a working system is down invites people to distrust
+    // prices that are perfectly fresh, so say only what is known: no reading
+    // yet.
     return (
-      <div className="hidden items-center gap-2 sm:flex">
+      <div
+        className="hidden items-center gap-2 sm:flex"
+        title="No oracle publish recorded yet. Prices still come from the contract; this only tracks when scores were last refreshed."
+      >
         <span className="size-1.5 rounded-full bg-muted-foreground/40" />
         <span className="num text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
-          Oracle offline
+          Awaiting oracle
         </span>
       </div>
     );
@@ -315,7 +324,10 @@ function OracleStatus() {
       : secs < 3600
         ? `${Math.floor(secs / 60)}m ago`
         : `${Math.floor(secs / 3600)}h ago`;
-  const fresh = secs < 25 * 60; // feed refreshes ~20m; green if within window
+  // Green while within roughly two scheduled cycles. The schedule is every 5
+  // minutes, but a run takes several and GitHub delays scheduled jobs under
+  // load, so a tight window would flash stale on a perfectly healthy system.
+  const fresh = secs < 20 * 60;
 
   return (
     <div className="hidden items-center gap-2 sm:flex" title={`Oracle last updated ${ago}`}>
