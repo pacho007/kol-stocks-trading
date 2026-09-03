@@ -16,6 +16,7 @@ import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as MarketRouteImport } from './routes/market'
 import { Route as PortfolioRouteImport } from './routes/portfolio'
 import { Route as KolIdRouteImport } from './routes/kol.$id'
+import { Route as ApiPublicOracleSyncRouteImport } from './routes/api/public/oracle-sync'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +53,11 @@ const KolIdRoute = KolIdRouteImport.update({
   path: '/kol/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicOracleSyncRoute = ApiPublicOracleSyncRouteImport.update({
+  id: '/api/public/oracle-sync',
+  path: '/api/public/oracle-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/market': typeof MarketRoute
   '/portfolio': typeof PortfolioRoute
   '/kol/$id': typeof KolIdRoute
+  '/api/public/oracle-sync': typeof ApiPublicOracleSyncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/market': typeof MarketRoute
   '/portfolio': typeof PortfolioRoute
   '/kol/$id': typeof KolIdRoute
+  '/api/public/oracle-sync': typeof ApiPublicOracleSyncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/market': typeof MarketRoute
   '/portfolio': typeof PortfolioRoute
   '/kol/$id': typeof KolIdRoute
+  '/api/public/oracle-sync': typeof ApiPublicOracleSyncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/market'
     | '/portfolio'
     | '/kol/$id'
+    | '/api/public/oracle-sync'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/market'
     | '/portfolio'
     | '/kol/$id'
+    | '/api/public/oracle-sync'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/market'
     | '/portfolio'
     | '/kol/$id'
+    | '/api/public/oracle-sync'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   MarketRoute: typeof MarketRoute
   PortfolioRoute: typeof PortfolioRoute
   KolIdRoute: typeof KolIdRoute
+  ApiPublicOracleSyncRoute: typeof ApiPublicOracleSyncRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -172,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof KolIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/oracle-sync': {
+      id: '/api/public/oracle-sync'
+      path: '/api/public/oracle-sync'
+      fullPath: '/api/public/oracle-sync'
+      preLoaderRoute: typeof ApiPublicOracleSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   MarketRoute: MarketRoute,
   PortfolioRoute: PortfolioRoute,
   KolIdRoute: KolIdRoute,
+  ApiPublicOracleSyncRoute: ApiPublicOracleSyncRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
