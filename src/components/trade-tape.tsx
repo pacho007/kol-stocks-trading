@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { ExplorerLink } from "@/components/explorer-link";
 import { useEffect, useRef, useState } from "react";
 import { AvatarMark } from "@/components/avatar-mark";
 import { getKol } from "@/lib/kols";
@@ -125,6 +126,13 @@ export function TradeTape({ kolId, limit = 12 }: { kolId?: string; limit?: numbe
 
             <span className="num text-[11px] text-muted-foreground">
               {Number(f.shares).toLocaleString()} sh
+              {f.tx_hash && (
+                <ExplorerLink
+                  tx={f.tx_hash}
+                  label=""
+                  className="ml-1.5 align-middle text-muted-foreground/70"
+                />
+              )}
             </span>
 
             <span className="num ml-auto text-[11px] font-semibold tabular-nums">

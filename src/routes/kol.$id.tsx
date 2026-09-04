@@ -1,12 +1,13 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { ArrowLeft, Users } from "lucide-react";
+import { ArrowLeft, Users, AlertTriangle, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import type { Address } from "viem";
 import { AvatarMark } from "@/components/avatar-mark";
 import { TradeTape } from "@/components/trade-tape";
 import { LiveDot } from "@/components/live-dot";
 import { isUnmeasured } from "@/components/score-pill";
+import { ExplorerLink } from "@/components/explorer-link";
 import { LivePrice } from "@/components/live-price";
 import { PriceChart } from "@/components/price-chart";
 import { ConnectWalletButton } from "@/components/site-header";
@@ -257,10 +258,18 @@ function KolDetail() {
               type="button"
               onClick={() => navigator.clipboard?.writeText(kol.wallet)}
               className="text-muted-foreground transition-colors hover:text-foreground"
-              title={kol.wallet}
+              title={`Copy ${kol.wallet}`}
             >
               {shortWallet(kol.wallet)}
             </button>
+            {/* The whole listing rests on this wallet's record, so let people
+                go and read it rather than asking them to take the score on
+                trust. */}
+            <ExplorerLink
+              address={kol.wallet}
+              label="verify"
+              className="text-[11px] text-muted-foreground"
+            />
           </div>
         </div>
         <div className="ml-auto text-right">
@@ -502,6 +511,46 @@ function KolDetail() {
                 </p>
               </div>
             )}
+
+            <details className="group mt-4 border-t border-border/70 pt-3">
+              <summary className="flex cursor-pointer list-none items-center gap-1.5 text-[10px] tracking-widest uppercase text-muted-foreground transition-colors hover:text-foreground">
+                <AlertTriangle className="size-3 text-down" aria-hidden />
+                Risks — read before trading
+                <ChevronDown
+                  className="size-3 transition-transform group-open:rotate-180"
+                  aria-hidden
+                />
+              </summary>
+              <ul className="mt-2.5 space-y-2 text-[11px] leading-relaxed text-muted-foreground">
+                <li>
+                  <b className="text-foreground">The contract is unaudited.</b> It holds the money
+                  backing every listing. It has a test suite and its solvency rule is enforced in
+                  code, but no third party has reviewed it. A bug could cost you everything you put
+                  in.
+                </li>
+                <li>
+                  <b className="text-foreground">
+                    You are buying a claim on a curve, not a company.
+                  </b>{" "}
+                  ${kol.ticker} is not equity, has no dividend, and gives you no rights over{" "}
+                  {kol.name} or their funds.
+                </li>
+                <li>
+                  <b className="text-foreground">The price can fall to a third of its open.</b>{" "}
+                  Scores move on measured performance, and a listing that trades badly is marked
+                  down. Selling into a thin listing returns less than the quote.
+                </li>
+                <li>
+                  <b className="text-foreground">Every trade costs 2% in, 2% out.</b> A round trip
+                  is down roughly 3.9% before the price has moved at all.
+                </li>
+                <li>
+                  <b className="text-foreground">{kol.name} did not ask to be listed.</b> The name
+                  and avatar are best-effort labels on a public wallet address —{" "}
+                  <ExplorerLink address={kol.wallet} label="check it yourself" showIcon={false} />.
+                </li>
+              </ul>
+            </details>
           </div>
 
           {position && (
@@ -638,10 +687,10 @@ function TraderEscrowPanel({ kol }: { kol: ReturnType<typeof getKol> & {} }) {
 
       <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
         A share of every trade on this listing accrues to{" "}
-        <span className="num text-foreground">{shortWallet(kol.wallet)}</span> — the wallet the
-        listing tracks. The protocol can't take it and traders can't take it. It pays out in full
-        the moment that wallet claims it, and claiming is just signing a transaction from it: no
-        verification, no application, nothing to prove.
+        <ExplorerLink address={kol.wallet} className="text-foreground" /> — the wallet the listing
+        tracks. The protocol can't take it and traders can't take it. It pays out in full the moment
+        that wallet claims it, and claiming is just signing a transaction from it: no verification,
+        no application, nothing to prove.
       </p>
 
       <div className="mt-4 flex flex-wrap items-end justify-between gap-4 border-t border-border pt-3">

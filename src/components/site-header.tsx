@@ -1,5 +1,6 @@
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SharpsMark } from "@/components/brand";
+import { ExplorerLink } from "@/components/explorer-link";
 import { Link } from "@tanstack/react-router";
 import { Wallet, Menu, ChevronDown } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -8,7 +9,7 @@ import { toast } from "sonner";
 import { useMarket } from "@/lib/market-store";
 import { useSession } from "@/hooks/use-session";
 import { useEvmWallet } from "@/lib/evm/wallet-provider";
-import { ACTIVE_CHAIN } from "@/lib/evm/chain";
+import { ACTIVE_CHAIN, MARKET_ADDRESS } from "@/lib/evm/chain";
 
 const NAV = [
   { to: "/market", label: "Market" },
@@ -296,6 +297,15 @@ export function SiteFooter() {
           <SharpsMark size={14} className="shrink-0 text-primary/70" />
           SHARPS © 2026, {ACTIVE_CHAIN.name}. Not financial advice.
         </p>
+        {/* The contract holding everyone's money, one click away. Not showing
+            it at all was the strangest omission in the product: it is the one
+            address a visitor most wants to check before connecting a wallet. */}
+        {MARKET_ADDRESS && (
+          <p className="num flex items-center gap-1.5 tracking-wide">
+            <span className="text-muted-foreground/70">Contract</span>
+            <ExplorerLink address={MARKET_ADDRESS} />
+          </p>
+        )}
         <p className="num tracking-wide">
           Displayed price is a quote, not a guaranteed redemption value — sell payouts are capped by
           each listing&apos;s available on-chain balance.

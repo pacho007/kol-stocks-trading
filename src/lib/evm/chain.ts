@@ -59,6 +59,37 @@ export const RPC_URL: string =
  * callers must treat that as "nothing is tradable yet" rather than crashing. */
 export const MARKET_ADDRESS = import.meta.env["VITE_MARKET_ADDRESS"] as `0x${string}` | undefined;
 
+/**
+ * Block explorer links.
+ *
+ * The whole product asserts that a trader's real on-chain record sets their
+ * share price, and until now none of it was checkable: the wallet was printed
+ * as plain text, the contract address was never shown at all, and no page
+ * linked to a chain explorer anywhere. The docs even told people to "check the
+ * wallet address yourself on a Robinhood Chain explorer" without giving them
+ * the link.
+ *
+ * That is not a missing nicety. For this audience the first two questions are
+ * "show me the contract" and "show me the wallet", and a market that answers
+ * neither reads as evasive rather than unfinished.
+ *
+ * rh-scan.com on mainnet — its /address/ and /tx/ paths were verified live
+ * rather than assumed. It bills itself as the Robinhood MAINNET explorer, so
+ * testnet keeps the chain's own explorer: pointing a testnet address at a
+ * mainnet-only index would produce a link that resolves, renders, and shows
+ * nothing, which is worse than no link because it looks like the address has
+ * no history.
+ */
+const EXPLORER_BASE =
+  ACTIVE_CHAIN.id === ROBINHOOD_MAINNET_ID
+    ? "https://rh-scan.com"
+    : ACTIVE_CHAIN.blockExplorers.default.url;
+
+export const explorerAddressUrl = (address: string) => `${EXPLORER_BASE}/address/${address}`;
+export const explorerTxUrl = (hash: string) => `${EXPLORER_BASE}/tx/${hash}`;
+export const EXPLORER_NAME =
+  ACTIVE_CHAIN.id === ROBINHOOD_MAINNET_ID ? "rh-scan" : ACTIVE_CHAIN.blockExplorers.default.name;
+
 let _client: PublicClient | null = null;
 
 /** Shared, lazily-created read client — avoid one per component. */

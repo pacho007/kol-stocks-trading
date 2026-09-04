@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AvatarMark } from "@/components/avatar-mark";
+import { ExplorerLink } from "@/components/explorer-link";
 import { LivePrice } from "@/components/live-price";
 import { Sparkline } from "@/components/sparkline";
 import { ConnectWalletButton } from "@/components/site-header";
@@ -341,6 +342,11 @@ function Portfolio() {
                 </span>
                 <span className="num text-muted-foreground">{t.shares} shares</span>
                 <span className="num ml-auto text-muted-foreground">{fmtUsd(t.price)}</span>
+                {/* Your own fill, on chain. The number above is our arithmetic;
+                    this is the receipt. */}
+                {t.signature && (
+                  <ExplorerLink tx={t.signature} label="" className="text-muted-foreground/70" />
+                )}
               </div>
             ))}
           </div>
