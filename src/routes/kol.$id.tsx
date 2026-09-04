@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import type { Address } from "viem";
 import { AvatarMark } from "@/components/avatar-mark";
 import { TradeTape } from "@/components/trade-tape";
+import { HoldersPanel } from "@/components/holders-panel";
 import { LiveDot } from "@/components/live-dot";
 import { isUnmeasured } from "@/components/score-pill";
 import { ExplorerLink } from "@/components/explorer-link";
@@ -79,6 +80,7 @@ function KolDetail() {
   const up = changePct >= 0;
   const position = positions.find((p) => p.id === kol.id);
   const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [activityTab, setActivityTab] = useState<"holders" | "trades">("holders");
   // on BUY the amount is ETH to spend; on SELL it's shares to sell.
   const [amount, setAmount] = useState("1");
   const [pending, setPending] = useState(false);
@@ -315,18 +317,29 @@ function KolDetail() {
               buying and selling shares in them. Conflating the two would make
               a share purchase look like a trading win. */}
           <div className="panel overflow-hidden">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <div>
-                <p className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">
-                  Share activity
-                </p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  People buying and selling ${kol.ticker}
-                </p>
+            <div className="flex items-center justify-between border-b border-border pr-4">
+              <div className="flex">
+                {(["holders", "trades"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setActivityTab(t)}
+                    className={`border-b-2 px-4 py-3 text-[10px] font-semibold tracking-[0.18em] uppercase transition-colors ${
+                      activityTab === t
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
               </div>
               <LiveDot />
             </div>
-            <TradeTape kolId={kol.id} limit={8} />
+            {activityTab === "trades" ? (
+              <TradeTape kolId={kol.id} limit={8} />
+            ) : (
+              <HoldersPanel kolId={kol.id} />
+            )}
           </div>
 
           {/* Said plainly, above the trading case, because this is the page
