@@ -45,10 +45,10 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
       } catch {
         /* ignore */
       }
-      if (stored) return; // explicit choice wins over the OS
-      const next: Theme = e.matches ? "dark" : "light";
-      document.documentElement.classList.toggle("dark", next === "dark");
-      setTheme(next);
+      // Only a stored choice changes the theme now. Following the OS here
+      // would undo the light default above the moment the OS reported dark,
+      // which is the same jarring hand-off from the landing page.
+      if (!stored) return;
     };
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
@@ -85,14 +85,23 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
  * Mirrors currentTheme()/applyTheme() above: stored choice wins, otherwise
  * follow the OS.
  */
+/**
+ * Pre-paint theme, inlined in <head> — see src/routes/__root.tsx.
+ *
+ * Light is the default for a first visit, deliberately, rather than following
+ * the OS. Visitors arrive from the landing page, which is a light page, and
+ * following prefers-color-scheme meant anyone on a dark OS crossed from a
+ * white hero into a black app in one click. That reads as two different
+ * products rather than one.
+ *
+ * A stored choice still wins in both directions, and the toggle is untouched —
+ * this only decides what someone sees before they have expressed a preference.
+ */
 export const THEME_INIT_SCRIPT = `
 (function () {
   try {
     var stored = localStorage.getItem(${JSON.stringify(STORAGE_KEY)});
-    var dark = stored
-      ? stored === "dark"
-      : window.matchMedia("(prefers-color-scheme: dark)").matches;
-    if (dark) document.documentElement.classList.add("dark");
+    if (stored === "dark") document.documentElement.classList.add("dark");
   } catch (e) {}
 })();
 `.trim();

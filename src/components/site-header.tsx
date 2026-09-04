@@ -246,11 +246,15 @@ export function SiteHeader() {
               data-testid="sessions-indicator"
               className="hidden items-center gap-2 pr-1 sm:flex"
             >
-              <span className="live-dot size-1.5 rounded-full bg-up" />
+              <span
+                className={`size-1.5 rounded-full ${
+                  session?.active.length ? "live-dot bg-up" : "bg-down"
+                }`}
+              />
               <span className="num text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
                 {session?.active.length
                   ? `${session.active.map((s) => s.short).join(" / ")} Open`
-                  : "Between Sessions"}
+                  : "Markets Closed"}
               </span>
             </div>
             <ThemeToggle />
