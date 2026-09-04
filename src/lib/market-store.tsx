@@ -171,7 +171,52 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const [onChainListings, setOnChainListings] = useState<Record<string, OnChainListing>>({});
   const [nativeBalance, setNativeBalance] = useState(0);
   const [positions, setPositions] = useState<Position[]>([]);
+  /**
+   * This wallet's own fill log, kept in localStorage under its address.
+   *
+   * It used to be plain useState, so a refresh emptied it: shares and value
+   * still read correctly off chain, but the record of what you actually did
+   * vanished. On a page whose job is telling you how your positions are going,
+   * that is the part people expect to persist.
+   *
+   * Keyed by address, so two wallets on one browser do not see each other's
+   * trades, and switching accounts shows the right history rather than the
+   * last one's.
+   *
+   * This is a convenience cache, not the ledger. The chain owns balances and
+   * public.fills owns the cross-device record; a cleared browser loses this
+   * and nothing else. Restoring it is exactly why cost basis can be shown at
+   * all before the fills indexer is live.
+   */
   const [trades, setTrades] = useState<Trade[]>([]);
+
+  const tradesKey = address ? `sharps.trades.${address.toLowerCase()}` : null;
+
+  // Load this wallet's log when it connects or changes.
+  useEffect(() => {
+    if (!tradesKey) {
+      setTrades([]);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(tradesKey);
+      const parsed = raw ? (JSON.parse(raw) as Trade[]) : [];
+      setTrades(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setTrades([]);
+    }
+  }, [tradesKey]);
+
+  // Persist on every change. Capped so a heavy trader cannot grow this without
+  // bound; the tail is the least useful part and public.fills has it anyway.
+  useEffect(() => {
+    if (!tradesKey) return;
+    try {
+      localStorage.setItem(tradesKey, JSON.stringify(trades.slice(0, 200)));
+    } catch {
+      /* private mode or quota — the log still works for this visit */
+    }
+  }, [tradesKey, trades]);
   const [live, setLive] = useState(false);
   const [marketOpen, setMarketOpen] = useState(true);
   const [nativePriceUsd, setNativePriceUsd] = useState(NATIVE_PRICE_USD);
@@ -685,12 +730,14 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     // "sharps.history.v1" key is removed too, so anyone upgrading doesn't keep
     // a stale private chart sitting in their browser forever.
     setLocalHistory({});
+    setTrades([]);
     try {
+      if (tradesKey) localStorage.removeItem(tradesKey);
       localStorage.removeItem("sharps.history.v1");
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [tradesKey]);
 
   const value = useMemo(
     () => ({

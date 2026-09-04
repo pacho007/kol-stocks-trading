@@ -57,6 +57,51 @@ function Portfolio() {
     pnlPct: number | null;
   }>;
 
+  /**
+   * Positions this wallet has fully exited, with what the round trip made or
+   * lost.
+   *
+   * Built from the persisted fill log rather than from chain state, because
+   * chain state cannot answer it: a closed position leaves a zero balance,
+   * which is indistinguishable from never having held it. The log is the only
+   * local record of what was paid and what came back.
+   *
+   * Average cost, matching how open positions and the oracle both account, so
+   * "realised" means the same thing everywhere. A partial sell does not close
+   * anything — only a listing whose share count returns to zero appears here.
+   */
+  const closed = (() => {
+    const acc: Record<
+      string,
+      { shares: number; cost: number; proceeds: number; realised: number; lastAt: number }
+    > = {};
+    // The log is newest-first; average cost has to be walked oldest-first.
+    for (const t of [...trades].reverse()) {
+      const a = (acc[t.id] ??= { shares: 0, cost: 0, proceeds: 0, realised: 0, lastAt: 0 });
+      a.lastAt = Math.max(a.lastAt, t.at);
+      const usd = t.native * nativePriceUsd;
+      if (t.side === "buy") {
+        a.shares += t.shares;
+        a.cost += usd;
+      } else {
+        const avg = a.shares > 0 ? a.cost / a.shares : 0;
+        const basis = avg * Math.min(t.shares, a.shares);
+        a.realised += usd - basis;
+        a.proceeds += usd;
+        a.shares = Math.max(0, a.shares - t.shares);
+        a.cost = Math.max(0, a.cost - basis);
+      }
+    }
+    const stillOpen = new Set(positions.filter((p) => p.shares > 0).map((p) => p.id));
+    return Object.entries(acc)
+      .filter(([id, a]) => a.proceeds > 0 && a.shares <= 0.000001 && !stillOpen.has(id))
+      .map(([id, a]) => ({ kol: getKol(id), ...a }))
+      .filter((c) => c.kol)
+      .sort((x, y) => y.lastAt - x.lastAt);
+  })();
+
+  const realisedTotal = closed.reduce((s, c) => s + c.realised, 0);
+
   const holdings = rows.reduce((s, r) => s + r.value, 0);
   const pnl = rows.reduce((s, r) => s + (r.pnl ?? 0), 0);
   const hasUnknownCostBasis = rows.some((r) => r.pnl == null);
@@ -191,6 +236,85 @@ function Portfolio() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {closed.length > 0 && (
+        <div className="mt-10">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="num text-[10px] tracking-[0.3em] uppercase text-muted-foreground">
+              Closed positions
+            </h2>
+            <p className="num text-xs text-muted-foreground">
+              Realised{" "}
+              <span className={realisedTotal >= 0 ? "text-up" : "text-down"}>
+                {fmtUsd(realisedTotal)}
+              </span>
+            </p>
+          </div>
+          <div className="mt-3 overflow-x-auto overflow-y-hidden panel">
+            <table className="w-full min-w-[34rem]">
+              <thead>
+                <tr className="border-b border-border">
+                  {["Trader", "Cost", "Proceeds", "Realised", "Return"].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-2.5 text-left text-[10px] tracking-[0.18em] uppercase text-muted-foreground"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {closed.map((c) => {
+                  const spent = c.proceeds - c.realised;
+                  const pct = spent > 0 ? (c.realised / spent) * 100 : null;
+                  return (
+                    <tr key={c.kol!.id} className="border-b border-border/60 last:border-0">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <AvatarMark
+                            gradient={c.kol!.avatar}
+                            label={c.kol!.ticker}
+                            src={c.kol!.image}
+                            size={26}
+                          />
+                          <Link
+                            to="/kol/$id"
+                            params={{ id: c.kol!.id }}
+                            className="num text-xs font-bold tracking-widest hover:text-primary"
+                          >
+                            ${c.kol!.ticker}
+                          </Link>
+                        </div>
+                      </td>
+                      <td className="num px-4 py-3 text-sm text-muted-foreground">
+                        {fmtUsd(spent)}
+                      </td>
+                      <td className="num px-4 py-3 text-sm text-muted-foreground">
+                        {fmtUsd(c.proceeds)}
+                      </td>
+                      <td
+                        className={`num px-4 py-3 text-sm ${c.realised >= 0 ? "text-up" : "text-down"}`}
+                      >
+                        {fmtUsd(c.realised)}
+                      </td>
+                      <td
+                        className={`num px-4 py-3 text-sm ${c.realised >= 0 ? "text-up" : "text-down"}`}
+                      >
+                        {pct != null ? fmtPct(pct) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+            Built from fills recorded in this browser, so it covers trades made here rather than
+            every trade this wallet has ever made.
+          </p>
         </div>
       )}
 
