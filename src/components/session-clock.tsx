@@ -2,7 +2,17 @@ import { useEffect, useState } from "react";
 import { SESSIONS, fmtDuration, fmtUtc, msToDailyClose } from "@/lib/sessions";
 import { useSession } from "@/hooks/use-session";
 
-/** Counts down to the New York close (21:00 UTC), when every trader's book is repriced. */
+/**
+ * The trading day: which sessions are open, and how long the New York one has
+ * left.
+ *
+ * This used to describe itself as counting down to "when every trader's book is
+ * repriced", which stopped being true when pricing became continuous. The
+ * oracle re-reads every listed wallet on a loop and pushes any score that
+ * moved — nothing waits for a close, and nothing happens at 21:00 UTC that does
+ * not happen at 14:00. The countdown is kept because the session boundary is
+ * real and worth showing, but it is labelled as what it is.
+ */
 export function SessionClock() {
   const [left, setLeft] = useState("--:--:--");
   const session = useSession();
@@ -21,7 +31,7 @@ export function SessionClock() {
       <p className="num mt-2 text-2xl font-semibold text-primary">
         {left}
         <span className="ml-2 text-[10px] tracking-widest uppercase text-muted-foreground">
-          to the close
+          to the NY close
         </span>
       </p>
       <div className="mt-3 space-y-1">

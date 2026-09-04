@@ -250,17 +250,19 @@ export function SiteHeader() {
             >
               <span
                 className={`size-1.5 rounded-full ${
-                  session?.active.length ? "live-dot bg-up" : "bg-down"
+                  session?.active.length ? "live-dot bg-up" : "bg-muted-foreground/45"
                 }`}
               />
               <span className="num text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
                 {session?.active.length
                   ? `${session.active.map((s) => s.short).join(" / ")} Open`
-                  : "Markets Closed"}
+                  : "Between sessions"}
               </span>
             </div>
             <ThemeToggle />
-            <ConnectWalletButton />
+            <span data-tour="wallet" className="inline-flex">
+              <ConnectWalletButton />
+            </span>
             <button
               className="grid size-9 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:text-gold-light md:hidden"
               onClick={() => setOpen((v) => !v)}

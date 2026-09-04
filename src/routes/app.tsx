@@ -104,17 +104,17 @@ function Landing() {
           >
             <span
               className={`size-1.5 rounded-full ${
-                session?.active.length ? "live-dot bg-up" : "bg-down"
+                session?.active.length ? "live-dot bg-up" : "bg-muted-foreground/45"
               }`}
             />
             {session?.active.length
               ? `${session.active.map((s) => s.label).join(" + ")} trading now`
-              : `Markets closed · next open ${fmtUtc(session?.next?.open ?? DAY_OPEN)} UTC`}
+              : `Between sessions · ${session?.next?.short ?? "ASIA"} opens ${fmtUtc(session?.next?.open ?? DAY_OPEN)} UTC`}
           </span>
           <span>
             Index cap <span className="num text-foreground">{fmtCompact(idx.capUsd)}</span>
           </span>
-          <span>
+          <span data-tour="scored">
             Scored{" "}
             <span className="num text-foreground">
               {idx.scoredWallets}/{idx.totalListings}
@@ -133,7 +133,10 @@ function Landing() {
       {/* dashboard */}
       <div className="mx-auto grid max-w-[110rem] gap-4 px-4 py-5 sm:px-6 lg:grid-cols-[17rem_minmax(0,1fr)] xl:grid-cols-[17rem_minmax(0,1fr)_20rem]">
         {/* left rail */}
-        <aside className="rise panel order-2 self-start overflow-hidden lg:order-1 lg:sticky lg:top-24">
+        <aside
+          data-tour="markets"
+          className="rise panel order-2 self-start overflow-hidden lg:order-1 lg:sticky lg:top-24"
+        >
           <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
             <span className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">
               Markets
@@ -228,7 +231,11 @@ function Landing() {
           </section>
 
           {/* index metrics strip */}
-          <section className="rise panel overflow-hidden" style={{ animationDelay: "220ms" }}>
+          <section
+            data-tour="index"
+            className="rise panel overflow-hidden"
+            style={{ animationDelay: "220ms" }}
+          >
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-border px-4 py-2.5">
               <span className="text-[10px] tracking-[0.22em] uppercase text-foreground">
                 The index
@@ -299,7 +306,7 @@ function Landing() {
             {[
               [
                 "Verified books only",
-                "Every listing is tied to a real on-chain wallet. Nothing is self-reported, nothing is editable after the close.",
+                "Every listing is tied to a real on-chain wallet. Win rate, realized PnL, size and hold time are read off the chain — nothing is self-reported and nothing is editable, by anyone, ever.",
               ],
               [
                 "Priced on skill",
@@ -322,7 +329,7 @@ function Landing() {
 
         {/* right rail */}
         <aside className="rise order-3 space-y-4" style={{ animationDelay: "140ms" }}>
-          <div className="panel overflow-hidden">
+          <div data-tour="how" className="panel overflow-hidden">
             <div className="border-b border-border px-3 py-2.5 text-[10px] tracking-[0.22em] uppercase text-muted-foreground">
               How a trade happens
             </div>
@@ -337,13 +344,21 @@ function Landing() {
             ))}
           </div>
           <div className="panel px-4 py-4">
+            {/* Was titled "Next reprice", above a countdown labelled "to the
+                close" and a line saying stocks are marked up "at the close".
+                None of that survived the move to continuous pricing, and the
+                same rail says two panels higher that the oracle prices "through
+                the day rather than at a fixed mark". Someone reading both would
+                sit on a trade waiting for a close that never comes. The
+                sessions are still worth showing — they are when the flow is —
+                so the panel keeps them and drops the claim. */}
             <p className="text-[10px] tracking-[0.22em] uppercase text-muted-foreground">
-              Next reprice
+              Trading sessions
             </p>
             <SessionClock />
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              Every trader's book is re-scored on a loop. Winning trades mark their stock up at the
-              close, losing sessions mark it down, that's the whole game.
+              Every trader's book is re-scored on a loop, all day. Sessions don't gate the price —
+              they're just when the flow is heaviest, and when scores tend to move most.
             </p>
           </div>
 
