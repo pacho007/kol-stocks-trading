@@ -4,7 +4,7 @@ import { AvatarMark } from "@/components/avatar-mark";
 import { LivePrice } from "@/components/live-price";
 import { Sparkline } from "@/components/sparkline";
 import { ScorePill } from "@/components/score-pill";
-import { KOLS, fmtCompact, fmtPct, perfScore, shortWallet } from "@/lib/kols";
+import { KOLS, fmtCompact, fmtPct, shortWallet } from "@/lib/kols";
 import { useMarket, useLiveMetrics, useLiveSeries } from "@/lib/market-store";
 import { OPEN_PRICE_USD } from "@/lib/pricing";
 

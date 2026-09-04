@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { KOLS } from "@/lib/kols";
 import {
   Accordion,
   AccordionContent,
@@ -6,6 +7,9 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { ArrowRight } from "lucide-react";
+
+/** Listings carrying a real handle, counted rather than asserted in prose. */
+const TAGGED = KOLS.filter((k) => k.handle && k.handle.length > 1).length;
 
 export const Route = createFileRoute("/docs")({
   head: () => ({
@@ -136,7 +140,8 @@ function Docs() {
               attached to it are best-effort labels from public wallet-tagging data.
             </p>
             <p>
-              106 of the 108 listed traders have a name, avatar, and linked X account. Two are
+              {TAGGED} of the {KOLS.length} listed traders have a name, avatar, and linked X
+              account. {KOLS.length - TAGGED === 1 ? "One is" : `${KOLS.length - TAGGED} are`}{" "}
               genuinely untagged and show a shortened address instead. Those are left blank rather
               than guessed — attributing the wrong X account to a real trader is worse than showing
               none at all.

@@ -10,7 +10,7 @@ import { isUnmeasured } from "@/components/score-pill";
 import { LivePrice } from "@/components/live-price";
 import { PriceChart } from "@/components/price-chart";
 import { ConnectWalletButton } from "@/components/site-header";
-import { getKol, fmtCompact, fmtPct, fmtUsd, perfScore, shortWallet } from "@/lib/kols";
+import { getKol, fmtCompact, fmtPct, fmtUsd, shortWallet } from "@/lib/kols";
 import { useMarket, useKolStats, type ClosedTrade } from "@/lib/market-store";
 import {
   fetchBackingPerShareWad,

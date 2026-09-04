@@ -13,7 +13,9 @@ import { Sparkline } from "@/components/sparkline";
 import { TickerTape } from "@/components/ticker-tape";
 import { DocsDeck } from "@/components/docs-deck";
 import { ConnectWalletButton } from "@/components/site-header";
-import { KOLS, fmtCompact, fmtPct, perfScore, shortWallet } from "@/lib/kols";
+import { KOLS, fmtCompact, fmtPct, shortWallet } from "@/lib/kols";
+import { ScorePill } from "@/components/score-pill";
+import { OPEN_PRICE_USD } from "@/lib/pricing";
 import heroBanner from "@/assets/hero-banner.jpg";
 
 export const Route = createFileRoute("/app")({
@@ -58,20 +60,16 @@ const STEPS = [
 function Landing() {
   const { prices } = useMarket();
   const idx = useIndexStats();
-  const { changePct, marketCapUsd, volumeUsd24h } = useLiveMetrics();
+  const { changePct, marketCapUsd, volumeUsd24h, score } = useLiveMetrics();
   const series = useLiveSeries();
   const session = useSession();
-  const featured = [
-    "cupsey",
-    "sebastian",
-    "pain",
-    "loopier",
-    "cented",
-    "flames",
-    "nyhrox",
-    "parsix",
-    "pr6sper",
-  ];
+  // Hand-picked names pinned to the top of the rail, matched against the
+  // listing's own name. Five of the previous nine — pain, cented, flames,
+  // parsix, pr6sper — matched nothing in KOLS and silently sorted to the back,
+  // so the rail was only half-curated and there was no way to tell from
+  // reading it. Kept to the names that actually resolve; a name that stops
+  // resolving now just drops out rather than pretending to pin something.
+  const featured = ["cupsey", "sebastian", "loopier", "nyhrox"];
   const demoted = ["gepm1s"]; // other "Pain" account, always last
   const rank = (k: (typeof KOLS)[number]) => {
     if (demoted.includes(k.id)) return featured.length + 1;
@@ -83,7 +81,11 @@ function Landing() {
     (a, b) => rank(a) - rank(b) || (marketCapUsd[b.id] ?? 0) - (marketCapUsd[a.id] ?? 0),
   );
   const top = [...KOLS].sort((a, b) => (changePct[b.id] ?? 0) - (changePct[a.id] ?? 0)).slice(0, 4);
-  const board = [...KOLS].sort((a, b) => perfScore(b) - perfScore(a)).slice(0, 6);
+  // Sorted by the oracle's live score. This used to sort by perfScore(),
+  // which is computed entirely from seed fields that are all hardcoded to 0 —
+  // so it returned 0 for every listing, the sort did nothing, and the board
+  // was just the first six in file order.
+  const board = [...KOLS].sort((a, b) => (score[b.id] ?? 50) - (score[a.id] ?? 50)).slice(0, 6);
 
   return (
     <div>
@@ -155,7 +157,7 @@ function Landing() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <LivePrice value={prices[k.id] ?? k.price} className="text-xs" />
+                    <LivePrice value={prices[k.id] ?? OPEN_PRICE_USD} className="text-xs" />
                     <p className={`num text-[10px] ${up ? "text-up" : "text-down"}`}>
                       {fmtPct(changePct[k.id] ?? 0)}
                     </p>
@@ -367,7 +369,7 @@ function Landing() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <LivePrice value={prices[k.id] ?? k.price} className="text-xs" />
+                    <LivePrice value={prices[k.id] ?? OPEN_PRICE_USD} className="text-xs" />
                     <p
                       className={`num text-[10px] ${(changePct[k.id] ?? 0) >= 0 ? "text-up" : "text-down"}`}
                     >
@@ -394,7 +396,7 @@ function Landing() {
         </div>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {top.map((k, i) => (
-            <KolCard key={k.id} kol={k} price={prices[k.id] ?? k.price} index={i} />
+            <KolCard key={k.id} kol={k} price={prices[k.id] ?? OPEN_PRICE_USD} index={i} />
           ))}
         </div>
       </section>
@@ -434,14 +436,14 @@ function Landing() {
                     up={up}
                     className="ml-auto hidden h-8 w-28 sm:block"
                   />
-                  <div className="hidden w-24 text-right md:block">
-                    <p className="text-[10px] tracking-widest uppercase text-muted-foreground">
-                      Score
-                    </p>
-                    <p className="num text-sm">{perfScore(k)}</p>
+                  <div className="hidden w-24 items-center justify-end md:flex">
+                    <ScorePill score={score[k.id] ?? 50} id={k.id} />
                   </div>
                   <div className="w-24 text-right">
-                    <LivePrice value={prices[k.id] ?? k.price} className="text-sm font-semibold" />
+                    <LivePrice
+                      value={prices[k.id] ?? OPEN_PRICE_USD}
+                      className="text-sm font-semibold"
+                    />
                     <p className={`num text-xs ${up ? "text-up" : "text-down"}`}>
                       {fmtPct(changePct[k.id] ?? 0)}
                     </p>
