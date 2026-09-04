@@ -5,7 +5,7 @@ import { useMarket, useIndexStats, useLiveMetrics, useLiveSeries } from "@/lib/m
 import { useSession } from "@/hooks/use-session";
 import { fmtUtc, DAY_OPEN } from "@/lib/sessions";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, HelpCircle } from "lucide-react";
 import { AvatarMark } from "@/components/avatar-mark";
 import { KolCard } from "@/components/kol-card";
 import { LivePrice } from "@/components/live-price";
@@ -13,6 +13,8 @@ import { Sparkline } from "@/components/sparkline";
 import { TickerTape } from "@/components/ticker-tape";
 import { DocsDeck } from "@/components/docs-deck";
 import { ConnectWalletButton } from "@/components/site-header";
+import { AppTour } from "@/components/app-tour";
+import { useAppTour } from "@/lib/use-app-tour";
 import { KOLS, fmtCompact, fmtPct, shortWallet } from "@/lib/kols";
 import { ScorePill } from "@/components/score-pill";
 import { OPEN_PRICE_USD } from "@/lib/pricing";
@@ -58,6 +60,7 @@ const STEPS = [
 ];
 
 function Landing() {
+  const tour = useAppTour();
   const { prices } = useMarket();
   const idx = useIndexStats();
   const { changePct, marketCapUsd, volumeUsd24h, score } = useLiveMetrics();
@@ -210,6 +213,16 @@ function Landing() {
                   <ArrowRight className="size-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
                 </Link>
                 <ConnectWalletButton size="lg" />
+                {/* Replay, so the walkthrough is reachable after the one time
+                    it opens itself. Without this the only way back to it is
+                    clearing site data. */}
+                <button
+                  onClick={tour.replay}
+                  className="num inline-flex h-12 items-center gap-2 px-1 text-[10px] font-bold tracking-[0.16em] uppercase text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <HelpCircle className="size-3.5" aria-hidden />
+                  How it works
+                </button>
               </div>
             </div>
           </section>
@@ -383,6 +396,8 @@ function Landing() {
       </div>
 
       <TickerTape />
+
+      <AppTour open={tour.open} onOpenChange={tour.setOpen} />
 
       <section className="mx-auto max-w-[110rem] px-4 py-16 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
