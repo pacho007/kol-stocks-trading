@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { KOLS } from "@/lib/kols";
+import { TraderBubbles } from "@/components/trader-bubbles";
 import bgVideo from "@/assets/sharps-dunes.mp4.asset.json";
 import heroPoster from "@/assets/sharps-dunes-poster.jpg.asset.json";
 
@@ -84,6 +85,11 @@ function Splash() {
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(120%_80%_at_50%_45%,rgba(255,255,255,0.35)_0%,transparent_55%,rgba(255,255,255,0.35)_100%)]"
       />
+
+      {/* Live listing chips. Sits above the backdrop and below the hero's own
+          z-10 content, so a bubble can never overlap the wordmark or the CTAs
+          even if a slot is mispositioned. */}
+      <TraderBubbles />
 
       {/* top bar — true 3-column grid so the centre line is viewport-centred */}
       <header

@@ -622,3 +622,38 @@
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------
+   Trader bubbles — floating listing chips on the splash.
+   
+   Each bubble drifts on its own cycle. The durations below are
+   deliberately not multiples of each other: equal or harmonic
+   durations resynchronise the group every few seconds, and a dozen
+   chips bobbing in lockstep reads as one animated block rather than
+   as independent objects.
+   --------------------------------------------------------------- */
+
+@keyframes bubble-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -11px, 0);
+  }
+}
+
+.bubble-drift {
+  animation: bubble-drift var(--drift-dur, 7s) ease-in-out var(--drift-delay, 0s) infinite;
+  /* Promote once, up front. Without this each bubble repaints its
+     backdrop-blur every frame, and blur is the expensive part — a dozen of
+     them over a playing 4K video drops the whole hero's frame rate. */
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble-drift {
+    animation: none !important;
+    transform: none !important;
+  }
+}

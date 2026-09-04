@@ -301,7 +301,16 @@ Deno.serve(async () => {
             .eq("kol_id", row.kol_id)
             // Never let an out-of-order or replayed event walk current state
             // backwards past a newer one already recorded.
-            .lte("last_update_ts", row.block_timestamp);
+            //
+            // The null arm is not defensive padding — without it this guard
+            // never passes at all. Seeded rows have last_update_ts NULL, and
+            // `NULL <= anything` is NULL rather than TRUE, so the filter
+            // matched no row on a listing's FIRST update, which is the one
+            // that would have set the column non-null. Every listing stayed
+            // frozen at its seed values (score 50, opening price) forever
+            // while price_history filled in correctly beside it, and nothing
+            // errored — the update simply reported zero rows affected.
+            .or(`last_update_ts.is.null,last_update_ts.lte."${row.block_timestamp}"`);
           if (updateErr) {
             return jsonResponse(
               { error: `listing update failed for ${row.kol_id}: ${updateErr.message}` },
