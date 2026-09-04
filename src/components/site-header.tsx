@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useMarket } from "@/lib/market-store";
+import { useSession } from "@/hooks/use-session";
 import { useEvmWallet } from "@/lib/evm/wallet-provider";
 import { ACTIVE_CHAIN } from "@/lib/evm/chain";
 
@@ -198,6 +199,7 @@ export function ConnectWalletButton({
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
+  const session = useSession();
 
   return (
     /* Now that this actually sticks (see __root.tsx), it needs a ground —
@@ -237,6 +239,20 @@ export function SiteHeader() {
 
           <div className="ml-auto flex items-center gap-2.5">
             <OracleStatus />
+            {/* Which of the traditional sessions are awake. Context only — the
+                contract has no session concept and never blocks a trade, so
+                this must never be phrased as whether the market is open. */}
+            <div
+              data-testid="sessions-indicator"
+              className="hidden items-center gap-2 pr-1 sm:flex"
+            >
+              <span className="live-dot size-1.5 rounded-full bg-up" />
+              <span className="num text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
+                {session?.active.length
+                  ? `${session.active.map((s) => s.short).join(" / ")} Open`
+                  : "Between Sessions"}
+              </span>
+            </div>
             <ThemeToggle />
             <ConnectWalletButton />
             <button
