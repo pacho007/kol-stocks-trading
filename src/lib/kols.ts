@@ -1307,9 +1307,13 @@ const SEEDS: Seed[] = [
     wallet: "0xbe38d196d1378f8388c94c3ed73c3c11632eea7e",
     // Served from our own origin. unavatar.io returned 429 for this handle
     // through six retries with backoff while other handles resolved fine, so
-    // the chip fell back to "PO" initials. Pulled from the profile once and
-    // committed, which is also what scripts/fetch-avatars.mjs does for the
-    // whole cohort — see the note in avatar-mark.tsx.
+    // the chip fell back to "PO" initials.
+    //
+    // Taken from the img inside a[href="/traderpow/photo"], which is the only
+    // element on an X profile guaranteed to be that account: a profile page
+    // carries ~37 profile_images URLs — the sidebar, suggestions, repliers —
+    // and scraping the first one lands on a stranger, which is exactly what
+    // happened on the first attempt here.
     image: "/avatars/be38d1.jpg",
     x: "https://x.com/traderpow",
     handle: "@traderpow",
