@@ -579,7 +579,6 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       id: string,
       nativeIn: number,
     ): Promise<{ shares: number; nativeSpent: number; signature: string }> => {
-      if (!marketOpen) throw new Error("Market is closed");
       if (!connected || !address || !walletClient) throw new Error("Connect a wallet first");
       if (wrongChain) throw new Error("Wrong network — switch to Robinhood Chain");
       const entry = KOL_WALLETS.find((k) => k.id === id);
@@ -628,7 +627,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       );
       return { shares, nativeSpent, signature };
     },
-    [marketOpen, connected, address, walletClient, wrongChain, onChainListings, client],
+    [connected, address, walletClient, wrongChain, onChainListings, client],
   );
 
   const sell = useCallback(
@@ -636,7 +635,6 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       id: string,
       shares: number,
     ): Promise<{ shares: number; nativeOut: number; signature: string }> => {
-      if (!marketOpen) throw new Error("Market is closed");
       if (!connected || !address || !walletClient) throw new Error("Connect a wallet first");
       if (wrongChain) throw new Error("Wrong network — switch to Robinhood Chain");
       const entry = KOL_WALLETS.find((k) => k.id === id);
@@ -677,7 +675,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       );
       return { shares: Number(sharesIn), nativeOut, signature };
     },
-    [marketOpen, connected, address, walletClient, wrongChain, onChainListings, client],
+    [connected, address, walletClient, wrongChain, onChainListings, client],
   );
 
   const reset = useCallback(() => {

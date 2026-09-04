@@ -14,10 +14,47 @@
 # you actually want a fresh market.
 set -euo pipefail
 
-RPC="https://rpc.testnet.chain.robinhood.com"
-EXPECTED_DEPLOYER="0xfDEBd2F3C69aB7618Ce329b9491165C6e92f39fB"
-export ADMIN_ADDRESS="0x013222Ee20f2c0e7C8B46B24d0dEe760CC10d065"
-export ORACLE_AUTHORITY_ADDRESS="0xEBD5e38e399D09B7922c1CB3c7f3cf130a2cC65F"
+# Network, RPC and the chain-id guard all come from here.
+# shellcheck source=./_network.sh
+. "$(dirname "${BASH_SOURCE[0]}")/_network.sh"
+# The three roles.
+#
+# Hardcoded for testnet because those keys are disposable and re-typing them
+# every run is how you fat-finger one. On mainnet they MUST be supplied, and
+# they must be new: a testnet key has been pasted into shells, logs and CI, so
+# treating one as a mainnet admin key means the market's pause switch and the
+# oracle's price authority are both already public.
+#
+# The contract separates deployer / admin / oracle on purpose. That separation
+# is worth nothing if the same key fills two of the slots, so this refuses that
+# outright rather than warning about it.
+if [ "$SHARPS_NETWORK" = "mainnet" ]; then
+  : "${EXPECTED_DEPLOYER:?Set EXPECTED_DEPLOYER to the mainnet deployer address}"
+  : "${ADMIN_ADDRESS:?Set ADMIN_ADDRESS to the mainnet admin address}"
+  : "${ORACLE_AUTHORITY_ADDRESS:?Set ORACLE_AUTHORITY_ADDRESS to the mainnet oracle address}"
+
+  for testnet_key in \
+    0xfDEBd2F3C69aB7618Ce329b9491165C6e92f39fB \
+    0x013222Ee20f2c0e7C8B46B24d0dEe760CC10d065 \
+    0xEBD5e38e399D09B7922c1CB3c7f3cf130a2cC65F; do
+    for supplied in "$EXPECTED_DEPLOYER" "$ADMIN_ADDRESS" "$ORACLE_AUTHORITY_ADDRESS"; do
+      if [ "$(echo "$supplied" | tr 'A-Z' 'a-z')" = "$(echo "$testnet_key" | tr 'A-Z' 'a-z')" ]; then
+        echo "Refusing to deploy: $supplied is a TESTNET address. Generate fresh mainnet keys." >&2
+        exit 1
+      fi
+    done
+  done
+
+  if [ "$(echo "$EXPECTED_DEPLOYER$ADMIN_ADDRESS$ORACLE_AUTHORITY_ADDRESS" | tr 'A-Z' 'a-z' | tr -d '\n' | fold -w42 | sort -u | wc -l)" -ne 3 ]; then
+    echo "Refusing to deploy: deployer, admin and oracle must be three DIFFERENT addresses." >&2
+    exit 1
+  fi
+else
+  EXPECTED_DEPLOYER="${EXPECTED_DEPLOYER:-0xfDEBd2F3C69aB7618Ce329b9491165C6e92f39fB}"
+  export ADMIN_ADDRESS="${ADMIN_ADDRESS:-0x013222Ee20f2c0e7C8B46B24d0dEe760CC10d065}"
+  export ORACLE_AUTHORITY_ADDRESS="${ORACLE_AUTHORITY_ADDRESS:-0xEBD5e38e399D09B7922c1CB3c7f3cf130a2cC65F}"
+fi
+export EXPECTED_DEPLOYER
 
 export PATH="$HOME/.foundry/bin:$PATH"
 cd "$(dirname "$0")"

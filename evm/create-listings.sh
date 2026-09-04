@@ -13,7 +13,9 @@
 # the whole batch.
 set -euo pipefail
 
-RPC="https://rpc.testnet.chain.robinhood.com"
+# Network, RPC and the chain-id guard all come from here.
+# shellcheck source=./_network.sh
+. "$(dirname "${BASH_SOURCE[0]}")/_network.sh"
 EXPECTED_ADMIN="0x013222Ee20f2c0e7C8B46B24d0dEe760CC10d065"
 
 export PATH="$HOME/.foundry/bin:$PATH"

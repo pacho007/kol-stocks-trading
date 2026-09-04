@@ -59,16 +59,8 @@ export const Route = createFileRoute("/kol/$id")({
 function KolDetail() {
   const { id } = Route.useParams();
   const kol = getKol(id)!;
-  const {
-    prices,
-    connected,
-    nativeBalance,
-    nativePriceUsd,
-    marketOpen,
-    positions,
-    buyWithNative,
-    sell,
-  } = useMarket();
+  const { prices, connected, nativeBalance, nativePriceUsd, positions, buyWithNative, sell } =
+    useMarket();
   const price = prices[kol.id] ?? kol.price;
   const {
     score: liveScore,
@@ -171,9 +163,11 @@ function KolDetail() {
     quotedShares ?? (price > 0 ? Math.floor((amt * nativePriceUsd) / price) : 0);
   const sellProceedsNative = quotedProceeds ?? (amt * price) / nativePriceUsd;
 
+  // No session gate: the contract accepts buy and sell at any hour, so
+  // blocking the button only stopped people using this page to do what they
+  // could do directly against the contract anyway.
   const canSubmit =
     connected &&
-    marketOpen &&
     !pending &&
     amt > 0 &&
     (side === "buy" ? amt <= nativeBalance && derivedShares > 0 : amt <= maxSell + 1e-9);
@@ -181,10 +175,6 @@ function KolDetail() {
   async function submit(): Promise<void> {
     if (!connected) {
       toast.error("Connect a wallet first");
-      return;
-    }
-    if (!marketOpen) {
-      toast.error("Market is closed — trading resumes at the next session open");
       return;
     }
     if (amt <= 0) {
@@ -398,7 +388,7 @@ function KolDetail() {
                   <Row label="Your shares" value={maxSell.toLocaleString()} />
                 </>
               )}
-              <Row label="Session" value={marketOpen ? "OPEN" : "CLOSED"} />
+              <Row label="Market" value="OPEN 24/7" />
             </dl>
 
             {/* The 2% itemised. A single "fee" line hides that most of it

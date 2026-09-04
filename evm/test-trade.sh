@@ -24,7 +24,9 @@
 # not privileged on this contract, so a test buyer is exactly what it is.
 set -uo pipefail
 
-RPC="https://rpc.testnet.chain.robinhood.com"
+# Network, RPC and the chain-id guard all come from here.
+# shellcheck source=./_network.sh
+. "$(dirname "${BASH_SOURCE[0]}")/_network.sh"
 SPEND_ETH="${1:-0.0005}"
 
 export PATH="$HOME/.foundry/bin:$PATH"

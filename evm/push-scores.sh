@@ -21,7 +21,9 @@
 # a hot key, so it is read the same way as the others and unset on exit.
 set -euo pipefail
 
-RPC="https://rpc.testnet.chain.robinhood.com"
+# Network, RPC and the chain-id guard all come from here.
+# shellcheck source=./_network.sh
+. "$(dirname "${BASH_SOURCE[0]}")/_network.sh"
 EXPECTED_ORACLE="0xEBD5e38e399D09B7922c1CB3c7f3cf130a2cC65F"
 
 export PATH="$HOME/.foundry/bin:$PATH"

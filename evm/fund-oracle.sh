@@ -16,7 +16,9 @@
 # other scripts: read -s, normalised, never on disk or in shell history.
 set -euo pipefail
 
-RPC="https://rpc.testnet.chain.robinhood.com"
+# Network, RPC and the chain-id guard all come from here.
+# shellcheck source=./_network.sh
+. "$(dirname "${BASH_SOURCE[0]}")/_network.sh"
 DEPLOYER="0xfDEBd2F3C69aB7618Ce329b9491165C6e92f39fB"
 ORACLE="0xEBD5e38e399D09B7922c1CB3c7f3cf130a2cC65F"
 AMOUNT="${1:-0.002}"
