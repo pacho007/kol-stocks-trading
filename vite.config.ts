@@ -51,8 +51,7 @@ function networkConsistency(): Plugin {
       if (!wantMainnet && rpcIsMainnet) {
         throw new Error(
           `Refusing to build: VITE_ROBINHOOD_NETWORK=${network} but VITE_ROBINHOOD_RPC_URL is ${rpc}.
-` +
-            `A testnet build must not point at a mainnet RPC. Remove the override or fix it.`,
+` + `A testnet build must not point at a mainnet RPC. Remove the override or fix it.`,
         );
       }
     },
