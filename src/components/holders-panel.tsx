@@ -118,33 +118,45 @@ export function HoldersPanel({ kolId, limit = 12 }: { kolId: string; limit?: num
 
   return (
     <div>
-      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 border-b border-border px-4 py-2 text-[10px] tracking-[0.16em] uppercase text-muted-foreground">
-        <span>Wallet</span>
-        <span className="text-right">Shares</span>
-        <span className="text-right">Share</span>
-        <span className="text-right">Cost basis</span>
+      {/* A real table, not stacked grids. The header and each row used to be
+          separate grid containers, so their auto-sized columns measured their
+          own content independently and never lined up — "SHARES" is wider than
+          "49", so the numbers sat under the wrong labels. A table shares one
+          column model across every row by construction. */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-border text-[10px] tracking-[0.16em] uppercase text-muted-foreground">
+              <th className="px-4 py-2 text-left font-normal">Wallet</th>
+              <th className="px-4 py-2 text-right font-normal">Shares</th>
+              {/* "Share" beside "Shares" read as the same word twice. */}
+              <th className="px-4 py-2 text-right font-normal whitespace-nowrap">% of supply</th>
+              <th className="px-4 py-2 text-right font-normal whitespace-nowrap">Cost basis</th>
+            </tr>
+          </thead>
+          <tbody>
+            {holders.slice(0, limit).map((h) => {
+              const pct = outstanding > 0 ? (h.shares / outstanding) * 100 : null;
+              return (
+                <tr key={h.trader} className="border-b border-border/60 last:border-0">
+                  <td className="px-4 py-2.5">
+                    <ExplorerLink address={h.trader} className="text-foreground" />
+                  </td>
+                  <td className="num px-4 py-2.5 text-right tabular-nums">
+                    {h.shares.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </td>
+                  <td className="num px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                    {pct != null ? `${pct.toFixed(1)}%` : "—"}
+                  </td>
+                  <td className="num px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                    {fmtUsd((h.cost / 1e18) * nativePriceUsd)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
-
-      {holders.slice(0, limit).map((h) => {
-        const pct = outstanding > 0 ? (h.shares / outstanding) * 100 : null;
-        return (
-          <div
-            key={h.trader}
-            className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-x-4 border-b border-border/60 px-4 py-2.5 text-xs last:border-0"
-          >
-            <ExplorerLink address={h.trader} className="text-foreground" />
-            <span className="num text-right tabular-nums">
-              {h.shares.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-            </span>
-            <span className="num text-right tabular-nums text-muted-foreground">
-              {pct != null ? `${pct.toFixed(1)}%` : "—"}
-            </span>
-            <span className="num text-right tabular-nums text-muted-foreground">
-              {fmtUsd((h.cost / 1e18) * nativePriceUsd)}
-            </span>
-          </div>
-        );
-      })}
 
       <div className="space-y-1 px-4 py-3 text-[11px] text-muted-foreground">
         <p>
