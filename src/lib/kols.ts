@@ -1305,7 +1305,12 @@ const SEEDS: Seed[] = [
     name: "pow",
     ticker: "POW",
     wallet: "0xbe38d196d1378f8388c94c3ed73c3c11632eea7e",
-    image: "https://unavatar.io/x/traderpow",
+    // Served from our own origin. unavatar.io returned 429 for this handle
+    // through six retries with backoff while other handles resolved fine, so
+    // the chip fell back to "PO" initials. Pulled from the profile once and
+    // committed, which is also what scripts/fetch-avatars.mjs does for the
+    // whole cohort — see the note in avatar-mark.tsx.
+    image: "/avatars/be38d1.jpg",
     x: "https://x.com/traderpow",
     handle: "@traderpow",
     hue: 176,
