@@ -599,4 +599,94 @@ contract SharpsMarketTest is Test {
         (uint8 scoreAfter,,,,,,,,,) = market.listings(kol);
         assertEq(scoreAfter, scoreBefore, "a trade must not change the score");
     }
+    // ------------------------------------------------- admin key lifecycle
+
+    /// A deploy is one shot, so a zero role address is unrecoverable: nobody
+    /// could ever pause, withdraw protocol fees, or replace the oracle.
+    function test_constructor_rejectsZeroRoles() public {
+        vm.expectRevert(SharpsMarket.ZeroAddress.selector);
+        new SharpsMarket(address(0), oracle);
+
+        vm.expectRevert(SharpsMarket.ZeroAddress.selector);
+        new SharpsMarket(admin, address(0));
+    }
+
+    /// Zeroing the oracle would freeze every price forever — onlyOracle would
+    /// admit nobody and no score could move again.
+    function test_setOracleAuthority_rejectsZero() public {
+        vm.prank(admin);
+        vm.expectRevert(SharpsMarket.ZeroAddress.selector);
+        market.setOracleAuthority(address(0));
+    }
+
+    /// The handover only completes when the nominee proves control. A one-step
+    /// transfer would swap a compromise risk for an equally permanent typo risk.
+    function test_transferAdmin_requiresAcceptanceByNominee() public {
+        address newAdmin = address(0xBEEF);
+
+        vm.prank(admin);
+        market.transferAdmin(newAdmin);
+
+        // Nothing has changed yet.
+        assertEq(market.admin(), admin, "admin must not change on nomination alone");
+        assertEq(market.pendingAdmin(), newAdmin);
+
+        // The old admin still works until the handover completes.
+        vm.prank(admin);
+        market.setPaused(true);
+        vm.prank(admin);
+        market.setPaused(false);
+
+        vm.prank(newAdmin);
+        market.acceptAdmin();
+
+        assertEq(market.admin(), newAdmin, "admin should be the nominee");
+        assertEq(market.pendingAdmin(), address(0), "pending must clear");
+    }
+
+    /// Anyone other than the nominee is refused, or a pending handover would be
+    /// a free admin takeover for whoever called first.
+    function test_acceptAdmin_onlyNominee() public {
+        vm.prank(admin);
+        market.transferAdmin(address(0xBEEF));
+
+        vm.prank(buyer);
+        vm.expectRevert(SharpsMarket.Unauthorized.selector);
+        market.acceptAdmin();
+    }
+
+    function test_transferAdmin_onlyAdmin() public {
+        vm.prank(buyer);
+        vm.expectRevert(SharpsMarket.Unauthorized.selector);
+        market.transferAdmin(buyer);
+    }
+
+    /// Nominating the zero address is how a pending handover is cancelled.
+    function test_transferAdmin_zeroCancelsPendingHandover() public {
+        address newAdmin = address(0xBEEF);
+        vm.prank(admin);
+        market.transferAdmin(newAdmin);
+
+        vm.prank(admin);
+        market.transferAdmin(address(0));
+        assertEq(market.pendingAdmin(), address(0));
+
+        vm.prank(newAdmin);
+        vm.expectRevert(SharpsMarket.Unauthorized.selector);
+        market.acceptAdmin();
+    }
+
+    /// After handover the old key is powerless — that is the whole point of
+    /// being able to rotate it.
+    function test_oldAdminLosesPowerAfterHandover() public {
+        address newAdmin = address(0xBEEF);
+        vm.prank(admin);
+        market.transferAdmin(newAdmin);
+        vm.prank(newAdmin);
+        market.acceptAdmin();
+
+        vm.prank(admin);
+        vm.expectRevert(SharpsMarket.Unauthorized.selector);
+        market.setPaused(true);
+    }
 }

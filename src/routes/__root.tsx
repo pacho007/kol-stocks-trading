@@ -17,6 +17,7 @@ import { MarketFeedProvider } from "@/lib/market-feed";
 import { THEME_INIT_SCRIPT } from "@/components/theme-toggle";
 import { EvmWalletProvider } from "@/lib/evm/wallet-provider";
 import { SiteHeader, SiteFooter } from "@/components/site-header";
+import { ConfigBanner } from "@/components/config-banner";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -168,6 +169,7 @@ function RootComponent() {
                       not at all. With 108 listings that meant losing the nav on
                       the first scroll tick. */}
                   <div className="sticky top-0 z-50">
+                    <ConfigBanner />
                     <SiteHeader />
                   </div>
                   <main className="relative z-10 flex-1">

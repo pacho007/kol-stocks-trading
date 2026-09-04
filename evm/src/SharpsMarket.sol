@@ -99,6 +99,8 @@ contract SharpsMarket {
     uint256 public constant PROTOCOL_FEE_BPS = 50; // 0.5% — treasury
 
     address public admin;
+    /// Nominee for admin, pending their own acceptAdmin() call. See transferAdmin.
+    address public pendingAdmin;
     address public oracleAuthority;
     bool public paused;
 
@@ -117,6 +119,8 @@ contract SharpsMarket {
     event ListingCreated(address indexed kolWallet, uint256 openPriceWei);
     event ListingPausedSet(address indexed kolWallet, bool paused);
     event OracleAuthoritySet(address indexed newOracleAuthority);
+    event AdminTransferStarted(address indexed currentAdmin, address indexed pendingAdmin);
+    event AdminTransferred(address indexed previousAdmin, address indexed newAdmin);
     event MarketPausedSet(bool paused);
     // `timestamp` is redundant with the log's own block (an indexer can always
     // join blockNumber -> block.timestamp), but including it directly means a
@@ -130,6 +134,7 @@ contract SharpsMarket {
     event ProtocolWithdrawn(address indexed to, uint256 amount, uint256 timestamp);
 
     error Unauthorized();
+    error ZeroAddress();
     error ListingExists();
     error ListingNotFound();
     error InvalidScore();
@@ -160,6 +165,11 @@ contract SharpsMarket {
     }
 
     constructor(address _admin, address _oracleAuthority) {
+        // A deploy is one shot. Passing address(0) here would produce a market
+        // nobody can ever pause, whose protocol fees can never be withdrawn,
+        // and whose oracle can never be replaced — with no way to correct it
+        // afterwards, because both roles are only reachable through themselves.
+        if (_admin == address(0) || _oracleAuthority == address(0)) revert ZeroAddress();
         admin = _admin;
         oracleAuthority = _oracleAuthority;
         OPEN_PRICE_WEI = ScoreLut.priceForScore(50);
@@ -205,8 +215,47 @@ contract SharpsMarket {
     }
 
     function setOracleAuthority(address newOracleAuthority) external onlyAdmin {
+        // Zeroing this freezes every price permanently: onlyOracle would admit
+        // nobody, and scores could never move again. Recoverable only while a
+        // real admin still exists, which is exactly the assumption not worth
+        // making about an emergency.
+        if (newOracleAuthority == address(0)) revert ZeroAddress();
         oracleAuthority = newOracleAuthority;
         emit OracleAuthoritySet(newOracleAuthority);
+    }
+
+    /**
+     * Two-step admin handover.
+     *
+     * There was no way to change `admin` at all: it was written once in the
+     * constructor and never again. On a market holding real funds that is a
+     * standing, unfixable risk — a compromised admin key can call
+     * setPaused(true), which blocks sell(), and holders could then never
+     * withdraw. Nothing could revoke it. A lost key is the mirror image: no
+     * emergency pause is ever possible again.
+     *
+     * Two steps rather than one because the single-step version replaces a
+     * permanent-compromise risk with a permanent-typo risk — assigning admin
+     * to an address nobody controls is just as unrecoverable as losing the
+     * key. The nominee must prove control by transacting before anything
+     * changes.
+     *
+     * Nominating address(0) is allowed on purpose: that is how a pending
+     * handover is cancelled.
+     */
+    function transferAdmin(address newAdmin) external onlyAdmin {
+        pendingAdmin = newAdmin;
+        emit AdminTransferStarted(admin, newAdmin);
+    }
+
+    /// Completes a handover started by transferAdmin. Only the nominee can
+    /// call this, which is what proves the new key exists and is controlled.
+    function acceptAdmin() external {
+        if (msg.sender != pendingAdmin) revert Unauthorized();
+        address previous = admin;
+        admin = pendingAdmin;
+        pendingAdmin = address(0);
+        emit AdminTransferred(previous, admin);
     }
 
     function setListingPaused(address kolWallet, bool _paused) external onlyAdmin {
