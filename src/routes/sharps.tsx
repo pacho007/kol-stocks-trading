@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Coins, Flame, Users, Wallet } from "lucide-react";
 import { SharpsMark } from "@/components/brand";
 import { ExplorerLink } from "@/components/explorer-link";
+import { TokenAddress } from "@/components/token-address";
 import { MARKET_ADDRESS } from "@/lib/evm/chain";
 
 export const Route = createFileRoute("/sharps")({
@@ -162,10 +163,6 @@ function SharpsToken() {
             token, the market contract and every listed wallet on one network — no bridge between
             the thing you hold and the thing that earns.
           </p>
-          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-            The contract address will be published here at launch. Until then, treat any $SHARPS
-            address you see anywhere as fake.
-          </p>
         </div>
       </section>
 
@@ -221,6 +218,15 @@ function SharpsToken() {
               nothing.
             </li>
           </ul>
+        </div>
+      </section>
+
+      <section className="rise mt-12" style={{ animationDelay: "330ms" }}>
+        <h2 className="num text-[10px] tracking-[0.3em] uppercase text-muted-foreground">
+          Contract address
+        </h2>
+        <div className="mt-3">
+          <TokenAddress />
         </div>
       </section>
 
