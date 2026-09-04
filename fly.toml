@@ -19,12 +19,26 @@ primary_region = "iad"
   dockerfile = "oracle/Dockerfile"
 
 [env]
-  # Pause BETWEEN cycles, so the effective cadence is cycle + pause. A warm
-  # cycle measures 109.5s over 108 wallets unauthenticated, and should be
-  # near 40s with BLOCKSCOUT_API_KEY set — so this yields roughly a 70s
-  # cadence with a key, ~140s without. Set the key.
-  CYCLE_SECONDS = "30"
+  # Pause BETWEEN cycles, so the effective cadence is cycle + pause.
+  #
+  # 900, not 30, and the reason is gas rather than speed. Mainnet gas measured
+  # 0.334 gwei against testnet's 0.01 — 33x — and each changed listing costs
+  # ~61,500 gas to push. At a 30s pause (~70s effective, 1,234 cycles/day) a
+  # modest 20-listing churn runs about $1,300/day. At 900 the same churn is
+  # about $96/day for a board that still refreshes four times an hour.
+  #
+  # Start here, watch a real day's spend and the actual churn, then tighten if
+  # the numbers justify it. Tightening is one deploy; an unexpected four-figure
+  # gas bill is not recoverable.
+  CYCLE_SECONDS = "900"
   ROBINHOOD_NETWORK = "testnet"
+
+  # Pin the launch gate. Scores count only trades after this instant, which is
+  # what every listing bio promises. Left unset, the oracle stamps "now" on
+  # first boot — so a redeploy that lost the file would reset every listing to
+  # a neutral 50 and unwind its price. Set this to the mainnet go-live epoch
+  # BEFORE the first deploy, and never change it afterwards.
+  LAUNCH_TS = "1786587668"
 
 # One machine, always on. auto_stop_machines would suspend the process, throw
 # away the incremental cache, and make every wake-up pay for a cold crawl —

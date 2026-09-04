@@ -65,6 +65,16 @@ const LAUNCH_FILE = resolvePath(pathDirname(toPath(import.meta.url)), ".launch")
 
 /** Unix seconds of go-live. Set once, then reused on every subsequent run. */
 export const LAUNCH_TS: number = (() => {
+  // An explicit value wins over the file, and is what production should use.
+  // The file is written next to this source, which inside a container means it
+  // is part of the image: fine while it ships with a committed value, but a
+  // deploy that ever loses it would silently re-stamp "now" and reset every
+  // listing's history to nothing — scores would collapse to 50 and prices
+  // would unwind. Pinning LAUNCH_TS in the environment removes that failure
+  // mode entirely, which is why fly.toml sets it.
+  const fromEnv = Number(process.env["LAUNCH_TS"] ?? "");
+  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
+
   if (existsSync(LAUNCH_FILE)) {
     const v = Number(readFileSync(LAUNCH_FILE, "utf8").trim());
     if (Number.isFinite(v) && v > 0) return v;

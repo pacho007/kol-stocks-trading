@@ -80,8 +80,26 @@ function hasApiKey(): boolean {
   return Boolean(process.env["BLOCKSCOUT_API_KEY"]);
 }
 
-/** Only trades AFTER this point count — mirrors indexer.ts's LAUNCH GATE. */
-const LAUNCH_TS = Number(process.env["LAUNCH_TS"] ?? 0);
+/**
+ * Only trades AFTER this point count.
+ *
+ * Imported from indexer.ts rather than re-read from the environment, because
+ * resolving it twice meant resolving it to two different values. indexer.ts
+ * reads oracle/.launch (or stamps it on first run) and logs "indexing since
+ * <date>"; this module used `process.env.LAUNCH_TS ?? 0`, and nothing ever set
+ * that variable. So the log announced a launch gate while the filter below ran
+ * with 0 and counted every trade a wallet had ever made.
+ *
+ * Measured impact today is near zero: Robinhood Chain is young enough that
+ * most wallets have no history before the gate, and MAX_PAGES bounds the crawl
+ * to recent activity anyway. Checked one wallet both ways and the metrics came
+ * back identical. It still had to be fixed — every listing's bio promises a
+ * price that moves with "performance since launch", the gate is what makes
+ * that true, and it becomes load-bearing as the chain accumulates history.
+ *
+ * One source now, so the log and the filter cannot drift apart again.
+ */
+import { LAUNCH_TS } from "./indexer.js";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
