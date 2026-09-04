@@ -16,7 +16,14 @@ set -euo pipefail
 # Network, RPC and the chain-id guard all come from here.
 # shellcheck source=./_network.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_network.sh"
-EXPECTED_ADMIN="0x013222Ee20f2c0e7C8B46B24d0dEe760CC10d065"
+# Testnet default only. On mainnet this MUST be supplied — a hardcoded
+# testnet address would either reject the real key or, worse, be treated as
+# a legitimate role on a chain holding real money.
+if [ "$SHARPS_NETWORK" = "mainnet" ]; then
+  : "${EXPECTED_ADMIN:?Set EXPECTED_ADMIN for mainnet (the address this key must derive to)}"
+else
+  EXPECTED_ADMIN="${EXPECTED_ADMIN:-0x013222Ee20f2c0e7C8B46B24d0dEe760CC10d065}"
+fi
 
 export PATH="$HOME/.foundry/bin:$PATH"
 cd "$(dirname "$0")"

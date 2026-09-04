@@ -17,8 +17,22 @@ set -euo pipefail
 # Network, RPC and the chain-id guard all come from here.
 # shellcheck source=./_network.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_network.sh"
-DEPLOYER="0xfDEBd2F3C69aB7618Ce329b9491165C6e92f39fB"
-ADMIN="0x013222Ee20f2c0e7C8B46B24d0dEe760CC10d065"
+# Testnet default only. On mainnet this MUST be supplied — a hardcoded
+# testnet address would either reject the real key or, worse, be treated as
+# a legitimate role on a chain holding real money.
+if [ "$SHARPS_NETWORK" = "mainnet" ]; then
+  : "${DEPLOYER:?Set DEPLOYER for mainnet (the address this key must derive to)}"
+else
+  DEPLOYER="${DEPLOYER:-0xfDEBd2F3C69aB7618Ce329b9491165C6e92f39fB}"
+fi
+# Testnet default only. On mainnet this MUST be supplied — a hardcoded
+# testnet address would either reject the real key or, worse, be treated as
+# a legitimate role on a chain holding real money.
+if [ "$SHARPS_NETWORK" = "mainnet" ]; then
+  : "${ADMIN:?Set ADMIN for mainnet (the address this key must derive to)}"
+else
+  ADMIN="${ADMIN:-0x013222Ee20f2c0e7C8B46B24d0dEe760CC10d065}"
+fi
 AMOUNT="${1:-0.003}"
 
 export PATH="$HOME/.foundry/bin:$PATH"

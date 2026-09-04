@@ -24,7 +24,14 @@ set -euo pipefail
 # Network, RPC and the chain-id guard all come from here.
 # shellcheck source=./_network.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_network.sh"
-EXPECTED_ORACLE="0xEBD5e38e399D09B7922c1CB3c7f3cf130a2cC65F"
+# Testnet default only. On mainnet this MUST be supplied — a hardcoded
+# testnet address would either reject the real key or, worse, be treated as
+# a legitimate role on a chain holding real money.
+if [ "$SHARPS_NETWORK" = "mainnet" ]; then
+  : "${EXPECTED_ORACLE:?Set EXPECTED_ORACLE for mainnet (the address this key must derive to)}"
+else
+  EXPECTED_ORACLE="${EXPECTED_ORACLE:-0xEBD5e38e399D09B7922c1CB3c7f3cf130a2cC65F}"
+fi
 
 export PATH="$HOME/.foundry/bin:$PATH"
 cd "$(dirname "$0")"
