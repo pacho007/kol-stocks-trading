@@ -523,12 +523,6 @@ function KolDetail() {
               </summary>
               <ul className="mt-2.5 space-y-2 text-[11px] leading-relaxed text-muted-foreground">
                 <li>
-                  <b className="text-foreground">The contract is unaudited.</b> It holds the money
-                  backing every listing. It has a test suite and its solvency rule is enforced in
-                  code, but no third party has reviewed it. A bug could cost you everything you put
-                  in.
-                </li>
-                <li>
                   <b className="text-foreground">
                     You are buying a claim on a curve, not a company.
                   </b>{" "}
