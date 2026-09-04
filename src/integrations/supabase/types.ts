@@ -236,6 +236,30 @@ export type Database = {
           },
         ]
       }
+      token_launch: {
+        Row: {
+          contract_address: string | null
+          id: number
+          launched_at: string | null
+          pons_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          contract_address?: string | null
+          id?: number
+          launched_at?: string | null
+          pons_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contract_address?: string | null
+          id?: number
+          launched_at?: string | null
+          pons_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       listing_volume_24h: {
