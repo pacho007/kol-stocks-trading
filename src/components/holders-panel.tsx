@@ -148,8 +148,20 @@ export function HoldersPanel({ kolId, limit = 12 }: { kolId: string; limit?: num
                   <td className="num px-4 py-2.5 text-right tabular-nums text-muted-foreground">
                     {pct != null ? `${pct.toFixed(1)}%` : "—"}
                   </td>
-                  <td className="num px-4 py-2.5 text-right tabular-nums text-muted-foreground">
-                    {fmtUsd((h.cost / 1e18) * nativePriceUsd)}
+                  {/* Total paid, then what that works out to per share. The
+                      total alone is ambiguous beside a sub-cent share price:
+                      $0.49 next to $0.0098 reads like it might be per-share,
+                      and the reader cannot tell which without doing the
+                      division themselves. */}
+                  <td className="px-4 py-2.5 text-right">
+                    <span className="num block tabular-nums text-muted-foreground">
+                      {fmtUsd((h.cost / 1e18) * nativePriceUsd)}
+                    </span>
+                    <span className="num block text-[10px] tabular-nums text-muted-foreground/70">
+                      {h.shares > 0
+                        ? `${fmtUsd((h.cost / 1e18 / h.shares) * nativePriceUsd)} / share`
+                        : "—"}
+                    </span>
                   </td>
                 </tr>
               );

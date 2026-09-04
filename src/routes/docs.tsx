@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ACTIVE_CHAIN, ROBINHOOD_MAINNET_ID } from "@/lib/evm/chain";
 import { KOLS } from "@/lib/kols";
 import {
   Accordion,
@@ -10,6 +11,9 @@ import { ArrowRight } from "lucide-react";
 
 /** Listings carrying a real handle, counted rather than asserted in prose. */
 const TAGGED = KOLS.filter((k) => k.handle && k.handle.length > 1).length;
+
+/** Read from the build, so the docs cannot claim a network the app is not on. */
+const IS_MAINNET = ACTIVE_CHAIN.id === ROBINHOOD_MAINNET_ID;
 
 export const Route = createFileRoute("/docs")({
   head: () => ({
@@ -405,10 +409,17 @@ function Docs() {
               header and approve the connection. No account, email, or signup required.
             </p>
             <p>
-              The app defaults to Robinhood Chain <b>testnet</b> (chain ID 46630) unless explicitly
-              configured for mainnet (chain ID 4663), so a missing setting can never quietly point
-              you at real funds. The network is always shown in the header and site footer. Testnet
-              ETH has no real-world value and is only for testing.
+              This build is connected to{" "}
+              <b className="text-foreground">
+                {ACTIVE_CHAIN.name} (chain ID {ACTIVE_CHAIN.id})
+              </b>
+              .{" "}
+              {IS_MAINNET
+                ? "Every trade uses real ETH and is irreversible."
+                : "Testnet ETH has no real-world value; nothing here is real money."}{" "}
+              The app only reaches mainnet when it is explicitly configured for it, so a missing
+              setting can never quietly point you at real funds. The network is always shown in the
+              header and site footer.
             </p>
             <p>
               If your wallet is connected to a different network, the connect button says so and
@@ -580,7 +591,9 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Is this real money?",
-    a: "Depends on the network. The app defaults to Robinhood Chain testnet (test ETH, no real value) unless explicitly pointed at mainnet, in which case every trade uses real ETH. The current network is always shown in the header and site footer.",
+    a: IS_MAINNET
+      ? `Yes. This build is connected to ${ACTIVE_CHAIN.name} (chain ID ${ACTIVE_CHAIN.id}) and every trade uses real ETH. Trades are irreversible.`
+      : `No. This build is connected to ${ACTIVE_CHAIN.name} (chain ID ${ACTIVE_CHAIN.id}), where ETH has no real-world value. The app only uses real funds when explicitly pointed at mainnet, and the current network is always shown in the header and site footer.`,
   },
 ];
 

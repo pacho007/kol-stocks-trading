@@ -31,7 +31,17 @@ primary_region = "iad"
   # the numbers justify it. Tightening is one deploy; an unexpected four-figure
   # gas bill is not recoverable.
   CYCLE_SECONDS = "900"
-  ROBINHOOD_NETWORK = "testnet"
+
+  # Mainnet. This machine signs with the oracle authority key and writes prices
+  # the whole board is read off, so it must target the same chain the site
+  # trades on — chain 4663.
+  #
+  # A wrong value here is caught rather than silently tolerated: push-onchain
+  # checks that MARKET_ADDRESS actually has code on this network AND that the
+  # key is the contract's oracleAuthority, and throws on either mismatch. So
+  # flipping this without updating the MARKET_ADDRESS secret fails loudly on
+  # the next cycle instead of quietly publishing to the wrong chain.
+  ROBINHOOD_NETWORK = "mainnet"
 
   # Pin the launch gate. Scores count only trades after this instant, which is
   # what every listing bio promises. Left unset, the oracle stamps "now" on

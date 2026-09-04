@@ -106,6 +106,36 @@ Deno.serve(async () => {
 
   const chain = createPublicClient({ transport: http(RPC_URL) });
 
+  // REFUSE TO INDEX THE WRONG CHAIN.
+  //
+  // RPC_URL and MARKET_ADDRESS are two independent secrets, and nothing ties
+  // them together. Forgetting to update ROBINHOOD_RPC_URL at the mainnet
+  // cutover leaves this pointed at testnet while holding the mainnet address:
+  // getLogs on an address with no code is not an error, it just returns
+  // nothing, so the function reports success forever and the price history
+  // silently stops advancing. That failure is invisible until someone asks
+  // why the chart is flat.
+  //
+  // A deployed contract has code and a wrong-chain address does not, so one
+  // getCode call turns that silent mismatch into a loud one. Cheap: a single
+  // call per invocation, against an RPC this function is about to hammer with
+  // getLogs anyway.
+  const deployedCode = await chain.getCode({ address: MARKET_ADDRESS }).catch(() => undefined);
+  if (!deployedCode || deployedCode === "0x") {
+    const chainId = await chain.getChainId().catch(() => 0);
+    return jsonResponse(
+      {
+        error:
+          `MARKET_ADDRESS ${MARKET_ADDRESS} has no contract code on the chain at ROBINHOOD_RPC_URL ` +
+          `(chain id ${chainId || "unknown"}). Refusing to index rather than silently recording ` +
+          `nothing. Check that ROBINHOOD_RPC_URL and MARKET_ADDRESS name the same network.`,
+        chainId,
+        marketAddress: MARKET_ADDRESS,
+      },
+      500,
+    );
+  }
+
   // Map on-chain wallet -> our listing id. Only wallets we actually list are
   // indexed; an event for an unknown wallet is skipped rather than inventing
   // a listing row (kol_id is a real foreign key).
