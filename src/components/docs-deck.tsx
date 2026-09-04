@@ -30,23 +30,23 @@ const CARDS: Card[] = [
     ],
   },
   {
-    kicker: "03 · Sessions",
-    title: "Market hours and the daily close",
-    body: "SHARPS runs on real market hours. Asia, London and New York sessions roll through the day, the tape stays live while any session is open, and the book is marked once at the New York close.",
+    kicker: "03 · Pricing cadence",
+    title: "When the price moves",
+    body: "Two things move a share price, and both are continuous. The oracle re-reads every listed wallet on a loop and pushes any score that changed on chain; and every buy or sell walks the bonding curve, so a trade repriced the listing before the next visitor loads the page.",
     points: [
-      ["Open", "Asia session opens the trading day"],
-      ["Close", "21:00 UTC, one mark per day"],
-      ["After hours", "Orders queue and fill at the next open"],
+      ["Score", "Re-read on a loop, pushed when it changes"],
+      ["Trades", "Every buy and sell moves the curve immediately"],
+      ["Sessions", "Shown as context; they never gate a trade"],
     ],
   },
   {
     kicker: "04 · Trading",
     title: "Buying and selling a trader",
-    body: "You buy shares in the operator, not the coin they are farming. Positions are held in your portfolio, marked to the daily close, and can be exited any time the market is open.",
+    body: "You buy shares in the operator, not the coin they are farming. Orders execute against the contract the moment you confirm — there is no queue and no settlement window — and you can exit at any hour.",
     points: [
-      ["Buy", "Take a position while a session is open"],
-      ["Hold", "Your shares reprice at each daily close"],
-      ["Sell", "Exit at the live price, settlement at the close"],
+      ["Buy", "Fills immediately at the quoted curve price"],
+      ["Hold", "Shares reprice as the score and the curve move"],
+      ["Sell", "Exit any time; proceeds arrive in the same transaction"],
     ],
   },
   {
@@ -55,7 +55,7 @@ const CARDS: Card[] = [
     body: "New listings start small and unnoticed. The leaderboard ranks by performance score rather than size, so a disciplined wallet with no timeline presence can surface long before the crowd finds it.",
     points: [
       ["Leaderboard", "Ranked on score, not on follower count"],
-      ["Season", "Season 1 runs on daily close settlement"],
+      ["Season", "Season 1 · scores update continuously"],
       ["Edge", "Read the book, not the posts"],
     ],
   },

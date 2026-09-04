@@ -73,7 +73,8 @@ function Market() {
             <p className="num text-[10px] tracking-[0.3em] uppercase text-primary">All markets</p>
             <h1 className="mt-2 text-3xl font-bold sm:text-4xl">The Trader Index</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              {KOLS.length} verified wallets listed. Prices update every few seconds.
+              {KOLS.length} verified wallets listed. Prices move on every trade and whenever a score
+              changes.
             </p>
           </div>
           <div className="flex items-center gap-2">

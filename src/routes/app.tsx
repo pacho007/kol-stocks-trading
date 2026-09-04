@@ -25,7 +25,7 @@ export const Route = createFileRoute("/app")({
       {
         name: "description",
         content:
-          "SHARPS lists on-chain crypto traders as tradable stocks. Their daily performance sets their share price, with market hours and a daily close. Scout talent early, buy shares, ride the PnL.",
+          "SHARPS lists on-chain crypto traders as tradable stocks. Their measured on-chain performance sets their share price, updated continuously. Scout talent early, buy shares, ride the PnL.",
       },
       { property: "og:title", content: "SHARPS · Invest in Crypto Traders Like Stocks" },
       {
@@ -48,12 +48,12 @@ const STEPS = [
   {
     n: "02",
     title: "The desk prices them daily",
-    body: "Books are reviewed once a day at the close. The session's on-chain performance sets the next open, green days gap the stock up, blowups gap it down.",
+    body: "An oracle re-reads every listed wallet on a loop and pushes any score that moved on chain. Good trading lifts the price, blowups drag it down, and it happens through the day rather than at a fixed mark.",
   },
   {
     n: "03",
     title: "You trade the session",
-    body: "Buy fractional shares of the operator, not the coin they are farming, while the market is open. Orders placed after the bell fill at the next open.",
+    body: "Buy fractional shares of the operator, not the coin they are farming. Orders execute against the contract the moment you confirm, at any hour — nothing queues.",
   },
 ];
 
@@ -123,7 +123,7 @@ function Landing() {
               {idx.listedOnChain}/{idx.totalListings}
             </span>
           </span>
-          <span className="ml-auto hidden sm:inline">Season 1 · daily close settlement</span>
+          <span className="ml-auto hidden sm:inline">Season 1 · continuous pricing</span>
         </div>
       </div>
 
@@ -329,7 +329,7 @@ function Landing() {
             </p>
             <SessionClock />
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              Every trader's book is scored once a day. Winning sessions mark their stock up at the
+              Every trader's book is re-scored on a loop. Winning trades mark their stock up at the
               close, losing sessions mark it down, that's the whole game.
             </p>
           </div>
