@@ -16,6 +16,7 @@ const NAV = [
   { to: "/leaderboard", label: "Leaderboard" },
   { to: "/portfolio", label: "Portfolio" },
   { to: "/docs", label: "Docs" },
+  { to: "/sharps", label: "$SHARPS" },
 ] as const;
 
 /** Truncated hex address, e.g. "0x7xKX…9fTq", from the connected EVM wallet. */
