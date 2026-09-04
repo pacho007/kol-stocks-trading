@@ -1,0 +1,24 @@
+-- 0006_view_security_invoker.sql — make listing_volume_24h respect the caller's RLS.
+--
+-- Lovable's security scan flagged this CRITICAL, and it is right to.
+--
+-- A Postgres view runs with the permissions of whoever DEFINED it unless told
+-- otherwise. public.listing_volume_24h reads public.fills, so as written it
+-- reads that table as its creator and ignores whatever row level security the
+-- QUERYING user is subject to.
+--
+-- Today that leaks nothing: fills is deliberately world-readable (the trade
+-- tape needs it), and the view only ever emits per-listing aggregates —
+-- summed volume, a fill count, a distinct-trader count — never a row that
+-- identifies anybody.
+--
+-- It is still worth fixing, because the danger is entirely in the future. The
+-- moment anyone tightens RLS on fills — restricting a trader to their own
+-- rows, say, which is exactly the change the "trader wallet addresses publicly
+-- exposed" warning invites — this view would quietly keep serving the
+-- unrestricted data underneath it. A policy that can be bypassed by an object
+-- nobody remembers is worse than no policy, because it looks enforced.
+--
+-- security_invoker makes the view evaluate RLS as the caller. Behaviour is
+-- unchanged while fills stays public; it simply stops being a hole later.
+alter view public.listing_volume_24h set (security_invoker = true);
