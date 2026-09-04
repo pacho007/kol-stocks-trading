@@ -411,7 +411,6 @@ function KolDetail() {
                   <Row label="Your shares" value={maxSell.toLocaleString()} />
                 </>
               )}
-              <Row label="Market" value="OPEN 24/7" />
             </dl>
 
             {/* The 2% itemised. A single "fee" line hides that most of it

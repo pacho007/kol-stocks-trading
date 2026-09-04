@@ -6,7 +6,6 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useMarket } from "@/lib/market-store";
-import { useSession } from "@/hooks/use-session";
 import { useEvmWallet } from "@/lib/evm/wallet-provider";
 import { ACTIVE_CHAIN } from "@/lib/evm/chain";
 
@@ -199,7 +198,6 @@ export function ConnectWalletButton({
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
-  const session = useSession();
 
   return (
     /* Now that this actually sticks (see __root.tsx), it needs a ground —
@@ -239,21 +237,6 @@ export function SiteHeader() {
 
           <div className="ml-auto flex items-center gap-2.5">
             <OracleStatus />
-            {/* SHARPS never closes, so this never says it does.
-                The contract has no session concept — buy and sell are callable
-                at any hour, by anyone, directly. This used to read "Markets
-                Closed" with a red dot while that was true, which stopped
-                honest traders using the site and stopped nobody calling the
-                contract. The sessions are context about where the wider market
-                is awake, not a gate, and are labelled that way. */}
-            <div className="hidden items-center gap-2 pr-1 sm:flex">
-              <span className="live-dot size-1.5 rounded-full bg-up" />
-              <span className="num text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
-                {session?.active.length
-                  ? `24/7 · ${session.active.map((s) => s.short).join(" / ")} Open`
-                  : "Open 24/7"}
-              </span>
-            </div>
             <ThemeToggle />
             <ConnectWalletButton />
             <button

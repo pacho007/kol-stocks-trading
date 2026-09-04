@@ -13,8 +13,6 @@ import { DocsDeck } from "@/components/docs-deck";
 import { ConnectWalletButton } from "@/components/site-header";
 import { KOLS, fmtCompact, fmtPct, perfScore, shortWallet } from "@/lib/kols";
 import heroBanner from "@/assets/hero-banner.jpg";
-import { useSession } from "@/hooks/use-session";
-import { DAY_CLOSE, DAY_OPEN, fmtUtc } from "@/lib/sessions";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
@@ -60,7 +58,6 @@ function Landing() {
   const idx = useIndexStats();
   const { changePct, marketCapUsd, volumeUsd24h } = useLiveMetrics();
   const series = useLiveSeries();
-  const session = useSession();
   const featured = [
     "cupsey",
     "sebastian",
@@ -90,14 +87,6 @@ function Landing() {
       {/* status strip */}
       <div className="border-b border-border bg-surface/40">
         <div className="mx-auto flex max-w-[110rem] flex-wrap items-center gap-x-6 gap-y-1 px-4 py-2 text-[10px] tracking-[0.18em] uppercase text-muted-foreground sm:px-6">
-          {/* Always open — see the note in site-header.tsx. The sessions below
-              say where the wider market is awake, not whether you can trade. */}
-          <span className="flex items-center gap-2 text-primary">
-            <span className="live-dot size-1.5 rounded-full bg-up" />
-            {session?.active.length
-              ? `Open 24/7 · ${session.active.map((s) => s.label).join(" + ")} trading now`
-              : `Open 24/7 · next session ${fmtUtc(session?.next?.open ?? DAY_OPEN)} UTC`}
-          </span>
           <span>
             Index cap <span className="num text-foreground">{fmtCompact(idx.capUsd)}</span>
           </span>
