@@ -7,16 +7,16 @@ import { MARKET_ADDRESS } from "@/lib/evm/chain";
 export const Route = createFileRoute("/sharps")({
   head: () => ({
     meta: [
-      { title: "$SHARPS · The Exchange Token | SHARPS" },
+      { title: "$SHARPS · The Platform Token | SHARPS" },
       {
         name: "description",
         content:
-          "$SHARPS is the token behind the exchange. Every trade on SHARPS already pays a protocol fee on-chain, and $SHARPS is what that fee is for.",
+          "$SHARPS is the token behind the platform. Every trade on SHARPS already pays a protocol fee on-chain, and $SHARPS is what that fee is for.",
       },
-      { property: "og:title", content: "$SHARPS · The Exchange Token | SHARPS" },
+      { property: "og:title", content: "$SHARPS · The Platform Token | SHARPS" },
       {
         property: "og:description",
-        content: "The token behind the exchange. Launching on Pons.",
+        content: "The token behind the platform. Launching on Pons.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -46,14 +46,14 @@ function SharpsToken() {
       {/* masthead */}
       <div className="rise">
         <p className="num text-[10px] tracking-[0.3em] uppercase text-primary">
-          The exchange token
+          The platform token
         </p>
         <h1 className="mt-3 flex items-center gap-3 text-4xl font-extrabold tracking-tight sm:text-5xl">
           <SharpsMark size={36} className="text-primary" />
           $SHARPS
         </h1>
         <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-muted-foreground">
-          SHARPS is an exchange where on-chain traders are listed like stocks and priced by their
+          SHARPS is a platform where on-chain traders are listed like stocks and priced by their
           measured performance. Every trade on it already pays a protocol fee, on-chain, today.
           $SHARPS is what that fee is for.
         </p>
@@ -131,7 +131,7 @@ function SharpsToken() {
         </h2>
         <div className="mt-3 panel p-5">
           <p className="text-sm leading-relaxed text-muted-foreground">
-            A share of protocol revenue is returned to $SHARPS holders. The exchange earns whenever
+            A share of protocol revenue is returned to $SHARPS holders. The platform earns whenever
             anyone trades a listing, so the token is tied to activity on the board rather than to a
             promise about the token itself.
           </p>
@@ -158,7 +158,7 @@ function SharpsToken() {
             </span>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-            $SHARPS launches on Pons, on the same chain the exchange settles on. That keeps the
+            $SHARPS launches on Pons, on the same chain the platform settles on. That keeps the
             token, the market contract and every listed wallet on one network — no bridge between
             the thing you hold and the thing that earns.
           </p>
@@ -177,7 +177,7 @@ function SharpsToken() {
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {[
             {
-              title: "A claim on exchange activity",
+              title: "A claim on platform activity",
               body: "Every buy and every sell on all listings pays the protocol fee. Holding $SHARPS is a way to be on the volume rather than on any one trader.",
             },
             {
@@ -186,7 +186,7 @@ function SharpsToken() {
             },
             {
               title: "Independent of any listing",
-              body: "A listing can be marked down to a third of its open. The exchange still earns on the trades that took it there.",
+              body: "A listing can be marked down to a third of its open. The platform still earns on the trades that took it there.",
             },
             {
               title: "Not equity, not a share of the reserve",
@@ -217,7 +217,7 @@ function SharpsToken() {
               the protocol fee; it does not pay anybody out automatically.
             </li>
             <li>
-              The exchange earns on volume, and volume is not guaranteed. A quiet board earns
+              The platform earns on volume, and volume is not guaranteed. A quiet board earns
               nothing.
             </li>
           </ul>

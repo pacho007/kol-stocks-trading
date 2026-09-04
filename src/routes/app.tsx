@@ -43,16 +43,16 @@ const STEPS = [
   {
     n: "01",
     title: "Traders get listed",
-    body: "Every listing is a verified on-chain wallet. Win rate, realized PnL, size and hold time are tracked all session, no self-reported screenshots.",
+    body: "Every listing is a verified on-chain wallet. Win rate, realized PnL, size and hold time are read straight off the chain, no self-reported screenshots.",
   },
   {
     n: "02",
-    title: "The desk prices them daily",
+    title: "The oracle prices them continuously",
     body: "An oracle re-reads every listed wallet on a loop and pushes any score that moved on chain. Good trading lifts the price, blowups drag it down, and it happens through the day rather than at a fixed mark.",
   },
   {
     n: "03",
-    title: "You trade the session",
+    title: "You trade, any hour",
     body: "Buy fractional shares of the operator, not the coin they are farming. Orders execute against the contract the moment you confirm, at any hour — nothing queues.",
   },
 ];
