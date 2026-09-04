@@ -14,6 +14,18 @@
 # you actually want a fresh market.
 set -euo pipefail
 
+# Stop MSYS mangling the "file.sol:Contract" argument.
+#
+# Git Bash's runtime rewrites arguments containing a colon into Windows-style
+# path lists, so `script/X.s.sol:X` reaches forge as something it cannot
+# resolve — it compiles fine, then fails with "Could not find target contract".
+# It only shows up when bash is launched from PowerShell rather than from a
+# Git Bash window, which is exactly the kind of difference that looks like a
+# broken script rather than a shell quirk.
+export MSYS2_ARG_CONV_EXCL='*'
+export MSYS_NO_PATHCONV=1
+
+
 # Network, RPC and the chain-id guard all come from here.
 # shellcheck source=./_network.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_network.sh"

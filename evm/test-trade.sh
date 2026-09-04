@@ -24,6 +24,11 @@
 # not privileged on this contract, so a test buyer is exactly what it is.
 set -uo pipefail
 
+# Stop MSYS mangling the "file.sol:Contract" argument — see deploy-testnet.sh.
+export MSYS2_ARG_CONV_EXCL='*'
+export MSYS_NO_PATHCONV=1
+
+
 # Network, RPC and the chain-id guard all come from here.
 # shellcheck source=./_network.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_network.sh"
