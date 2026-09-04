@@ -6,6 +6,7 @@ import type { Address } from "viem";
 import { AvatarMark } from "@/components/avatar-mark";
 import { TradeTape } from "@/components/trade-tape";
 import { LiveDot } from "@/components/live-dot";
+import { isUnmeasured } from "@/components/score-pill";
 import { LivePrice } from "@/components/live-price";
 import { PriceChart } from "@/components/price-chart";
 import { ConnectWalletButton } from "@/components/site-header";
@@ -318,6 +319,28 @@ function KolDetail() {
             </div>
             <TradeTape kolId={kol.id} limit={8} />
           </div>
+
+          {/* Said plainly, above the trading case, because this is the page
+              where someone commits money. The score pill carries the same
+              fact, but a tooltip is not where you disclose that a price has
+              nothing behind it yet. */}
+          {isUnmeasured(breakdown?.confidence) && (
+            <div className="panel border-l-2 border-l-down/60 p-4">
+              <p className="text-[10px] font-semibold tracking-[0.16em] uppercase text-down">
+                Not yet rated
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                The oracle has not measured a completed trade for this wallet, so ${kol.ticker} sits
+                at the opening score every listing starts from. Its price will not move on
+                performance until it does.
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-muted-foreground/80">
+                Scores come from round trips priced in ETH. A wallet can be busy staking, minting or
+                swapping token-to-token and still read as unrated — that activity is left out rather
+                than guessed at, because a guessed number would be worse than none.
+              </p>
+            </div>
+          )}
 
           <BiggestTradesPanel wins={topWins} losses={topLosses} nativePriceUsd={nativePriceUsd} />
 

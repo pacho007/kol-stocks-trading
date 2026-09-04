@@ -20,6 +20,37 @@ export function scoreBand(score: number): { label: string; tone: "up" | "down" |
   return { label: "Weak", tone: "down" };
 }
 
+/**
+ * True when the oracle has measured nothing for this listing, so its 50 is an
+ * opening default rather than a verdict.
+ *
+ * Derived from confidence rather than a hardcoded list of wallets, which
+ * matters because the reason a listing is unmeasured varies and changes. Some
+ * wallets simply have not traded yet. Others trade constantly but in ways the
+ * PnL reconstruction deliberately ignores — staking, minting, token-to-token
+ * swaps — because it only recognises a native-ETH round trip and refuses to
+ * guess at the rest (see oracle/blockscout-provider.ts). Either way the honest
+ * statement to a buyer is the same: there is nothing behind this price yet.
+ *
+ * Deriving it also means the badge clears itself the moment a wallet makes a
+ * measurable trade, and appears on any listing that goes quiet — no list to
+ * maintain, and no way for it to drift out of date.
+ */
+export function isUnmeasured(confidence: number | undefined): boolean {
+  // Only an explicit zero. Deliberately NOT `confidence === undefined`, which
+  // was the first attempt and was wrong in the worst direction: `breakdowns` is
+  // empty whenever the published scores are older than the listing set or the
+  // shared feed has not answered yet, so every listing — including 122 traders
+  // with hundreds of real trades between them — was being labelled unrated.
+  //
+  // Absent data means "not known yet", and the honest response to not knowing
+  // is to say nothing, not to assert the stronger claim that there is nothing
+  // to know. The badge therefore appears only once the oracle has actually
+  // published a confidence of 0 for that listing, which is a measurement rather
+  // than an absence.
+  return confidence === 0;
+}
+
 export function ScorePill({
   score,
   id,
@@ -33,6 +64,29 @@ export function ScorePill({
   const { breakdowns } = useMarket();
   const band = scoreBand(score);
   const conf = id ? breakdowns[id]?.confidence : undefined;
+
+  // An unmeasured listing must not wear a band label. "Neutral" reads as a
+  // finding — that this trader was assessed and landed mid-table — when in
+  // fact nothing has been assessed at all.
+  if (isUnmeasured(conf)) {
+    return (
+      <span
+        title={
+          `No measurable trades yet, so this is the opening score every listing starts at, ` +
+          `not a judgement. Scores move on completed round trips priced in ETH; activity like ` +
+          `staking, minting or token-to-token swaps is not counted rather than guessed at.`
+        }
+        className={`num inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-muted/40 font-bold tabular-nums text-muted-foreground ${
+          size === "lg" ? "px-2.5 py-1 text-sm" : "px-2 py-0.5 text-[11px]"
+        }`}
+      >
+        {score}
+        <span className="text-[9px] font-semibold tracking-[0.14em] uppercase opacity-70">
+          Unrated
+        </span>
+      </span>
+    );
+  }
 
   const tone =
     band.tone === "up"
