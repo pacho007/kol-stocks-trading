@@ -1389,7 +1389,25 @@ export function perfScore(k: Kol) {
  * small values get enough digits to stay distinguishable. Pass `digits`
  * explicitly to force a fixed width where columns must align.
  */
+/**
+ * A formatter must never be the reason a page fails to render.
+ *
+ * These called .toLocaleString() and .toFixed() straight on the argument, so
+ * undefined or null threw a TypeError — and a TypeError thrown during render
+ * takes out the whole React tree, not just the number. A missing price is a
+ * gap in the data; a white screen is an outage, and turning the first into the
+ * second is the wrong trade at every point on a live market page.
+ *
+ * TypeScript says these are numbers, which is true of every call site today.
+ * It is not true of what arrives at runtime from a feed row, a chain read that
+ * failed, or a listing that has no price yet — all of which exist here.
+ *
+ * A dash for anything that is not a finite number. It reads as "no value",
+ * which is what it is, and it matches how the splash chips report the same
+ * absence.
+ */
 export const fmtUsd = (n: number, digits?: number) => {
+  if (!Number.isFinite(n)) return "—";
   const abs = Math.abs(n);
   const d = digits ?? (abs === 0 ? 2 : abs >= 1 ? 2 : abs >= 0.001 ? 4 : abs >= 0.00001 ? 6 : 8);
   return n.toLocaleString("en-US", {
@@ -1401,6 +1419,10 @@ export const fmtUsd = (n: number, digits?: number) => {
 };
 
 export function fmtCompact(n: number) {
+  // Same reasoning as fmtUsd: never render "$NaN" or "$InfinityB", both of
+  // which this produced. A dash is the honest output for a number that is not
+  // one.
+  if (!Number.isFinite(n)) return "—";
   const abs = Math.abs(n);
   const sign = n < 0 ? "-" : "";
   if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`;
@@ -1409,4 +1431,7 @@ export function fmtCompact(n: number) {
   return `${sign}$${abs.toFixed(0)}`;
 }
 
-export const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+export const fmtPct = (n: number) => {
+  if (!Number.isFinite(n)) return "—";
+  return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+};
