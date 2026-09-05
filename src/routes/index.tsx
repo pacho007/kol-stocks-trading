@@ -5,7 +5,7 @@ import { KOLS } from "@/lib/kols";
 import { TraderBubbles } from "@/components/trader-bubbles";
 import bgVideo from "@/assets/sharps-dunes.mp4.asset.json";
 import heroPoster from "@/assets/sharps-dunes-poster.jpg.asset.json";
-import sharpsGlassLogo from "@/assets/sharps-glass-logo.png.asset.json";
+import sharpsGlassLogo from "@/assets/sharps-glass-badge.png.asset.json";
 
 /**
  * Starts false so the server and the first client render agree — reading
@@ -116,7 +116,7 @@ function Splash() {
             src={sharpsGlassLogo.url}
             alt=""
             aria-hidden
-            className="mx-auto w-full max-w-[1000px] select-none object-contain"
+            className="mx-auto w-full max-w-[1000px] select-none object-contain drop-shadow-[0_24px_45px_rgba(91,31,57,0.16)]"
           />
         </h1>
 
