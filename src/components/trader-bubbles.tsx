@@ -9,33 +9,42 @@ import { use24hChange, type Mover } from "@/lib/use-24h-change";
  * an output of the sort order — a top-movers feed would put a different twelve
  * up every day and could surface a listing nobody recognises.
  *
- * Positions are hand-placed because the hero is the constraint: the wordmark
- * occupies the middle band and the CTA row sits under it, so the usable space
- * is the left and right margins, the strip under the header, and the gap above
- * the marquee. Generated placement puts a chip over the word SHARPS every few
- * reloads.
+ * Positions are hand-placed because the hero is the constraint. The wordmark is
+ * an image up to 1000px wide that goes edge-to-edge on a narrow viewport, so
+ * there is no horizontal margin to hide in below about 1360px — chips have to
+ * avoid its vertical band (18-54% of the viewport) rather than sit beside it.
+ * An earlier layout placed four at 17% and 39% and they were clear at 1920 and
+ * overlapping the logo at every width below 1536.
  *
- * `wide` marks the chips that only appear on large viewports. Twelve chips need
- * the full width to stay clear of each other and of the wordmark; below that
- * the set thins to six rather than scaling down into illegibility.
+ * `wide` marks the chips that only appear at lg and above. Below that only the
+ * band above the marquee is provably clear at every width, so the set thins to
+ * those four rather than risking a chip landing on the header or the subtitle.
  */
 const ROSTER: { id: string; top: string; left: string; wide?: boolean }[] = [
-  // left margin, top to bottom
-  { id: "d03353", top: "17%", left: "5%" }, //                nyhrox
-  { id: "963133", top: "39%", left: "3.5%", wide: true }, //   Seba
-  { id: "38e420", top: "61%", left: "6%" }, //                 Loopierr
-  { id: "03ba95", top: "79%", left: "15%", wide: true }, //    Rowdy
-  // right margin, top to bottom
-  { id: "f100af", top: "17%", left: "79%" }, //                Tom
-  { id: "d41fea", top: "39%", left: "83.5%", wide: true }, //  milito
-  { id: "fe277a", top: "61%", left: "78%" }, //                Vali
-  { id: "696d12", top: "79%", left: "69%", wide: true }, //    Frank
-  // the band under the header, either side of centre
-  { id: "0f84d2", top: "7%", left: "27%" }, //                 Cupsey
-  { id: "bc2255", top: "7%", left: "63%" }, //                 dv
-  // the band above the marquee, either side of centre
-  { id: "be38d1", top: "86%", left: "34%", wide: true }, //    pow
-  { id: "6078ee", top: "86%", left: "57%", wide: true }, //    Inq
+  // Band above the wordmark, between the header and the logo. lg-only: the
+  // header wraps to two lines on a narrow viewport and grows down into this
+  // band, which measured as a clash at 768 and below.
+  { id: "d03353", top: "9%", left: "5%", wide: true }, //       nyhrox
+  { id: "0f84d2", top: "11%", left: "26%", wide: true }, //     Cupsey
+  { id: "bc2255", top: "8.5%", left: "59%", wide: true }, //    dv
+  { id: "f100af", top: "10.5%", left: "79%", wide: true }, //   Tom
+
+  // Margins below the wordmark. The subtitle is max-w-lg and the CTA row is
+  // narrow, both centred, so the far left and right stay clear — but only
+  // once the viewport is wide enough that centred content does not reach the
+  // edges, hence lg-only.
+  { id: "963133", top: "58%", left: "3%", wide: true }, //      Seba
+  { id: "d41fea", top: "58%", left: "84%", wide: true }, //     milito
+  { id: "38e420", top: "70%", left: "4.5%", wide: true }, //    Loopierr
+  { id: "fe277a", top: "70%", left: "83%", wide: true }, //     Vali
+
+  // Band between the CTA row (ends 74.6%) and the marquee (starts 95.3%). The
+  // only zone that measured clean at every width from 1920 down to 700, so
+  // these four are the set that survives on a narrow viewport.
+  { id: "03ba95", top: "80%", left: "12%" }, //                 Rowdy
+  { id: "be38d1", top: "86%", left: "33%" }, //                 pow
+  { id: "6078ee", top: "84%", left: "56%" }, //                 Inq
+  { id: "696d12", top: "79%", left: "76%" }, //                 Frank
 ];
 
 const IDS = ROSTER.map((r) => r.id);
