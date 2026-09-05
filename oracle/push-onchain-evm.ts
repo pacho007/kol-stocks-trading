@@ -258,6 +258,29 @@ async function once(
     results: {},
   };
 
+  // Balance, checked per cycle rather than only at startup.
+  //
+  // connectOracle() reports this once when the service boots, which catches
+  // launching with an empty wallet and nothing else. The failure that
+  // actually happens is draining three days in: sends start failing, the
+  // retry loop exhausts, the cycle logs and continues, and the board simply
+  // stops moving. Two RPC calls against a 15 minute cycle is nothing next to
+  // finding out from a user that prices look stuck.
+  try {
+    const bal = await publicClient.getBalance({ address: walletClient.account!.address });
+    const gp = await publicClient.getGasPrice();
+    const perPush = 7_700_000n * gp;
+    const left = perPush > 0n ? bal / perPush : 0n;
+    if (left < 20n) {
+      console.warn(
+        `LOW BALANCE: ${(Number(bal) / 1e18).toFixed(5)} ETH left on ${walletClient.account!.address}, about ` +
+          `${left} more full pushes. Scores stop moving when this runs out and the board ` +
+          `looks stale rather than broken.`,
+      );
+    }
+  } catch {
+    // A balance read failing must never stop the push it was warning about.
+  }
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
     const chunk = rows.slice(i, i + CHUNK_SIZE);
     const wallets = chunk.map((r) => r.wallet as Address);
