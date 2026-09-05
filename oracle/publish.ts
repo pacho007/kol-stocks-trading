@@ -6,10 +6,16 @@
  * "simulated scores" into "real performance-driven prices".
  *
  * One-shot:
- *   HELIUS_API_KEY=xxxx npx tsx oracle/publish.ts
+ *   npx tsx oracle/publish.ts
  *
  * Refresh on a schedule (every REFRESH_MIN minutes):
- *   HELIUS_API_KEY=xxxx npx tsx oracle/publish.ts --watch
+ *   npx tsx oracle/publish.ts --watch
+ *
+ * HELIUS_API_KEY is not one of the inputs and has not been for a long time.
+ * It was in these instructions until now, which is the sort of leftover that
+ * sends somebody looking for a Solana credential to explain why the oracle is
+ * not running. Wallet history comes from Blockscout on Robinhood Chain; see
+ * BLOCKSCOUT_API_KEY in oracle/blockscout-provider.ts.
  *
  * Output: writes `public/scores.json` so the frontend can fetch it at
  * `/scores.json` with no extra server. (For production you'd serve this from
