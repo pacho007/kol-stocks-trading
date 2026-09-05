@@ -303,7 +303,15 @@
 }
 
 @utility marquee {
-  animation: marquee 42s linear infinite;
+  /* 90s, not 42. The tape is ambient — it exists to show the board is alive
+     while you are reading something else, and at 42s the tickers crossed fast
+     enough that catching a symbol meant tracking it, which is the opposite of
+     ambient. Slow enough to read a name in passing, still clearly moving.
+
+     Both tapes share this utility: the splash marquee and the in-app ticker.
+     They carry different amounts of content, so the same duration gives them
+     different speeds; this sets the calmer end for both. */
+  animation: marquee 90s linear infinite;
 }
 
 @keyframes flash-up {

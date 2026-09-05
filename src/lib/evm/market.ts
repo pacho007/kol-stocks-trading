@@ -141,41 +141,60 @@ export async function fetchShareBalance(
   }
 }
 
-/** Every listing's share balance for one holder, in a single multicall. */
+/**
+ * Every listing's share balance for one holder, in a single multicall.
+ *
+ * Returns the failure count alongside the balances, and that is the point. It
+ * used to swallow both kinds of failure: an individual read that came back
+ * unsuccessful was skipped, and a multicall that threw returned {}. Both
+ * render identically to holding nothing — so an RPC hiccup showed a wallet
+ * with real shares "No positions yet", which is the most alarming thing a
+ * market can tell somebody who is holding.
+ *
+ * A zero balance and an unanswered question are different facts, and the
+ * caller has to be able to tell them apart: a throw means ask again, a failure
+ * count means this picture is incomplete.
+ */
 export async function fetchShareBalances(
   client: PublicClient,
   kolWallets: { id: string; wallet: Address }[],
   holder: Address,
-): Promise<Record<string, bigint>> {
+): Promise<{ balances: Record<string, bigint>; failedIds: string[] }> {
   const market = MARKET_ADDRESS;
-  if (!market || kolWallets.length === 0) return {};
-  try {
-    const results = await client.multicall({
-      contracts: kolWallets.map((k) => ({
-        address: market,
-        abi: MARKET_ABI as never,
-        functionName: "shareBalances",
-        args: [k.wallet, holder],
-      })),
-      allowFailure: true,
-    });
-    const out: Record<string, bigint> = {};
-    results.forEach((r, i) => {
-      if (r.status !== "success") return;
-      const bal = r.result as bigint;
-      if (bal > 0n) out[kolWallets[i]!.id] = bal;
-    });
-    return out;
-  } catch {
-    return {};
-  }
+  if (!market || kolWallets.length === 0) return { balances: {}, failedIds: [] };
+
+  // Deliberately not wrapped in try/catch. A multicall that throws is the RPC
+  // failing to answer, not a wallet holding nothing, so it propagates and the
+  // caller keeps what it already had instead of replacing it with an empty book.
+  const results = await client.multicall({
+    contracts: kolWallets.map((k) => ({
+      address: market,
+      abi: MARKET_ABI as never,
+      functionName: "shareBalances",
+      args: [k.wallet, holder],
+    })),
+    allowFailure: true,
+  });
+
+  const balances: Record<string, bigint> = {};
+  const failedIds: string[] = [];
+  results.forEach((r, i) => {
+    const id = kolWallets[i]!.id;
+    if (r.status !== "success") {
+      // Named, not counted. The caller has to keep the previous value for
+      // exactly these and no others: a listing that answered zero really is
+      // zero and must be dropped, or selling out would never clear.
+      failedIds.push(id);
+      return;
+    }
+    const bal = r.result as bigint;
+    if (bal > 0n) balances[id] = bal;
+  });
+  return { balances, failedIds };
 }
 
 /** Fees accrued to a listed trader, claimable only by that wallet. */
-export async function fetchTraderEscrow(
-  client: PublicClient,
-  kolWallet: Address,
-): Promise<bigint> {
+export async function fetchTraderEscrow(client: PublicClient, kolWallet: Address): Promise<bigint> {
   if (!MARKET_ADDRESS) return 0n;
   try {
     return (await client.readContract({

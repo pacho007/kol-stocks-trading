@@ -274,7 +274,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     let alive = true;
     const refresh = async () => {
       try {
-        const balances = await fetchShareBalances(client, KOL_WALLETS, address);
+        const { balances, failedIds } = await fetchShareBalances(client, KOL_WALLETS, address);
         if (!alive) return;
 
         // Average cost of the shares still held, from this wallet's own fills.
@@ -314,14 +314,25 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        setPositions(
-          Object.entries(balances).map(([id, shares]) => ({
-            id,
-            shares: Number(shares),
-            // null, never 0, when unknown — the UI shows a dash rather than
-            // claiming the position was free.
-            entry: entries[id] ?? null,
-          })),
+        const fresh = Object.entries(balances).map(([id, shares]) => ({
+          id,
+          shares: Number(shares),
+          // null, never 0, when unknown — the UI shows a dash rather than
+          // claiming the position was free.
+          entry: entries[id] ?? null,
+        }));
+
+        // Carry forward only the listings the chain did not answer for.
+        //
+        // A listing that answered zero is genuinely zero and has to be
+        // dropped, or selling out would leave a ghost position on the page
+        // forever. A listing that failed to answer is unknown, and replacing
+        // a real holding with nothing because one RPC call was unlucky is how
+        // a holder gets told they own nothing.
+        setPositions((prev) =>
+          failedIds.length === 0
+            ? fresh
+            : [...fresh, ...prev.filter((p) => failedIds.includes(p.id))],
         );
       } catch {
         /* transient RPC error — next tick retries */
