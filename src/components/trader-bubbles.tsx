@@ -9,42 +9,44 @@ import { use24hChange, type Mover } from "@/lib/use-24h-change";
  * an output of the sort order — a top-movers feed would put a different twelve
  * up every day and could surface a listing nobody recognises.
  *
- * Positions are hand-placed because the hero is the constraint. The wordmark is
- * an image up to 1000px wide that goes edge-to-edge on a narrow viewport, so
- * there is no horizontal margin to hide in below about 1360px — chips have to
- * avoid its vertical band (18-54% of the viewport) rather than sit beside it.
- * An earlier layout placed four at 17% and 39% and they were clear at 1920 and
- * overlapping the logo at every width below 1536.
+ * Positions are hand-placed and re-measured whenever the hero changes, because
+ * the hero is the constraint. This has now moved twice: a text wordmark sized
+ * with clamp(), then a full-width logo image that left no side margin at all,
+ * and now a 600px-capped logo that gives the gutters back. Scattered placement
+ * suited the first, survived the second only by avoiding the middle entirely,
+ * and reads as clutter against the third — hence columns.
  *
- * `wide` marks the chips that only appear at lg and above. Below that only the
- * band above the marquee is provably clear at every width, so the set thins to
- * those four rather than risking a chip landing on the header or the subtitle.
+ * `wide` marks the chips that only appear at xl and above. xl rather than lg
+ * because the chip is a fixed 110px, so it costs 5.7% of a 1920 viewport but
+ * 10.7% of a 1024 one — the gutter shrinks while the chip grows into it, and
+ * at exactly 1024 the inner column measured as touching the logo. Below xl the
+ * set thins to the four under the CTA row, where the full width stays clear.
  */
 const ROSTER: { id: string; top: string; left: string; wide?: boolean }[] = [
-  // Band above the wordmark, between the header and the logo. lg-only: the
-  // header wraps to two lines on a narrow viewport and grows down into this
-  // band, which measured as a clash at 768 and below.
-  { id: "d03353", top: "9%", left: "5%", wide: true }, //       nyhrox
-  { id: "0f84d2", top: "11%", left: "26%", wide: true }, //     Cupsey
-  { id: "bc2255", top: "8.5%", left: "59%", wide: true }, //    dv
-  { id: "f100af", top: "10.5%", left: "79%", wide: true }, //   Tom
+  // Two columns flanking the hero, alternating side and stepping down in an
+  // even rhythm. Measured off the live hero: with the logo capped at 600px the
+  // whole centre column — logo, subtitle, CTA — sits inside x 34-66%, so both
+  // gutters are free from just under the header to just above the marquee.
+  //
+  // Even 14% steps with a 5.7% chip leave an 8.3% gap, which is what makes the
+  // arrangement read as placed rather than scattered. The two columns are
+  // offset by half a step so the eye does not see paired rows.
+  { id: "d03353", top: "13%", left: "7%", wide: true }, //     nyhrox
+  { id: "f100af", top: "18%", left: "81%", wide: true }, //    Tom
+  { id: "963133", top: "27%", left: "11%", wide: true }, //    Seba
+  { id: "d41fea", top: "32%", left: "77%", wide: true }, //    milito
+  { id: "38e420", top: "41%", left: "6%", wide: true }, //     Loopierr
+  { id: "fe277a", top: "46%", left: "82%", wide: true }, //    Vali
+  { id: "0f84d2", top: "55%", left: "11%", wide: true }, //    Cupsey
+  { id: "bc2255", top: "60%", left: "77%", wide: true }, //    dv
 
-  // Margins below the wordmark. The subtitle is max-w-lg and the CTA row is
-  // narrow, both centred, so the far left and right stay clear — but only
-  // once the viewport is wide enough that centred content does not reach the
-  // edges, hence lg-only.
-  { id: "963133", top: "58%", left: "3%", wide: true }, //      Seba
-  { id: "d41fea", top: "58%", left: "84%", wide: true }, //     milito
-  { id: "38e420", top: "70%", left: "4.5%", wide: true }, //    Loopierr
-  { id: "fe277a", top: "70%", left: "83%", wide: true }, //     Vali
-
-  // Band between the CTA row (ends 74.6%) and the marquee (starts 95.3%). The
-  // only zone that measured clean at every width from 1920 down to 700, so
-  // these four are the set that survives on a narrow viewport.
-  { id: "03ba95", top: "80%", left: "12%" }, //                 Rowdy
-  { id: "be38d1", top: "86%", left: "33%" }, //                 pow
-  { id: "6078ee", top: "84%", left: "56%" }, //                 Inq
-  { id: "696d12", top: "79%", left: "76%" }, //                 Frank
+  // The four kept below xl. Everything above the CTA row gets tight on a
+  // narrow viewport — at 900px the 600px logo alone is 67% of the width — but
+  // below it the full width is clear down to the marquee, so these survive.
+  { id: "03ba95", top: "69%", left: "7%" }, //                  Rowdy
+  { id: "696d12", top: "74%", left: "81%" }, //                 Frank
+  { id: "be38d1", top: "83%", left: "12%" }, //                 pow
+  { id: "6078ee", top: "88%", left: "76%" }, //                 Inq
 ];
 
 const IDS = ROSTER.map((r) => r.id);
@@ -151,7 +153,7 @@ export function TraderBubbles() {
         return (
           <div
             key={m.kol.id}
-            className={`fade-up absolute ${slot.wide ? "max-lg:hidden" : ""}`}
+            className={`fade-up absolute ${slot.wide ? "max-xl:hidden" : ""}`}
             style={{
               top: slot.top,
               left: slot.left,
