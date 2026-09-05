@@ -132,13 +132,30 @@ function Splash() {
           className="fade-up mt-10 flex flex-col items-center gap-3 sm:flex-row"
           style={{ animationDelay: "0.7s" }}
         >
+          {/* Image CTA.
+
+              The label lives inside the PNG, so the element carries the
+              accessible name and the picture is marked decorative — otherwise
+              a screen reader announces a link with no text at all.
+
+              The art was exported without an alpha channel: its checkerboard
+              is baked in as real pixels rather than being transparency. It is
+              used as a background here, sized and positioned so the button
+              face fills the element and the checkerboard falls outside it,
+              with the rounding clipping whatever survives in the corners.
+              That is a workaround, not a fix — a re-export WITH transparency
+              would let this be a plain <img> and would carry the outer glow
+              that is currently being cropped away. */}
           <Link
             to="/app"
-            className="group glass-slab-tinted inline-flex h-[54px] items-center rounded-[18px] text-[11px] tracking-[0.24em] uppercase transition-[transform,background,box-shadow] duration-300 ease-out hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 motion-reduce:transform-none motion-reduce:transition-none gap-3 px-9 font-extrabold text-white focus-visible:ring-white/60"
-          >
-            OPEN APP
-            <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
-          </Link>
+            aria-label="Open app"
+            className="group inline-flex h-[54px] w-[184px] overflow-hidden rounded-[18px] bg-cover bg-center bg-no-repeat shadow-[0_16px_40px_-14px_rgba(91,31,57,0.45)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-0.5 hover:shadow-[0_24px_54px_-14px_rgba(91,31,57,0.55)] focus-visible:ring-2 focus-visible:ring-[color:var(--logo-ink)]/50 focus-visible:outline-none motion-reduce:transform-none motion-reduce:transition-none"
+            style={{
+              backgroundImage: "url(/open-app.png)",
+              backgroundSize: "116.01% 187.68%",
+              backgroundPosition: "49.78% 45.01%",
+            }}
+          />
           <Link
             to="/docs"
             className="group glass-slab inline-flex h-[54px] items-center rounded-[18px] text-[11px] tracking-[0.24em] uppercase transition-[transform,background,box-shadow] duration-300 ease-out hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 motion-reduce:transform-none motion-reduce:transition-none px-8 font-bold text-[color:var(--logo-ink)] focus-visible:ring-[color:var(--logo-ink)]/40"
