@@ -356,27 +356,25 @@ function OracleStatus() {
         : `${Math.floor(secs / 3600)}h ago`;
   // Green while within roughly three oracle cycles.
   //
-  // This has to be read against two settings in fly.toml, and it was wrong
-  // for both. CYCLE_SECONDS is 1200, and that is the pause BETWEEN cycles —
-  // the cycle itself then takes a couple of minutes warm and up to nine cold,
-  // so updates land every 22 minutes or so. A 20 minute window went red
-  // before the next one could possibly arrive, permanently, on a healthy
-  // oracle.
+  // What this timestamp is, precisely: publish.ts upserts every row into
+  // listing_metrics with a fresh updated_at at the end of each cycle,
+  // unconditionally — the ONCHAIN_MIN_SCORE_DELTA deadband gates the on-chain
+  // push, not this write. So it already is an oracle heartbeat: it advances
+  // whether or not any score moved, and it stops advancing when the oracle
+  // stops running or aborts a cycle. There is nothing to add.
   //
-  // And what this timestamp measures is the last time a listing row was
-  // WRITTEN, not the last time the oracle ran. ONCHAIN_MIN_SCORE_DELTA means
-  // a cycle where nothing moved by 2 points writes nothing at all, so quiet
-  // stretches age this clock while the oracle is working exactly as intended.
-  //
-  // 75 minutes covers three cycles plus their runtime, so it stays green
-  // through a normal quiet patch and still turns red on a genuine outage
-  // within about an hour. Raising CYCLE_SECONDS means raising this too.
+  // 75 minutes, sized off what the oracle actually does. CYCLE_SECONDS is the
+  // pause BETWEEN cycles (1200) and a cycle itself takes two to six minutes,
+  // so a healthy interval is 22-26 minutes. The first transient failure backs
+  // off by CYCLE_SECONDS * 2, which pushes the next success out to about 66
+  // minutes — so a tighter window would flash red every time an explorer
+  // hiccuped. Raising CYCLE_SECONDS means raising this with it.
   const fresh = secs < 75 * 60;
 
   return (
     <div
       className="hidden items-center gap-2 sm:flex"
-      title={`Last score change ${ago}. Quiet periods are normal — scores are only written when one moves by 2 or more points.`}
+      title={`Oracle last completed a cycle ${ago}. It runs about every 22 minutes; scores only change on chain when one moves by 2 or more points.`}
     >
       <span className={`size-1.5 rounded-full ${fresh ? "live-dot bg-up" : "bg-down"}`} />
       <span className="num text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
