@@ -22,7 +22,7 @@ import {
   claimTraderFees,
 } from "@/lib/evm/market";
 import { useEvmWallet } from "@/lib/evm/wallet-provider";
-import { getPublicClient, ethToWei, weiToEth } from "@/lib/evm/chain";
+import { getPublicClient, ethToWei, weiToEth, ACTIVE_CHAIN } from "@/lib/evm/chain";
 
 /** viem surfaces a contract revert's decoded reason on `shortMessage`;
  * anything else (a wallet rejection, a network error) falls back to its plain
@@ -62,8 +62,17 @@ export const Route = createFileRoute("/kol/$id")({
 function KolDetail() {
   const { id } = Route.useParams();
   const kol = getKol(id)!;
-  const { prices, connected, nativeBalance, nativePriceUsd, positions, buyWithNative, sell } =
-    useMarket();
+  const {
+    prices,
+    connected,
+    wrongChain,
+    switchChain,
+    nativeBalance,
+    nativePriceUsd,
+    positions,
+    buyWithNative,
+    sell,
+  } = useMarket();
   const price = prices[kol.id] ?? kol.price;
   const {
     score: liveScore,
@@ -170,8 +179,14 @@ function KolDetail() {
   // No session gate: the contract accepts buy and sell at any hour, so
   // blocking the button only stopped people using this page to do what they
   // could do directly against the contract anyway.
+  // wrongChain belongs here, not only in the submit handler. `connected` is
+  // true on any network, so a wallet sitting on Ethereum mainnet rendered a
+  // fully enabled Buy button that threw the moment it was pressed — the
+  // control said "you can do this" and then refused, which reads as the site
+  // being broken rather than the wallet being on the wrong network.
   const canSubmit =
     connected &&
+    !wrongChain &&
     !pending &&
     amt > 0 &&
     (side === "buy" ? amt <= nativeBalance && derivedShares > 0 : amt <= maxSell + 1e-9);
@@ -500,7 +515,17 @@ function KolDetail() {
               )}
             </div>
 
-            {connected ? (
+            {connected && wrongChain ? (
+              // Not a disabled button: being on the wrong network is fixable
+              // right here, and the control that says so should be the one
+              // that fixes it.
+              <button
+                onClick={switchChain}
+                className="mt-4 w-full rounded-md bg-down py-3 text-[11px] font-bold tracking-widest text-background uppercase transition-all hover:brightness-110"
+              >
+                Switch to {ACTIVE_CHAIN.name}
+              </button>
+            ) : connected ? (
               <button
                 onClick={submit}
                 disabled={!canSubmit}
