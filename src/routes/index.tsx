@@ -134,14 +134,14 @@ function Splash() {
         >
           <Link
             to="/app"
-            className="group inline-flex h-[54px] rounded-2xl backdrop-blur-xl transition-[transform,background-color,box-shadow] duration-300 ease-out hover:-translate-y-0.5 focus-visible:outline-none motion-reduce:transform-none motion-reduce:transition-none items-center gap-3 border border-white/35 bg-[color:var(--logo-ink)]/92 px-9 text-[11px] font-extrabold tracking-[0.24em] text-white uppercase shadow-[0_12px_36px_-10px_rgba(91,31,57,0.5),inset_0_1px_0_rgba(255,255,255,0.35),inset_0_-1px_0_rgba(255,255,255,0.12)] hover:shadow-[0_20px_48px_-12px_rgba(91,31,57,0.58),inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-1px_0_rgba(255,255,255,0.16)] hover:bg-[color:var(--logo-ink)] focus-visible:ring-2 focus-visible:ring-[color:var(--logo-ink)]/50"
+            className="group glass-slab-tinted inline-flex h-[54px] items-center rounded-[18px] text-[11px] tracking-[0.24em] uppercase transition-[transform,background,box-shadow] duration-300 ease-out hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 motion-reduce:transform-none motion-reduce:transition-none gap-3 px-9 font-extrabold text-white focus-visible:ring-white/60"
           >
             OPEN APP
             <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />
           </Link>
           <Link
             to="/docs"
-            className="group inline-flex h-[54px] rounded-2xl backdrop-blur-xl transition-[transform,background-color,box-shadow] duration-300 ease-out hover:-translate-y-0.5 focus-visible:outline-none motion-reduce:transform-none motion-reduce:transition-none items-center border border-white/65 bg-white/40 px-8 text-[11px] font-bold tracking-[0.24em] text-[color:var(--logo-ink)] uppercase shadow-[0_12px_36px_-12px_rgba(61,16,36,0.34),inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-1px_0_rgba(255,255,255,0.3)] hover:shadow-[0_20px_46px_-12px_rgba(61,16,36,0.42),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-1px_0_rgba(255,255,255,0.35)] hover:bg-white/60 focus-visible:ring-2 focus-visible:ring-[color:var(--logo-ink)]/40"
+            className="group glass-slab inline-flex h-[54px] items-center rounded-[18px] text-[11px] tracking-[0.24em] uppercase transition-[transform,background,box-shadow] duration-300 ease-out hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 motion-reduce:transform-none motion-reduce:transition-none px-8 font-bold text-[color:var(--logo-ink)] focus-visible:ring-[color:var(--logo-ink)]/40"
           >
             How it works
           </Link>

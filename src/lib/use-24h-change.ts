@@ -89,6 +89,9 @@ export function use24hChange(ids: readonly string[]): Mover[] | null {
         last.set(id, wei);
       }
 
+      // Did the window contain any price movement at all, for any listing?
+      const feedIsLive = first.size > 0;
+
       const byId = new Map(KOLS.map((k) => [k.id, k]));
       const rows: Mover[] = [];
       for (const id of wanted) {
@@ -101,10 +104,18 @@ export function use24hChange(ids: readonly string[]): Mover[] | null {
           changePct:
             base !== undefined && now !== undefined && base > 0
               ? ((now - base) / base) * 100
-              : // In the feed but no events in the window: the price genuinely
-                // did not move. Absent from the feed: nothing has been measured
-                // yet, and saying "0.0%" would be inventing a result.
-                known.has(id)
+              : // No events for this listing in the window. That means "flat"
+                // only if the feed was producing events at all — a listing
+                // whose price genuinely held still emits nothing, and so does
+                // every listing when the oracle is not running.
+                //
+                // feedIsLive separates them. If something moved somewhere in
+                // the window then the feed was live and this listing really was
+                // flat. If nothing moved anywhere, there is no measurement to
+                // report, and 0.0% claims one — which is exactly what every
+                // chip did for a day once the last oracle push aged out of the
+                // window.
+                known.has(id) && feedIsLive
                 ? 0
                 : null,
         });

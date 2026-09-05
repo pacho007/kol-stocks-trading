@@ -656,3 +656,76 @@
     transform: none !important;
   }
 }
+
+/* ---------------------------------------------------------------
+   Glass slab — the material of the SHARPS logo badge.
+
+   The badge is not a tinted rectangle, it is a thick piece of glass:
+   the silk behind it stays visible and slightly magnified, the rim
+   is a bright luminous edge rather than a drawn border, light
+   collects along the top and bottom faces, and a soft bloom sits
+   just inside the edges and just outside them.
+
+   Six layered shadows, because that is what separates glass from a
+   translucent box. Ordered outside-in:
+     1  crisp edge, so the shape stays defined against pale silk
+     2  drop shadow, tinted from the brand maroon rather than grey —
+        a grey shadow on pink reads as a sticker laid on the image
+     3  outer halo, the bloom glass throws onto what surrounds it
+     4  top inner face catching light
+     5  bottom inner face, weaker
+     6  inner bloom, the glow that gathers inside the edges
+   --------------------------------------------------------------- */
+
+.glass-slab {
+  background: rgb(255 255 255 / 0.22);
+  border: 1px solid rgb(255 255 255 / 0.7);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.4),
+    0 18px 48px -14px rgb(61 16 36 / 0.32),
+    0 0 44px rgb(255 255 255 / 0.4),
+    inset 0 1px 0 rgb(255 255 255 / 0.95),
+    inset 0 -1px 0 rgb(255 255 255 / 0.55),
+    inset 0 0 26px rgb(255 255 255 / 0.5);
+}
+
+.glass-slab:hover {
+  background: rgb(255 255 255 / 0.32);
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.5),
+    0 26px 60px -14px rgb(61 16 36 / 0.4),
+    0 0 60px rgb(255 255 255 / 0.55),
+    inset 0 1px 0 rgb(255 255 255 / 1),
+    inset 0 -1px 0 rgb(255 255 255 / 0.65),
+    inset 0 0 32px rgb(255 255 255 / 0.6);
+}
+
+/* The same glass, dyed. Kept translucent enough that the silk still moves
+   behind it — an opaque fill with a white outline is a button with a border,
+   not a piece of tinted glass, which is what the previous attempt was. */
+.glass-slab-tinted {
+  background: color-mix(in oklab, var(--logo-ink) 72%, transparent);
+  border: 1px solid rgb(255 255 255 / 0.45);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.28),
+    0 18px 48px -12px rgb(91 31 57 / 0.52),
+    0 0 40px rgb(255 255 255 / 0.28),
+    inset 0 1px 0 rgb(255 255 255 / 0.55),
+    inset 0 -1px 0 rgb(255 255 255 / 0.22),
+    inset 0 0 26px rgb(255 255 255 / 0.18);
+}
+
+.glass-slab-tinted:hover {
+  background: color-mix(in oklab, var(--logo-ink) 84%, transparent);
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.38),
+    0 26px 60px -12px rgb(91 31 57 / 0.6),
+    0 0 56px rgb(255 255 255 / 0.36),
+    inset 0 1px 0 rgb(255 255 255 / 0.7),
+    inset 0 -1px 0 rgb(255 255 255 / 0.3),
+    inset 0 0 32px rgb(255 255 255 / 0.24);
+}
