@@ -339,11 +339,65 @@ export async function connectOracle(): Promise<{
   const chain = isMainnet ? robinhoodMainnet : robinhoodTestnet;
 
   const publicClient = createPublicClient({ chain, transport: http() });
+  // The RPC must actually be the chain we think we are on.
+  //
+  // ROBINHOOD_NETWORK picks the chain object; ROBINHOOD_RPC_URL overrides the
+  // URL inside BOTH chain definitions above, so the two settings can disagree
+  // and nothing in viem objects. A mainnet-labelled client pointed at a testnet
+  // node reads testnet state, and this process signs prices for 126 listings
+  // off what it reads.
+  //
+  // The bytecode check below usually catches it, but only because the address
+  // happens to be empty on the other chain — and that is luck, not a guarantee.
+  // Deploy from the same key at the same nonce on both networks and the
+  // contract lands at an identical address on each, at which point the
+  // bytecode check passes on the wrong chain and the oracle publishes against
+  // it. Asking the node for its chain id costs one call and cannot be fooled.
+  const rpcChainId = await publicClient.getChainId();
+  if (rpcChainId !== chain.id) {
+    console.error(
+      `RPC chain id mismatch: ROBINHOOD_NETWORK selects ${chain.name} (${chain.id}) but the ` +
+        `RPC reports ${rpcChainId}. ROBINHOOD_RPC_URL overrides the URL for whichever chain is ` +
+        `selected, so these two settings must name the same network.`,
+    );
+    process.exit(1);
+  }
+
   const walletClient = createWalletClient({ account, chain, transport: http() });
 
   const deployedCode = await publicClient.getBytecode({ address: marketAddress });
   if (!deployedCode || deployedCode === "0x") {
     throw new Error(`No contract deployed at ${marketAddress}. Check MARKET_ADDRESS.`);
+  }
+
+  // Warn before the oracle runs itself dry.
+  //
+  // Running out of gas is not a crash. sendTransaction fails, the retry loop
+  // exhausts, the cycle logs an error and the process keeps going — so the
+  // failure lives in Fly's logs while the site shows a board where nothing has
+  // moved for hours. Nobody looking at the product can tell the difference
+  // between "no scores changed" and "the oracle cannot pay for a transaction".
+  //
+  // A full 126-listing push measures about 7.7M gas. Priced at the live gas
+  // price, that gives a real number of cycles remaining rather than a guessed
+  // ETH threshold that goes stale the moment gas moves.
+  const balance = await publicClient.getBalance({ address: account.address });
+  const gasPrice = await publicClient.getGasPrice();
+  const fullPushWei = 7_700_000n * gasPrice;
+  const pushesLeft = fullPushWei > 0n ? balance / fullPushWei : 0n;
+  console.log(
+    `Oracle balance: ${(Number(balance) / 1e18).toFixed(5)} ETH ` +
+      `(~${pushesLeft} full pushes at ${(Number(gasPrice) / 1e9).toFixed(4)} gwei)`,
+  );
+  if (balance === 0n) {
+    console.error("Oracle authority has no ETH. Every push will fail. Fund it before running.");
+    process.exit(1);
+  }
+  if (pushesLeft < 20n) {
+    console.warn(
+      `LOW BALANCE: about ${pushesLeft} full pushes left. Scores stop moving when this ` +
+        `runs out, and the board just looks stale rather than broken. Top up ${account.address}.`,
+    );
   }
 
   const onChainOracle = (await publicClient.readContract({
@@ -403,6 +457,30 @@ async function main() {
   const chain = isMainnet ? robinhoodMainnet : robinhoodTestnet;
 
   const publicClient = createPublicClient({ chain, transport: http() });
+  // The RPC must actually be the chain we think we are on.
+  //
+  // ROBINHOOD_NETWORK picks the chain object; ROBINHOOD_RPC_URL overrides the
+  // URL inside BOTH chain definitions above, so the two settings can disagree
+  // and nothing in viem objects. A mainnet-labelled client pointed at a testnet
+  // node reads testnet state, and this process signs prices for 126 listings
+  // off what it reads.
+  //
+  // The bytecode check below usually catches it, but only because the address
+  // happens to be empty on the other chain — and that is luck, not a guarantee.
+  // Deploy from the same key at the same nonce on both networks and the
+  // contract lands at an identical address on each, at which point the
+  // bytecode check passes on the wrong chain and the oracle publishes against
+  // it. Asking the node for its chain id costs one call and cannot be fooled.
+  const rpcChainId = await publicClient.getChainId();
+  if (rpcChainId !== chain.id) {
+    console.error(
+      `RPC chain id mismatch: ROBINHOOD_NETWORK selects ${chain.name} (${chain.id}) but the ` +
+        `RPC reports ${rpcChainId}. ROBINHOOD_RPC_URL overrides the URL for whichever chain is ` +
+        `selected, so these two settings must name the same network.`,
+    );
+    process.exit(1);
+  }
+
   const walletClient = createWalletClient({ account, chain, transport: http() });
 
   console.log(`Network: ${chain.name} (chain id ${chain.id})`);
