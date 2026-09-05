@@ -61,63 +61,87 @@ export function use24hChange(ids: readonly string[]): Mover[] | null {
     const wanted = key.split(",").filter(Boolean);
 
     (async () => {
-      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-      const [history, seeded] = await Promise.all([
-        supabase
-          .from("price_history")
-          .select("kol_id, price_wei")
-          .in("kol_id", wanted)
-          .gte("block_timestamp", cutoff)
-          // Ascending, so the first row seen for a listing is the oldest in the
-          // window and the last is the newest. Any other order silently changes
-          // which two numbers are being compared.
-          .order("block_timestamp", { ascending: true })
-          .limit(2000),
-        supabase.from("listings").select("kol_id").in("kol_id", wanted),
-      ]);
+      // Anchor the 24h window to the newest price event, not to the clock.
+      //
+      // Anchored to now, the window empties the moment the oracle stops for a
+      // day — every chip shows a dash and the board looks broken rather than
+      // stale. Anchored to the data, it always frames the last 24 hours in
+      // which anything actually happened. While the oracle runs on its 20
+      // minute cycle the newest event IS a few minutes old, so the two
+      // definitions agree; they only diverge during an outage, which is
+      // exactly when the anchored one is more useful.
+      //
+      // What it means is therefore "the last 24 hours of trading we have", not
+      // "the last 24 hours". The header carries the age of the feed, so the
+      // staleness is stated there rather than by blanking every number.
+      const { data: newestRow } = await supabase
+        .from("price_history")
+        .select("block_timestamp")
+        .order("block_timestamp", { ascending: false })
+        .limit(1)
+        .maybeSingle();
       if (!alive) return;
 
-      const known = new Set((seeded.data ?? []).map((r) => String(r.kol_id)));
-      const first = new Map<string, number>();
-      const last = new Map<string, number>();
+      const anchorMs = newestRow?.block_timestamp
+        ? new Date(newestRow.block_timestamp).getTime()
+        : Date.now();
+      const cutoff = new Date(anchorMs - 24 * 60 * 60 * 1000).toISOString();
+
+      // Every event for these listings, not just the ones inside the window.
+      //
+      // A price is knowable at any instant: it is whatever the most recent
+      // event set it to, and it stays there until the next one. So the price
+      // 24h ago is the last event at or before the cutoff, whether that event
+      // is an hour older than the cutoff or a week older.
+      //
+      // Reading only the window could not express that. A listing whose price
+      // held still emits nothing, and so does a listing nobody has ever
+      // scored — both arrive as an empty window, and whichever answer that
+      // case is given is wrong for the other one. Twelve listings is a couple
+      // of hundred rows, so fetching the lot removes the ambiguity rather than
+      // guessing at it.
+      const history = await supabase
+        .from("price_history")
+        .select("kol_id, price_wei, block_timestamp")
+        .in("kol_id", wanted)
+        .order("block_timestamp", { ascending: true })
+        .limit(4000);
+      if (!alive) return;
+
+      const cutoffMs = anchorMs - 24 * 60 * 60 * 1000;
+      // Price as of the cutoff, and price as of the anchor. Walking in
+      // ascending order, each event overwrites the later of the two it
+      // qualifies for.
+      const base = new Map<string, number>();
+      const latest = new Map<string, number>();
       for (const r of history.data ?? []) {
         const id = String(r.kol_id);
         const wei = Number(r.price_wei);
         if (!Number.isFinite(wei) || wei <= 0) continue;
-        if (!first.has(id)) first.set(id, wei);
-        last.set(id, wei);
+        const t = new Date(String(r.block_timestamp)).getTime();
+        if (t <= cutoffMs) base.set(id, wei);
+        // A listing first scored INSIDE the window has no price before it;
+        // its earliest event is the only sensible baseline.
+        else if (!base.has(id)) base.set(id, wei);
+        latest.set(id, wei);
       }
-
-      // Did the window contain any price movement at all, for any listing?
-      const feedIsLive = first.size > 0;
-
       const byId = new Map(KOLS.map((k) => [k.id, k]));
       const rows: Mover[] = [];
       for (const id of wanted) {
         const kol = byId.get(id);
         if (!kol) continue;
-        const base = first.get(id);
-        const now = last.get(id);
+        const then = base.get(id);
+        const now = latest.get(id);
         rows.push({
           kol,
+          // A dash now means one thing only: this listing has never had a price
+          // recorded, so there is nothing to compare. Everything that has ever
+          // been scored gets a number, and 0.0% means the price genuinely sat
+          // still across the window rather than "we did not look".
           changePct:
-            base !== undefined && now !== undefined && base > 0
-              ? ((now - base) / base) * 100
-              : // No events for this listing in the window. That means "flat"
-                // only if the feed was producing events at all — a listing
-                // whose price genuinely held still emits nothing, and so does
-                // every listing when the oracle is not running.
-                //
-                // feedIsLive separates them. If something moved somewhere in
-                // the window then the feed was live and this listing really was
-                // flat. If nothing moved anywhere, there is no measurement to
-                // report, and 0.0% claims one — which is exactly what every
-                // chip did for a day once the last oracle push aged out of the
-                // window.
-                known.has(id) && feedIsLive
-                ? 0
-                : null,
+            then !== undefined && now !== undefined && then > 0
+              ? ((now - then) / then) * 100
+              : null,
         });
       }
       setMovers(rows);
