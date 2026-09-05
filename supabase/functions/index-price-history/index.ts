@@ -171,6 +171,38 @@ Deno.serve(async () => {
   let fromBlock = storedBlock > 0n ? storedBlock + 1n : DEPLOY_BLOCK;
   const headBlock = await chain.getBlockNumber();
 
+  // REFUSE A CURSOR THAT IS AHEAD OF THE CHAIN.
+  //
+  // fromBlock comes from the database and headBlock from the chain, and nothing
+  // ties them together. Point this at a different network and the cursor is
+  // simply a number from somewhere else: testnet ran to block ~113,000,000
+  // while mainnet's head is ~54,800,000, so a cutover without resetting
+  // indexer_state leaves fromBlock 58 million blocks past the end of the chain.
+  //
+  // Nothing about that is an error. The window loop condition is false on the
+  // first pass, so it scans nothing, writes nothing, and returns ok:true with
+  // caughtUp:true — a green health check over a feed that will never index
+  // another row. Prices would sit frozen and the trade tape stay empty while
+  // the contract filled orders normally.
+  //
+  // A cursor beyond the head is impossible on the chain it came from, so it can
+  // only mean the network changed underneath it. Say so, and say how to fix it.
+  if (fromBlock > headBlock + 1n) {
+    return jsonResponse(
+      {
+        error:
+          `indexer_state.last_indexed_block (${storedBlock}) is ahead of the chain head ` +
+          `(${headBlock}). That cannot happen on the chain it was recorded from, so this ` +
+          `database was indexed against a different network. Reset the cursor to the ` +
+          `contract's deploy block on THIS network before indexing, and clear the rows ` +
+          `carried over from the old one.`,
+        storedBlock: storedBlock.toString(),
+        headBlock: headBlock.toString(),
+      },
+      500,
+    );
+  }
+
   let windows = 0;
   let inserted = 0;
   let skippedUnknownWallet = 0;
