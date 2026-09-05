@@ -26,17 +26,30 @@ name: Oracle
 # something that stays up — hence a service, not a job.
 #
 # What is left here is a manual safety net: a way to force a cycle from the
-# GitHub UI if the service is down or being redeployed. The schedule is
-# deliberately infrequent, so a forgotten workflow cannot quietly fight the
-# service for the same on-chain writes.
+# GitHub UI if the service is down or being redeployed. It has no schedule at
+# all, so a forgotten workflow cannot quietly fight the service for the same
+# on-chain writes, or keep publishing against whichever network its own secrets
+# happen to still point at.
 
 on:
-  schedule:
-    # Every 6 hours, as a backstop only. Do not tighten this to chase a live
-    # cadence — that is the service's job now, and two writers pushing the same
-    # scores would both pay gas to do it.
-    - cron: "0 */6 * * *"
-  # So a cycle can be forced after a deploy without waiting for the timer.
+  # MANUAL ONLY. There is deliberately no schedule here.
+  #
+  # This ran every 6 hours as a backstop, which was survivable while there was
+  # one network. It is not survivable across the mainnet cutover: this workflow
+  # carries its own copy of MARKET_ADDRESS, ROBINHOOD_RPC_URL and
+  # ROBINHOOD_NETWORK in GitHub secrets, separate from the ones the Fly service
+  # uses. Leave those on testnet after the cutover and every six hours it wakes
+  # up, scores wallets against the wrong contract, and writes the result into
+  # the same public.listing_metrics the live site reads — so the board flips
+  # between mainnet and testnet numbers depending on which writer went last.
+  #
+  # Point them at mainnet instead and the problem inverts: two oracles pushing
+  # the same scores on chain, both paying gas for it.
+  #
+  # Neither is a state anyone would choose deliberately, and both arrive by
+  # forgetting. The service in fly.toml is the oracle; this is the thing you
+  # run from the Actions tab when the service is down or mid-redeploy, and it
+  # should only ever run because somebody decided it should.
   workflow_dispatch:
     inputs:
       push_onchain:
