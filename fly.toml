@@ -21,17 +21,20 @@ primary_region = "iad"
 [env]
   # Pause BETWEEN cycles, so the effective cadence is cycle + pause.
   #
-  # 3600, and the reason is gas rather than freshness. Each listing pushed
+  # 1200, and the reason is gas rather than freshness. Each listing pushed
   # costs ~61k gas; at the measured 0.4077 gwei that is 0.00313 ETH for a full
   # 126-listing push. At a 15 minute cadence with 20 listings moving per cycle
-  # that runs about 0.048 ETH/day. Hourly is a quarter of that, roughly 0.012
-  # ETH/day, and the board still refreshes 24 times a day against scores that
-  # are derived from multi-day trading history and do not move faster than
-  # that anyway.
+  # that runs about 0.048 ETH/day. Twenty minutes is a third of that, roughly
+  # 0.016 ETH/day, and the board still refreshes 72 times a day against scores
+  # derived from multi-day trading history.
+  #
+  # NOTE: the header's freshness dot in src/components/site-header.tsx has to
+  # stay wider than this pause plus a cycle's own runtime, or a healthy oracle
+  # reads as offline. Change one and check the other.
   #
   # Paired with ONCHAIN_MIN_SCORE_DELTA below: cadence cuts how often we look,
   # the deadband cuts how much of what we find is worth paying to write.
-  CYCLE_SECONDS = "3600"
+  CYCLE_SECONDS = "1200"
 
   # Do not pay to write a score that moved by a point. See MIN_SCORE_DELTA in
   # oracle/push-onchain-evm.ts — raise to 3 to cut the bill further at the cost

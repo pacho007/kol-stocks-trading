@@ -354,13 +354,30 @@ function OracleStatus() {
       : secs < 3600
         ? `${Math.floor(secs / 60)}m ago`
         : `${Math.floor(secs / 3600)}h ago`;
-  // Green while within roughly two scheduled cycles. The schedule is every 5
-  // minutes, but a run takes several and GitHub delays scheduled jobs under
-  // load, so a tight window would flash stale on a perfectly healthy system.
-  const fresh = secs < 20 * 60;
+  // Green while within roughly three oracle cycles.
+  //
+  // This has to be read against two settings in fly.toml, and it was wrong
+  // for both. CYCLE_SECONDS is 1200, and that is the pause BETWEEN cycles —
+  // the cycle itself then takes a couple of minutes warm and up to nine cold,
+  // so updates land every 22 minutes or so. A 20 minute window went red
+  // before the next one could possibly arrive, permanently, on a healthy
+  // oracle.
+  //
+  // And what this timestamp measures is the last time a listing row was
+  // WRITTEN, not the last time the oracle ran. ONCHAIN_MIN_SCORE_DELTA means
+  // a cycle where nothing moved by 2 points writes nothing at all, so quiet
+  // stretches age this clock while the oracle is working exactly as intended.
+  //
+  // 75 minutes covers three cycles plus their runtime, so it stays green
+  // through a normal quiet patch and still turns red on a genuine outage
+  // within about an hour. Raising CYCLE_SECONDS means raising this too.
+  const fresh = secs < 75 * 60;
 
   return (
-    <div className="hidden items-center gap-2 sm:flex" title={`Oracle last updated ${ago}`}>
+    <div
+      className="hidden items-center gap-2 sm:flex"
+      title={`Last score change ${ago}. Quiet periods are normal — scores are only written when one moves by 2 or more points.`}
+    >
       <span className={`size-1.5 rounded-full ${fresh ? "live-dot bg-up" : "bg-down"}`} />
       <span className="num text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
         Oracle {ago}
