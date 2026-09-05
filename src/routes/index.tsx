@@ -116,7 +116,7 @@ function Splash() {
             src={sharpsGlassLogo.url}
             alt=""
             aria-hidden
-            className="mx-auto w-full max-w-[720px] select-none object-contain drop-shadow-[0_20px_38px_rgba(91,31,57,0.14)]"
+            className="mx-auto w-full max-w-[600px] select-none object-contain drop-shadow-[0_20px_38px_rgba(91,31,57,0.14)]"
           />
         </h1>
 
