@@ -21,16 +21,22 @@ primary_region = "iad"
 [env]
   # Pause BETWEEN cycles, so the effective cadence is cycle + pause.
   #
-  # 900, not 30, and the reason is gas rather than speed. Mainnet gas measured
-  # 0.334 gwei against testnet's 0.01 — 33x — and each changed listing costs
-  # ~61,500 gas to push. At a 30s pause (~70s effective, 1,234 cycles/day) a
-  # modest 20-listing churn runs about $1,300/day. At 900 the same churn is
-  # about $96/day for a board that still refreshes four times an hour.
+  # 3600, and the reason is gas rather than freshness. Each listing pushed
+  # costs ~61k gas; at the measured 0.4077 gwei that is 0.00313 ETH for a full
+  # 126-listing push. At a 15 minute cadence with 20 listings moving per cycle
+  # that runs about 0.048 ETH/day. Hourly is a quarter of that, roughly 0.012
+  # ETH/day, and the board still refreshes 24 times a day against scores that
+  # are derived from multi-day trading history and do not move faster than
+  # that anyway.
   #
-  # Start here, watch a real day's spend and the actual churn, then tighten if
-  # the numbers justify it. Tightening is one deploy; an unexpected four-figure
-  # gas bill is not recoverable.
-  CYCLE_SECONDS = "900"
+  # Paired with ONCHAIN_MIN_SCORE_DELTA below: cadence cuts how often we look,
+  # the deadband cuts how much of what we find is worth paying to write.
+  CYCLE_SECONDS = "3600"
+
+  # Do not pay to write a score that moved by a point. See MIN_SCORE_DELTA in
+  # oracle/push-onchain-evm.ts — raise to 3 to cut the bill further at the cost
+  # of the board sitting up to 3 points off target.
+  ONCHAIN_MIN_SCORE_DELTA = "2"
 
   # Mainnet. This machine signs with the oracle authority key and writes prices
   # the whole board is read off, so it must target the same chain the site

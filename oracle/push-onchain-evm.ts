@@ -113,6 +113,25 @@ async function loadFullListings(): Promise<ListingInput[] | null> {
 // real constraint here is the block gas limit, not calldata size. 50 is a
 // conservative starting point pending a real gas measurement on testnet.
 const CHUNK_SIZE = Number(process.env["ONCHAIN_CHUNK_SIZE"] ?? 50);
+
+/**
+ * Smallest score move worth paying for.
+ *
+ * Scores are recomputed from live PnL every cycle, so they jitter by a point
+ * or two constantly without meaning anything. Pushing on any difference at
+ * all made a listing wobbling 62-63-62 cost a full storage write every cycle,
+ * forever, for a change no one can see on a board that renders whole points.
+ *
+ * It also decides when convergence stops. A listing opening at the neutral 50
+ * against a target of 78 closes 25% of the gap per update under the on-chain
+ * rate cap, so it approaches asymptotically and the last several pushes each
+ * move a fraction of a point. Stopping within the deadband cuts that tail:
+ * 12 cycles to converge exactly, 8 with a deadband of 3.
+ *
+ * The cost is that the board can sit up to this many points off target. At 2
+ * that is invisible against scores that range 0-100 and move on their own.
+ */
+const MIN_SCORE_DELTA = Number(process.env["ONCHAIN_MIN_SCORE_DELTA"] ?? 2);
 const SEND_GAP_MS = Number(process.env["ONCHAIN_SEND_GAP_MS"] ?? 400);
 const MAX_TX_RETRIES = Number(process.env["ONCHAIN_TX_RETRIES"] ?? 5);
 const REFRESH_MIN = Number(process.env["REFRESH_MIN"] ?? 20);
@@ -235,7 +254,8 @@ async function once(
       return;
     }
     const onChainScore = Number((res.result as unknown as unknown[])[0]);
-    if (onChainScore === r.score) unchanged++;
+    // Deadband, not equality: see MIN_SCORE_DELTA.
+    if (Math.abs(onChainScore - r.score) < MIN_SCORE_DELTA) unchanged++;
     else changed.push(r);
   });
 
