@@ -27,6 +27,35 @@ export const Route = createFileRoute("/leaderboard")({
   component: Leaderboard,
 });
 
+/**
+ * Gold, silver, bronze.
+ *
+ * Each is a three-stop gradient rather than a flat colour, because a single
+ * mid-tone yellow reads as "yellow circle" and not as metal. The stops run
+ * bright-to-dark across the diagonal, which is the highlight and shade a
+ * struck disc would carry, and the ink is a deep tint of the metal itself so
+ * the numeral looks stamped into the face rather than printed on top of it.
+ */
+const MEDALS = [
+  {
+    place: "1st",
+    face: "linear-gradient(145deg,#FBEFAE 0%,#E7C558 42%,#B8860B 100%)",
+    ink: "#4A3608",
+    edge: "rgba(214,177,58,0.6)",
+  },
+  {
+    place: "2nd",
+    face: "linear-gradient(145deg,#F6F8FB 0%,#CBD1DA 42%,#98A0AC 100%)",
+    ink: "#3A3F47",
+    edge: "rgba(170,178,190,0.6)",
+  },
+  {
+    place: "3rd",
+    face: "linear-gradient(145deg,#F2CBA6 0%,#D2925A 42%,#9C5F2E 100%)",
+    ink: "#4A2A12",
+    edge: "rgba(190,124,70,0.6)",
+  },
+] as const;
 function Leaderboard() {
   const { prices, metrics } = useMarket();
   // Same derivations the rest of the product uses. This page had its own:
@@ -84,7 +113,21 @@ function Leaderboard() {
             className="rise relative overflow-hidden panel p-5 transition-all hover:-translate-y-1 hover:border-primary/50"
             style={{ animationDelay: `${i * 70}ms` }}
           >
-            <span className="num absolute top-3 right-4 text-5xl font-bold text-foreground/5">
+            {/* A hairline of the same metal across the top edge, fading out at
+                both ends, so the card is tied to its medal without a coloured
+                border boxing it in. */}
+            <span
+              aria-hidden
+              className="absolute inset-x-0 top-0 h-px"
+              style={{
+                background: `linear-gradient(90deg,transparent,${MEDALS[i]?.edge ?? "transparent"},transparent)`,
+              }}
+            />
+            <span
+              aria-label={`${MEDALS[i]?.place ?? i + 1} place`}
+              className="num absolute top-4 right-4 grid size-9 place-items-center rounded-full text-[13px] font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.8),inset_0_-1px_0_rgba(0,0,0,0.22),0_4px_12px_-3px_rgba(0,0,0,0.45)]"
+              style={{ background: MEDALS[i]?.face, color: MEDALS[i]?.ink }}
+            >
               {i + 1}
             </span>
             <AvatarMark gradient={k.avatar} label={k.ticker} src={k.image} size={48} />
