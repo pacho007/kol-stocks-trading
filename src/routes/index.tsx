@@ -5,6 +5,7 @@ import { KOLS } from "@/lib/kols";
 import { TraderBubbles } from "@/components/trader-bubbles";
 import bgVideo from "@/assets/sharps-dunes.mp4.asset.json";
 import heroPoster from "@/assets/sharps-dunes-poster.jpg.asset.json";
+import sharpsGlassLogo from "@/assets/sharps-glass-logo.png.asset.json";
 
 /**
  * Starts false so the server and the first client render agree — reading
@@ -109,19 +110,14 @@ function Splash() {
 
       {/* hero */}
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-24 text-center">
-        <h1
-          className="fade-up glass-text w-full select-none text-center"
-          data-text="SHARPS."
-          style={{
-            animationDelay: "0.2s",
-            fontFamily: 'Nunito, ui-rounded, "Arial Rounded MT Bold", ui-sans-serif, system-ui, sans-serif',
-            fontWeight: 900,
-            letterSpacing: "0",
-            lineHeight: 0.95,
-            fontSize: "clamp(3.25rem, 14vw, 12rem)",
-          }}
-        >
-          SHARPS.
+        <h1 className="fade-up w-full" style={{ animationDelay: "0.2s" }}>
+          <span className="sr-only">SHARPS</span>
+          <img
+            src={sharpsGlassLogo.url}
+            alt=""
+            aria-hidden
+            className="mx-auto w-full max-w-[1000px] select-none object-contain"
+          />
         </h1>
 
         <p
