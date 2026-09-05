@@ -5,7 +5,7 @@
 #   bash evm/create-listings.sh
 #
 # Runs as ADMIN (createListing is admin-only), so it prompts for the admin key,
-# not the deployer's. Same handling as deploy-testnet.sh: read -s, normalised,
+# not the deployer's. Same handling as deploy.sh: read -s, normalised,
 # never written to disk or shell history, unset on exit.
 #
 # Idempotent by design — CreateListings.s.sol skips wallets that already have a
@@ -41,7 +41,7 @@ export PATH="$HOME/.foundry/bin:$PATH"
 cd "$(dirname "$0")"
 REPO_ROOT="$(cd .. && pwd)"
 
-# Address comes from whatever deploy-testnet.sh last produced, not a constant.
+# Address comes from whatever deploy.sh last produced, not a constant.
 # A hardcoded address that has gone stale does not fail loudly: createListing
 # would succeed against the PREVIOUS deployment and print 108 happy lines,
 # leaving the current contract with no listings at all.
@@ -51,7 +51,7 @@ if [ -f .deployed ]; then
   export MARKET_ADDRESS
   echo "Using contract from evm/.deployed: $MARKET_ADDRESS"
 else
-  echo "evm/.deployed not found — run deploy-testnet.sh first, or set"
+  echo "evm/.deployed not found — run deploy.sh first, or set"
   echo "MARKET_ADDRESS yourself before running this."
   [ -n "${MARKET_ADDRESS:-}" ] || exit 1
   export MARKET_ADDRESS
@@ -114,7 +114,7 @@ echo "Admin balance: $(cast from-wei "$BAL") ETH"
 if [ "$BAL" = "0" ]; then
   echo
   echo "Admin has no ETH, and this sends $COUNT transactions."
-  echo "Fund it at https://faucet.testnet.chain.robinhood.com"
+  echo "$FUNDING_HINT"
   echo "  address: $EXPECTED_ADMIN"
   exit 1
 fi

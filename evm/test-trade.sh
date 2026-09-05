@@ -24,7 +24,7 @@
 # not privileged on this contract, so a test buyer is exactly what it is.
 set -uo pipefail
 
-# Stop MSYS mangling the "file.sol:Contract" argument — see deploy-testnet.sh.
+# Stop MSYS mangling the "file.sol:Contract" argument — see deploy.sh.
 export MSYS2_ARG_CONV_EXCL='*'
 export MSYS_NO_PATHCONV=1
 

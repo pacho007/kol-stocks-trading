@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 #
-# deploy-testnet.sh — one-command bring-up of SharpsMarket on Robinhood Chain
-# testnet (chain id 46630).
+# deploy.sh — one-command bring-up of SharpsMarket on Robinhood Chain.
 #
-#   bash evm/deploy-testnet.sh
+# The network is a parameter, never the filename:
+#
+#   bash evm/deploy.sh                          # testnet, chain 46630
+#   SHARPS_NETWORK=mainnet bash evm/deploy.sh   # mainnet, chain 4663 — REAL ETH
+#
+# This was called deploy-testnet.sh through the whole testnet rehearsal, which
+# made the mainnet command read like a mistake at exactly the moment it needed
+# to read like a decision. The file was already network-parameterised; only the
+# name lied.
 #
 # Prompts once for the deployer private key. That value is read with `read -s`
 # so it is never echoed to the screen, never written to disk, and never enters
@@ -113,7 +120,7 @@ echo "Deployer key verified: $DERIVED"
 
 BAL=$(cast balance "$DERIVED" --rpc-url "$RPC")
 echo "Balance: $(cast from-wei "$BAL") ETH"
-[ "$BAL" != "0" ] || { echo "Deployer has no ETH. Fund it at https://faucet.testnet.chain.robinhood.com"; exit 1; }
+[ "$BAL" != "0" ] || { echo "Deployer has no ETH. $FUNDING_HINT"; exit 1; }
 
 # Capture this BEFORE broadcasting: any block at or before the deploy is a
 # valid MARKET_DEPLOY_BLOCK, and one taken seconds early wastes almost no
@@ -189,7 +196,7 @@ echo
 echo "==================================================================="
 echo "  SharpsMarket:        $ADDR"
 echo "  MARKET_DEPLOY_BLOCK: $DEPLOY_BLOCK"
-echo "  Explorer: https://explorer.testnet.chain.robinhood.com/address/$ADDR"
+echo "  Explorer: $EXPLORER/address/$ADDR"
 echo "==================================================================="
 echo "  (also written to evm/.deployed for the next step)"
 echo

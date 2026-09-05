@@ -18,10 +18,14 @@ case "$SHARPS_NETWORK" in
   testnet)
     RPC="${ROBINHOOD_RPC_URL:-https://rpc.testnet.chain.robinhood.com}"
     EXPECTED_CHAIN_ID=46630
+    EXPLORER="https://explorer.testnet.chain.robinhood.com"
+    FUNDING_HINT="Fund it at https://faucet.testnet.chain.robinhood.com"
     ;;
   mainnet)
     RPC="${ROBINHOOD_RPC_URL:-https://rpc.mainnet.chain.robinhood.com}"
     EXPECTED_CHAIN_ID=4663
+    EXPLORER="https://rh-scan.com"
+    FUNDING_HINT="Bridge real ETH to this address on Robinhood Chain (chain 4663)."
     ;;
   *)
     echo "SHARPS_NETWORK must be 'testnet' or 'mainnet' (got '$SHARPS_NETWORK')." >&2
@@ -64,6 +68,8 @@ if [ "$SHARPS_NETWORK" = "mainnet" ] && [ "${SHARPS_MAINNET_CONFIRMED:-}" != "1"
   [ "$confirm" = "MAINNET" ] || { echo "Aborted."; exit 1; }
   export SHARPS_MAINNET_CONFIRMED=1
 fi
+
+export EXPLORER FUNDING_HINT
 
 echo "Network: $SHARPS_NETWORK (chain $EXPECTED_CHAIN_ID)"
 echo "RPC: $RPC"
