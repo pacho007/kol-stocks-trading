@@ -121,7 +121,7 @@ function Splash() {
         </h1>
 
         <p
-          className="fade-up mt-8 max-w-lg text-balance text-[15px] leading-relaxed text-[#3d1024]/80"
+          className="fade-up mt-8 max-w-lg text-balance text-[15px] leading-relaxed text-[color:var(--logo-ink)]"
           style={{ animationDelay: "0.5s" }}
         >
           The platform where on-chain traders are listed like stocks. Every green day gaps them up,
@@ -134,7 +134,7 @@ function Splash() {
         >
           <Link
             to="/app"
-            className="group inline-flex h-12 items-center gap-3 rounded-lg bg-[#3d1024] px-8 text-[11px] font-extrabold tracking-[0.24em] uppercase text-white shadow-lg transition-transform duration-300 hover:scale-[1.03]"
+            className="group inline-flex h-12 items-center gap-3 rounded-lg border border-white/70 bg-white/65 px-8 text-[11px] font-extrabold tracking-[0.24em] uppercase text-[color:var(--logo-ink)] shadow-lg backdrop-blur-md transition-transform duration-300 hover:scale-[1.03]"
           >
             OPEN APP
             <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" />

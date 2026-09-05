@@ -102,6 +102,7 @@
   --wordmark-pearl: oklch(0.98 0.025 345);
   --wordmark-rim: oklch(0.5 0.24 350 / 0.58);
   --wordmark-glow: oklch(0.67 0.29 345 / 0.46);
+  --logo-ink: oklch(0.53 0.13 8);
   --shadow-glow: 0 0 60px -18px color-mix(in oklab, var(--primary) 40%, transparent);
   /* Tighter and a touch stronger: a close contact shadow reads as a crisp
      edge, where the previous long soft one just made things look hazy. */
