@@ -27,8 +27,45 @@ import { getPublicClient, ethToWei, weiToEth, ACTIVE_CHAIN } from "@/lib/evm/cha
 /** viem surfaces a contract revert's decoded reason on `shortMessage`;
  * anything else (a wallet rejection, a network error) falls back to its plain
  * message. */
+/**
+ * Say what went wrong in the words of the thing the trader was doing.
+ *
+ * This forwarded viem's shortMessage, so a rejected trade surfaced as
+ * `reverted with custom error "SlippageExceeded()"` — precise, and useless to
+ * anyone who has not read the contract. Every message below is a real state
+ * the contract can return, verified by simulating each one against a live
+ * deployment, and each says what happened and what to do next.
+ *
+ * The raw text is still the fallback: an unmapped failure should say something
+ * true rather than a friendly guess about a condition nobody anticipated.
+ */
+const TRADE_ERRORS: [RegExp, string][] = [
+  // The wallet, before the chain is ever reached.
+  [/user rejected|user denied|rejected the request/i, "You cancelled the transaction."],
+  [/insufficient funds/i, "Not enough ETH to cover the trade and its gas."],
+  [/chain mismatch|does not match the target chain/i, "Your wallet is on the wrong network."],
+
+  // Named errors from SharpsMarket.
+  [/ZeroSharesOut/, "That amount is too small to buy a whole share. Try a larger amount."],
+  [
+    /SlippageExceeded/,
+    "The price moved while you were confirming, so the trade was cancelled rather than filled at a worse price. Try again.",
+  ],
+  [/InsufficientShares/, "You do not hold that many shares."],
+  [/ListingNotFound/, "This listing is not live on-chain yet."],
+  [/ZeroAmount/, "Enter an amount first."],
+  [/ListingPaused/, "Trading is paused on this listing."],
+  [/MarketPaused/, "Trading is paused across the whole market."],
+  [/TransferFailed/, "The transfer back to your wallet failed. Nothing was taken."],
+  [/Unauthorized/, "That action is not available to your wallet."],
+];
+
 function describeTradeError(e: unknown): string {
-  const err = e as { shortMessage?: string } | undefined;
+  const err = e as { shortMessage?: string; message?: string } | undefined;
+  const raw = [err?.shortMessage, err?.message, e instanceof Error ? e.message : ""]
+    .filter(Boolean)
+    .join(" ");
+  for (const [pattern, friendly] of TRADE_ERRORS) if (pattern.test(raw)) return friendly;
   if (err?.shortMessage) return err.shortMessage;
   if (e instanceof Error) return e.message;
   return "Trade failed";
