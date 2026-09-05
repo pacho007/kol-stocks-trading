@@ -151,6 +151,14 @@ function Splash() {
             aria-label="Open app"
             className="group inline-flex h-[54px] w-[184px] overflow-hidden rounded-[18px] bg-cover bg-center bg-no-repeat shadow-[0_16px_40px_-14px_rgba(91,31,57,0.45)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-0.5 hover:shadow-[0_24px_54px_-14px_rgba(91,31,57,0.55)] focus-visible:ring-2 focus-visible:ring-[color:var(--logo-ink)]/50 focus-visible:outline-none motion-reduce:transform-none motion-reduce:transition-none"
             style={{
+              // Painted under the art, so the button is a button from the
+              // first frame. The source is 1.6MB and the label lives inside
+              // it, so without a fill the primary call to action is an
+              // invisible box until the download finishes — worst on the
+              // slow connections where it matters most. Roughly the tone of
+              // the art's mid-tones, so the image resolving over it reads as
+              // detail arriving rather than a colour change.
+              backgroundColor: "#F3C9DA",
               backgroundImage: "url(/open-app.png)",
               backgroundSize: "116.01% 187.68%",
               backgroundPosition: "49.78% 45.01%",
