@@ -300,6 +300,24 @@ export function SiteFooter() {
           <SharpsMark size={14} className="shrink-0 text-primary/70" />
           SHARPS © 2026, {ACTIVE_CHAIN.name}. Not financial advice.
         </p>
+        {/* The official account, stated where the product itself states it.
+            Impersonation is the standard attack on a launch — a fake @sharps
+            posting a fake contract address costs somebody their money — and
+            the defence is that the real handle is reachable from the site
+            rather than only from a post. Same reasoning as the CA box on
+            /sharps: this page is the thing people can check against. */}
+        <a
+          href="https://x.com/TradeSharps"
+          target="_blank"
+          rel="noreferrer noopener"
+          aria-label="SHARPS on X (opens in a new tab)"
+          className="num inline-flex items-center gap-2 tracking-wide transition-colors hover:text-foreground"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden className="size-3.5 fill-current">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+          </svg>
+          @TradeSharps
+        </a>
         {/* The contract holding everyone's money, one click away. Not showing
             it at all was the strangest omission in the product: it is the one
             address a visitor most wants to check before connecting a wallet. */}
