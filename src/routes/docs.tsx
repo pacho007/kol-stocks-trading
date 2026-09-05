@@ -180,8 +180,14 @@ function Docs() {
                 ["20%", "Win rate — consistency."],
                 ["15%", "Volume — conviction, log-compressed so whales don't flatten everyone."],
                 ["15%", "Trade count — activity and sample size."],
+                // Keyed on the description, not the weight. Two of these four
+                // weigh 15% — volume and trade count — so keying on the
+                // percentage gave React two children with the same key, and it
+                // is free to drop or duplicate one of them. On the page that
+                // explains how scoring works, a silently missing weight is the
+                // worst place for it.
               ].map(([k, v]) => (
-                <div key={k} className="bg-card px-4 py-3.5">
+                <div key={v} className="bg-card px-4 py-3.5">
                   <p className="num text-sm font-bold text-foreground">{k}</p>
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{v}</p>
                 </div>
