@@ -36,8 +36,54 @@ const BASE_URL = process.env["BLOCKSCOUT_URL"] ?? "https://robinhoodchain.blocks
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36";
 
-/** Bound work per wallet so one hyperactive address can't stall a whole cycle. */
-const MAX_PAGES = Number(process.env["BLOCKSCOUT_MAX_PAGES"] ?? 6);
+/**
+ * Hard safety cap on pages per endpoint, per wallet. NOT the normal stopping
+ * condition — see reachedWindowStart(), which ends the walk as soon as a page
+ * contains a row older than the scoring window.
+ *
+ * This was 6, which is 300 rows, and it was the *only* bound: the crawl simply
+ * ran out of pages and returned what it had, with nothing checking whether the
+ * window had been covered. For a typical wallet 300 rows reaches well past the
+ * launch gate and the result is complete. For a hyperactive one it is not
+ * close — a listed wallet with 6,426 transactions had roughly the last two
+ * days read and scored as if it were the last three weeks.
+ *
+ * The bias that produced was the worst possible one for this product. A short
+ * recent slice of an active trader captures the churn — many small scalps,
+ * most closing near flat or slightly down — while the large wins that made
+ * their month sit further back and are never read. Worse, positions opened
+ * before the slice have no cost basis in the book, so their sells price
+ * against zero. The more a trader trades, the less of their history fits, and
+ * the worse they score: the best traders on the board were ranked lowest.
+ *
+ * 50 pages is 2,500 rows, which covers the launch gate for every wallet
+ * currently listed with room to spare. Reaching this cap now means the walk
+ * genuinely could not span the window, and that is logged rather than passed
+ * off as a complete read.
+ */
+const MAX_PAGES = Number(process.env["BLOCKSCOUT_MAX_PAGES"] ?? 50);
+
+/**
+ * Has this page taken us past the start of the scoring window?
+ *
+ * Blockscout returns newest-first, so once any row on a page predates
+ * LAUNCH_TS everything older is outside the window and there is nothing left
+ * worth reading. This is the condition the crawl should always stop on;
+ * MAX_PAGES exists only to stop a pathological wallet running forever.
+ *
+ * Rows whose shape carries no timestamp contribute nothing either way — they
+ * cannot prove the window is covered, so they are ignored rather than counted
+ * as evidence.
+ */
+function reachedWindowStart(items: readonly unknown[]): boolean {
+  for (const row of items) {
+    const raw = (row as { timestamp?: string }).timestamp;
+    if (!raw) continue;
+    const ms = new Date(raw).getTime();
+    if (Number.isFinite(ms) && Math.floor(ms / 1000) < LAUNCH_TS) return true;
+  }
+  return false;
+}
 /**
  * Minimum spacing between request STARTS. Requests overlap now (see pace()),
  * so this caps the rate rather than serialising the crawl.
@@ -90,12 +136,24 @@ function hasApiKey(): boolean {
  * that variable. So the log announced a launch gate while the filter below ran
  * with 0 and counted every trade a wallet had ever made.
  *
- * Measured impact today is near zero: Robinhood Chain is young enough that
- * most wallets have no history before the gate, and MAX_PAGES bounds the crawl
- * to recent activity anyway. Checked one wallet both ways and the metrics came
- * back identical. It still had to be fixed — every listing's bio promises a
- * price that moves with "performance since launch", the gate is what makes
- * that true, and it becomes load-bearing as the chain accumulates history.
+ * It was once recorded here that the measured impact was near zero, on the
+ * grounds that Robinhood Chain is young, that MAX_PAGES bounded the crawl to
+ * recent activity anyway, and that one wallet checked both ways scored the
+ * same. Two of those three were the bug rather than a reason to relax.
+ *
+ * The crawl bound was doing the opposite of what that argument assumed: it cut
+ * the history SHORT of the gate on active wallets, so the gate was not what
+ * limited the window — the page cap was, silently and by a different amount
+ * for every wallet. And a single sampled wallet cannot show it, because the
+ * effect only appears once an address has more rows than the cap. The one
+ * checked evidently did not. A listed wallet with 6,426 transactions had about
+ * two days read and scored as three weeks, and ranked last on the board while
+ * profitable in both months it covered.
+ *
+ * The gate is load-bearing: every listing's bio promises a price that moves
+ * with "performance since launch". It is now also the crawl's stopping
+ * condition, so the window the code reads and the window the copy promises are
+ * the same window by construction.
  *
  * One source now, so the log and the filter cannot drift apart again.
  */
@@ -243,6 +301,14 @@ type Tx = {
 type InternalTx = {
   transaction_hash: string;
   value: string;
+  /**
+   * Returned by Blockscout but optional here, because nothing in the movement
+   * maths reads it — internals are matched to transactions by hash. It is
+   * declared so reachedWindowStart() can end this endpoint's walk on the same
+   * boundary as the other two; without it internals alone would run to the
+   * page cap on every wallet.
+   */
+  timestamp?: string;
   from: { hash: string } | null;
   to: { hash: string } | null;
   /** Present in Blockscout responses; used only to identify a row uniquely. */
@@ -270,8 +336,21 @@ async function fetchAllPages<T>(basePath: string): Promise<T[]> {
     const data: Paged<T> = await api<Paged<T>>(`${basePath}${sep}${qs(next)}`);
     const items = data.items ?? [];
     out.push(...items);
+    // The real stopping condition: everything older than this page is outside
+    // the scoring window, so there is nothing left to read.
+    if (reachedWindowStart(items)) return out;
     if (!data.next_page_params || items.length === 0) break;
     next = data.next_page_params;
+    // Ran out of pages with more still available and the window not yet
+    // covered. Say so: the alternative is scoring a partial history as though
+    // it were complete, which is what this whole guard exists to prevent.
+    if (page === MAX_PAGES - 1) {
+      console.warn(
+        `  truncated: ${basePath.split("/addresses/")[1] ?? basePath} hit the ${MAX_PAGES}-page cap ` +
+          `(${out.length} rows) without reaching the launch gate — its metrics are computed from ` +
+          `a partial history. Raise BLOCKSCOUT_MAX_PAGES.`,
+      );
+    }
   }
   return out;
 }
@@ -286,7 +365,7 @@ async function fetchAllPages<T>(basePath: string): Promise<T[]> {
  * newest-first, so once a page contains nothing we haven't seen, everything
  * older is already in the store and there is no reason to keep reading.
  *
- * A cold wallet still costs a full walk (bounded by MAX_PAGES); every pass
+ * A cold wallet still costs a full walk (back to the launch gate); every pass
  * after that costs one page. The store keeps the merged history, so metrics
  * are computed from the same complete picture either way — average-cost
  * accounting needs the early buys to price a later sell, so this caches rows
@@ -318,8 +397,18 @@ async function fetchNewPages<T>(
     // row": a page that straddles the boundary still has new rows on it and
     // must not end the walk.
     if (newOnPage === 0) break;
+    // Same window bound as the cold walk. On a first pass this is what ends
+    // the crawl; on later passes the "nothing new" check above almost always
+    // fires first.
+    if (reachedWindowStart(items)) break;
     if (!data.next_page_params || items.length === 0) break;
     next = data.next_page_params;
+    if (page === MAX_PAGES - 1) {
+      console.warn(
+        `  truncated: ${basePath.split("/addresses/")[1] ?? basePath} hit the ${MAX_PAGES}-page cap ` +
+          `without reaching the launch gate — partial history. Raise BLOCKSCOUT_MAX_PAGES.`,
+      );
+    }
   }
   return added;
 }
