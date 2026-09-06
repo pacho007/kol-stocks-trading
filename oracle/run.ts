@@ -44,6 +44,7 @@
 
 import { runOracle, type ListingInput } from "./indexer.js";
 import { createIncrementalBlockscoutProvider } from "./blockscout-provider.js";
+import { createAlchemyProvider, hasAlchemy, alchemyHost } from "./alchemy-provider.js";
 import { loadFullListings, fetchNativePriceUsd, publishScores } from "./publish.js";
 import { connectOracle, pushScoresOnChain } from "./push-onchain-evm.js";
 
@@ -78,8 +79,25 @@ async function main(): Promise<void> {
   // Preflight once at boot rather than one reverted batch at a time.
   const chainCtx = PUSH_ONCHAIN ? await connectOracle() : null;
 
-  // Held across cycles: this is the whole point of being a process.
-  const provider = createIncrementalBlockscoutProvider();
+  // Alchemy when configured, Blockscout otherwise.
+  //
+  // Not a preference between two equivalent sources. Blockscout is a public
+  // instance that has returned HTTP 500 for the majority of wallets for hours
+  // at a stretch, and its API shape forces a backwards page-walk that has to
+  // be bounded by a page count — a bound that, once exceeded, silently scores
+  // a partial history as a complete one. Alchemy takes fromBlock, so the
+  // scoring window is requested rather than approached and cannot be truncated.
+  //
+  // Blockscout stays as the fallback because it needs no credential: an oracle
+  // that refuses to start without a paid key is worse than one that starts
+  // slowly. Which one is in use is logged, because "the scores look wrong" and
+  // "the scores came from the flaky source" are the same investigation.
+  const provider = hasAlchemy() ? createAlchemyProvider() : createIncrementalBlockscoutProvider();
+  console.log(
+    hasAlchemy()
+      ? `History source: Alchemy (${alchemyHost()})`
+      : "History source: Blockscout (public). Set ALCHEMY_RPC_URL for a faster, bounded read.",
+  );
   let prevAnchors: Record<string, number> = {};
 
   let cycle = 0;

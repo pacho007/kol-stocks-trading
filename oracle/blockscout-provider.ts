@@ -485,8 +485,16 @@ function shortToken(addr: string): string {
   return addr.startsWith("0x") && addr.length > 10 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
 }
 
-/** Per-transaction net movement for this wallet: dominant token + native delta. */
-type Movement = {
+/**
+ * Per-transaction net movement for this wallet: dominant token + native delta.
+ *
+ * Exported because it is the seam between "where the history came from" and
+ * "how it is scored". metricsFromMovements below is the only scoring
+ * implementation, and any provider — Blockscout, Alchemy, anything later —
+ * earns identical accounting by producing this shape rather than its own
+ * metrics.
+ */
+export type Movement = {
   ts: number;
   token: string;
   amount: number;
