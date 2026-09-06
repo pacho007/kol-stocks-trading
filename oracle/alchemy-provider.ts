@@ -67,6 +67,25 @@ const BACKOFF_BASE_MS = Number(process.env["ALCHEMY_BACKOFF_MS"] ?? 400);
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+/** Concurrent traces. Cheaper calls than a transfer page, but far more of them. */
+const TRACE_CONCURRENCY = Number(process.env["ALCHEMY_TRACE_CONCURRENCY"] ?? 8);
+
+/**
+ * Net native value a transaction moved to this wallet, keyed by tx hash.
+ *
+ * The one piece of state this provider keeps, and it is safe to keep forever:
+ * a mined transaction's trace never changes. Without it every cycle would
+ * re-trace the same history, which is the difference between a few hundred
+ * traces a cycle and tens of thousands.
+ *
+ * Keyed by hash alone rather than by wallet+hash because a trace is resolved
+ * for the wallet it was fetched for, and two listed wallets trading with each
+ * other in one transaction would need separate entries. That does not happen
+ * with a cohort of independent traders, and the key is scoped per wallet in
+ * resolveNativeDeltas below to make it impossible rather than unlikely.
+ */
+const traceCache = new Map<string, number>();
+
 /**
  * Transfer categories requested per wallet.
  *
@@ -265,7 +284,10 @@ function isNativeAsset(t: Transfer): boolean {
  * nativeDelta, and the token that moved the most in a transaction is taken as
  * the position that transaction was about.
  */
-function toMovements(wallet: string, transfers: Transfer[]): Movement[] {
+function toMovements(
+  wallet: string,
+  transfers: Transfer[],
+): { movements: Movement[]; hashes: string[] } {
   const addr = wallet.toLowerCase();
   const nativeByTx = new Map<string, number>();
   const tokensByTx = new Map<string, Map<string, number>>();
@@ -303,6 +325,11 @@ function toMovements(wallet: string, transfers: Transfer[]): Movement[] {
   }
 
   const movements: Movement[] = [];
+  // Parallel to `movements`, so a movement can be traced back to the
+  // transaction it came from without widening the Movement type that the
+  // Blockscout path also produces.
+  const hashes: string[] = [];
+
   for (const [hash, byToken] of tokensByTx) {
     let best: { token: string; amount: number } | null = null;
     for (const [token, amount] of byToken) {
@@ -319,8 +346,123 @@ function toMovements(wallet: string, transfers: Transfer[]): Movement[] {
       nativeDelta: nativeByTx.get(hash) ?? 0,
       ...(sym ? { symbol: sym } : {}),
     });
+    hashes.push(hash);
   }
-  return movements;
+  return { movements, hashes };
+}
+
+type CallFrame = {
+  from?: string;
+  to?: string;
+  value?: string;
+  calls?: CallFrame[];
+};
+
+/**
+ * Native value a transaction moved to a wallet, read from its execution trace.
+ *
+ * WHY A TRACE AND NOT SOMETHING CHEAPER
+ *
+ * On this chain a DEX sell pays out through an internal call, and internal
+ * calls are exactly what the Transfers API does not return here — Alchemy
+ * rejects the "internal" category outright for this network. A wallet's sells
+ * are therefore invisible to getAssetTransfers: tokens leave, nothing comes
+ * back, and the cost book fills with buys that never close. One listed wallet
+ * had 1,165 buys and 0 sells read that way, and scored last on the board while
+ * profitable over the same window.
+ *
+ * Two cheaper routes were tried against real transactions and both failed:
+ *
+ *   Decoding the DEX Swap event. Fine on a single-hop V3 trade, useless on the
+ *   real ones — a sampled sell routed through two pools, and neither Swap's
+ *   amounts matched what left the wallet. Multi-hop routes and unrecognised
+ *   pool types would each need bespoke handling.
+ *
+ *   Differencing the native balance across the transaction's block. Correct to
+ *   within 0.0000172 ETH on the sampled trade, and wrong for the reason that
+ *   matters: the wallet had two transactions in that block, so the delta
+ *   blends them and cannot be split per trade. Active traders do that
+ *   constantly.
+ *
+ * The trace is exact. On the sampled sell it returned the 0.15798 ETH that
+ * actually reached the wallet — 1% under what the Swap event advertised,
+ * because the router kept a fee, and the wallet's number is the one the cost
+ * book needs.
+ */
+async function tracedNativeDelta(hash: string, wallet: string): Promise<number> {
+  const root = await rpc<CallFrame>("debug_traceTransaction", [hash, { tracer: "callTracer" }]);
+  const addr = wallet.toLowerCase();
+  let net = 0n;
+
+  // Iterative rather than recursive: a routed swap's tree ran 69 frames deep
+  // in places, and a hostile or merely elaborate contract should not be able
+  // to overflow the stack of the process that scores the board.
+  const stack: CallFrame[] = [root];
+  while (stack.length) {
+    const frame = stack.pop();
+    if (!frame) continue;
+    if (frame.value && frame.value !== "0x0") {
+      const v = BigInt(frame.value);
+      if (v > 0n) {
+        if ((frame.to ?? "").toLowerCase() === addr) net += v;
+        if ((frame.from ?? "").toLowerCase() === addr) net -= v;
+      }
+    }
+    if (frame.calls) stack.push(...frame.calls);
+  }
+  return Number(net) / 1e18;
+}
+
+/**
+ * Fill in nativeDelta for movements the Transfers API could not price.
+ *
+ * A movement with a token amount and a nativeDelta of exactly zero is the
+ * signature of value having moved internally. Those are traced; everything
+ * else is already priced and costs nothing.
+ */
+async function resolveNativeDeltas(
+  wallet: string,
+  movements: Movement[],
+  hashByIndex: (string | undefined)[],
+): Promise<void> {
+  const pending: number[] = [];
+  for (let i = 0; i < movements.length; i++) {
+    const m = movements[i];
+    if (!m || m.amount === 0 || m.nativeDelta !== 0) continue;
+    if (!hashByIndex[i]) continue;
+    pending.push(i);
+  }
+  if (pending.length === 0) return;
+
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(TRACE_CONCURRENCY, pending.length) }, async () => {
+    for (;;) {
+      const slot = cursor++;
+      if (slot >= pending.length) return;
+      const idx = pending[slot];
+      if (idx === undefined) return;
+      const m = movements[idx];
+      const hash = hashByIndex[idx];
+      if (!m || !hash) continue;
+
+      const key = `${wallet.toLowerCase()}:${hash}`;
+      const cached = traceCache.get(key);
+      if (cached !== undefined) {
+        m.nativeDelta = cached;
+        continue;
+      }
+      try {
+        const delta = await tracedNativeDelta(hash, wallet);
+        traceCache.set(key, delta);
+        m.nativeDelta = delta;
+      } catch {
+        // A trace that will not load leaves the movement unpriced, which the
+        // cost book already ignores. Not cached: a transient failure should
+        // not permanently blind this wallet to one of its own trades.
+      }
+    }
+  });
+  await Promise.all(workers);
 }
 
 /** Cap concurrent wallets so a cohort pass cannot open 126 sockets at once. */
@@ -339,13 +481,18 @@ async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /**
- * Stateless by design, unlike the Blockscout provider.
+ * Holds one cache, and a much smaller one than the Blockscout provider's.
  *
- * That one caches merged history per wallet for the life of the process,
- * because re-walking three paginated endpoints every cycle took ten minutes
- * and the cache brought it under two. Here a cycle is a single ranged query
- * per wallet per direction, so there is nothing worth the memory — and the
- * cache was itself the reason the service needed 2GB and OOM-looped at 512MB.
+ * That one keeps every row of merged history per wallet, because re-walking
+ * three paginated endpoints each cycle took ten minutes — and that cache is
+ * why the service needed 2GB and OOM-looped at 512MB. Transfers here are a
+ * ranged query per direction and are not cached at all.
+ *
+ * What is cached is traceCache: one number per traced transaction, because a
+ * mined trace is immutable and re-fetching history's worth of them every
+ * twenty minutes would be the single largest cost this oracle has. A number
+ * per transaction is a rounding error against the row cache that caused the
+ * memory trouble.
  */
 export function createAlchemyProvider(): PnlProvider {
   if (!hasAlchemy()) {
@@ -360,7 +507,11 @@ export function createAlchemyProvider(): PnlProvider {
           transfersFor(wallet, "fromAddress", fromBlock),
           transfersFor(wallet, "toAddress", fromBlock),
         ]);
-        return metricsFromMovements(wallet, toMovements(wallet, [...sent, ...received]));
+        const { movements, hashes } = toMovements(wallet, [...sent, ...received]);
+        // Prices the trades whose native leg moved internally — on this chain,
+        // that is every sell. Without this the cost book sees buys only.
+        await resolveNativeDeltas(wallet, movements, hashes);
+        return metricsFromMovements(wallet, movements);
       });
     },
   };
