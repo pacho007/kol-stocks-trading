@@ -45,8 +45,27 @@ const RPC_URL = process.env["ALCHEMY_RPC_URL"] ?? "";
 /** Rows per page. Alchemy caps this at 1000; Blockscout's equivalent was 50. */
 const PAGE_SIZE = "0x3e8";
 
-/** Concurrent wallets in flight. Alchemy's limits are far above Blockscout's. */
-const MAX_INFLIGHT = Number(process.env["ALCHEMY_CONCURRENCY"] ?? 8);
+/**
+ * Concurrent wallets in flight.
+ *
+ * Was 8, on the assumption that a paid endpoint would not throttle. It does:
+ * Alchemy bills compute units per second, and getAssetTransfers is expensive
+ * enough that eight wallets in parallel — each issuing two paginated queries —
+ * put 118 of 126 wallets into HTTP 429 on the first cycle.
+ *
+ * 4 with backoff underneath, rather than a larger number that relies on retry
+ * to clean up. A cohort pass now takes seconds either way; there is nothing to
+ * buy with the extra concurrency.
+ */
+const MAX_INFLIGHT = Number(process.env["ALCHEMY_CONCURRENCY"] ?? 4);
+
+/** Attempts per request before giving up on a wallet. */
+const MAX_RETRIES = Number(process.env["ALCHEMY_RETRIES"] ?? 6);
+
+/** First backoff step; doubles each attempt, with jitter. */
+const BACKOFF_BASE_MS = Number(process.env["ALCHEMY_BACKOFF_MS"] ?? 400);
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /**
  * Transfer categories requested per wallet.
@@ -101,21 +120,56 @@ type Transfer = {
 
 type JsonRpcError = { code: number; message: string };
 
+/**
+ * One JSON-RPC call, retrying the failures that are worth retrying.
+ *
+ * 429 and 5xx are transient and get exponential backoff with jitter; anything
+ * else fails immediately, because retrying a malformed request or a rejected
+ * key just burns the wallet's whole retry budget before failing anyway.
+ *
+ * Jitter matters more than usual here. Requests are issued by a cohort pass
+ * that starts many wallets at once, so a fixed backoff would re-synchronise
+ * every throttled caller onto the same instant and reproduce the burst that
+ * caused the throttling.
+ *
+ * Alchemy's own Retry-After is honoured when present — it knows better than
+ * the doubling schedule does.
+ */
 async function rpc<T>(method: string, params: unknown[]): Promise<T> {
-  const res = await fetch(RPC_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-  });
-  if (!res.ok) {
-    // Status only. The response body of a failed auth can echo the request,
-    // and the request URL is the key.
-    throw new Error(`Alchemy ${method} failed: HTTP ${res.status}`);
+  let lastError = "";
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const backoff = BACKOFF_BASE_MS * 2 ** (attempt - 1);
+      await sleep(backoff + Math.random() * backoff);
+    }
+
+    const res = await fetch(RPC_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    });
+
+    if (res.status === 429 || res.status >= 500) {
+      const retryAfter = Number(res.headers.get("retry-after"));
+      if (Number.isFinite(retryAfter) && retryAfter > 0) await sleep(retryAfter * 1000);
+      lastError = `HTTP ${res.status}`;
+      continue;
+    }
+
+    if (!res.ok) {
+      // Status only, never the body. A rejected request can be echoed back,
+      // and the request URL carries the key.
+      throw new Error(`Alchemy ${method} failed: HTTP ${res.status}`);
+    }
+
+    const body = (await res.json()) as { result?: T; error?: JsonRpcError };
+    if (body.error) throw new Error(`Alchemy ${method} failed: ${body.error.message}`);
+    if (body.result === undefined) throw new Error(`Alchemy ${method} returned no result`);
+    return body.result;
   }
-  const body = (await res.json()) as { result?: T; error?: JsonRpcError };
-  if (body.error) throw new Error(`Alchemy ${method} failed: ${body.error.message}`);
-  if (body.result === undefined) throw new Error(`Alchemy ${method} returned no result`);
-  return body.result;
+
+  throw new Error(`Alchemy ${method} failed after ${MAX_RETRIES} attempts: ${lastError}`);
 }
 
 /**
