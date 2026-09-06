@@ -5,6 +5,7 @@ import { AvatarMark } from "@/components/avatar-mark";
 import { getKol } from "@/lib/kols";
 import { useMarketFeed } from "@/lib/market-feed";
 import { useMarket } from "@/lib/market-store";
+import { supabase, isSupabaseConfigured, type FillRow } from "@/lib/supabase";
 
 /**
  * The live trade tape — every buy and sell as it lands.
@@ -43,7 +44,48 @@ export function TradeTape({ kolId, limit = 12 }: { kolId?: string; limit?: numbe
     return () => clearInterval(id);
   }, []);
 
-  const rows = (kolId ? feed.fills.filter((f) => f.kol_id === kolId) : feed.fills).slice(0, limit);
+  // Per-listing tapes query their own listing; the global tape uses the feed.
+  //
+  // Filtering the shared feed client-side looked equivalent and was not. That
+  // feed is capped at FILL_LIMIT across ALL listings, so a listing's tape only
+  // ever showed trades that happened to be among the most recent few dozen
+  // platform-wide. One busy listing could push every other listing's trades
+  // out of the window, and a listing with hundreds of trades would render
+  // "no trades yet" on its own page — the page where somebody is deciding
+  // whether to buy it.
+  //
+  // Every trade on a listing is public by design: RLS on public.fills is a
+  // plain `using (true)`, so this needs no wallet and no session.
+  const [own, setOwn] = useState<FillRow[] | null>(null);
+
+  useEffect(() => {
+    if (!kolId || !supabase || !isSupabaseConfigured) return;
+    let alive = true;
+    void (async () => {
+      const { data } = await supabase
+        .from("fills")
+        .select("id, kol_id, side, trader, shares, wei, block_timestamp, tx_hash")
+        .eq("kol_id", kolId)
+        .order("block_timestamp", { ascending: false })
+        .limit(Math.max(limit, 50));
+      if (alive && data) setOwn(data as unknown as FillRow[]);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [kolId, limit]);
+
+  // Live arrivals still come from the shared Realtime subscription, so a trade
+  // shows the instant it lands rather than on the next mount. Deduped by id,
+  // because a fill can be in both the query and the feed.
+  const rows = (() => {
+    if (!kolId) return feed.fills.slice(0, limit);
+    const live = feed.fills.filter((f) => f.kol_id === kolId);
+    const seen = new Set(live.map((f) => f.id));
+    const merged = [...live, ...(own ?? []).filter((f) => !seen.has(f.id))];
+    merged.sort((a, b) => +new Date(b.block_timestamp) - +new Date(a.block_timestamp));
+    return merged.slice(0, limit);
+  })();
 
   // Track which ids have been rendered before, so an arriving trade announces
   // itself once instead of the whole list animating on every re-render.

@@ -192,7 +192,17 @@ export function MarketProvider({ children }: { children: ReactNode }) {
 
   const tradesKey = address ? `sharps.trades.${address.toLowerCase()}` : null;
 
-  // Load this wallet's log when it connects or changes.
+  // Seed from the local cache when this wallet connects or changes.
+  //
+  // Merges rather than replaces. public.fills is now the record and it loads
+  // from the same effect that reads balances, so these two writes race — and a
+  // loader that replaced would, whenever it lost the race, silently reduce a
+  // full history to the 200 rows this browser happens to hold. Merging on tx
+  // hash makes the order they arrive in stop mattering.
+  //
+  // Its remaining job is the gap the indexer cannot cover: a trade made
+  // seconds ago is not in fills yet, and should still appear in your own
+  // history immediately.
   useEffect(() => {
     if (!tradesKey) {
       setTrades([]);
@@ -201,9 +211,14 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(tradesKey);
       const parsed = raw ? (JSON.parse(raw) as Trade[]) : [];
-      setTrades(Array.isArray(parsed) ? parsed : []);
+      if (!Array.isArray(parsed)) return;
+      setTrades((current) => {
+        const seen = new Set(current.map((t) => t.signature).filter(Boolean));
+        const extra = parsed.filter((t) => t.signature && !seen.has(t.signature));
+        return extra.length === 0 ? current : [...current, ...extra].sort((a, b) => b.at - a.at);
+      });
     } catch {
-      setTrades([]);
+      // A cleared or corrupt cache is not an error: fills carries the history.
     }
   }, [tradesKey]);
 
@@ -285,10 +300,48 @@ export function MarketProvider({ children }: { children: ReactNode }) {
         if (supabase && isSupabaseConfigured) {
           const { data } = await supabase
             .from("fills")
-            .select("kol_id, side, shares, wei")
+            .select("kol_id, side, shares, wei, block_timestamp, tx_hash")
             .eq("trader", address.toLowerCase())
-            .order("block_timestamp", { ascending: true });
+            .order("block_timestamp", { ascending: true })
+            // Explicit, because PostgREST applies a server-side ceiling to an
+            // unbounded select and silently returns a truncated page. A cost
+            // book walked from a truncated history is wrong without saying so.
+            .limit(10000);
           if (!alive) return;
+
+          // The same rows are this wallet's trade history, so it is built here
+          // rather than by a second query.
+          //
+          // This used to come from localStorage alone, which made the record
+          // of what you did a property of the browser you did it in: clearing
+          // site data or opening the app on a phone showed an empty history
+          // beside positions that were plainly there. public.fills is derived
+          // from chain events and keyed by address, so it follows the wallet
+          // instead — which is what "your account is your wallet" has to mean
+          // for history as well as for balances.
+          const fromChain: Trade[] = (data ?? []).map((f) => {
+            const shares = Number(f.shares);
+            const native = Number(f.wei) / 1e18;
+            return {
+              id: String(f.kol_id),
+              side: f.side === "sell" ? ("sell" as const) : ("buy" as const),
+              shares,
+              price: shares > 0 ? (native / shares) * nativePriceRef.current : 0,
+              native,
+              at: new Date(String(f.block_timestamp)).getTime(),
+              signature: String(f.tx_hash),
+            };
+          });
+          // Newest first, and merged with anything local the indexer has not
+          // caught up to yet — a trade made seconds ago is not in fills, and
+          // vanishing from your own history until the next index would read as
+          // a lost trade. Deduped on tx hash, which is the same trade by any
+          // route.
+          setTrades((local) => {
+            const seen = new Set(fromChain.map((t) => t.signature));
+            const pending = local.filter((t) => t.signature && !seen.has(t.signature));
+            return [...pending, ...fromChain.reverse()].sort((a, b) => b.at - a.at);
+          });
           const acc: Record<string, { shares: number; cost: number }> = {};
           for (const f of data ?? []) {
             const id = String(f.kol_id);
