@@ -48,8 +48,30 @@ const PAGE_SIZE = "0x3e8";
 /** Concurrent wallets in flight. Alchemy's limits are far above Blockscout's. */
 const MAX_INFLIGHT = Number(process.env["ALCHEMY_CONCURRENCY"] ?? 8);
 
-/** Transfer categories that can move value for a trading wallet. */
-const CATEGORIES = ["external", "internal", "erc20"] as const;
+/**
+ * Transfer categories requested per wallet.
+ *
+ * "internal" is deliberately absent. Alchemy rejects it outright on this
+ * network — `The 'internal' category is not supported for this network` — so
+ * including it fails the whole request rather than degrading.
+ *
+ * That would be a serious loss on most EVM chains, where a DEX sell returns
+ * ETH through an internal call and dropping the category would make every sell
+ * invisible: positions would open and never close, and the cost book would
+ * fill with buys that never realise. Checked against a live wallet before
+ * relying on it, and Robinhood Chain does not behave that way — incoming ETH
+ * from sells arrives as top-level `external` transfers. A sample of one
+ * wallet's ten most recent incoming transfers held three ETH/external rows
+ * alongside the token legs.
+ *
+ * Overridable, because that is an observation about how this chain's routers
+ * currently settle rather than a guarantee. If sells ever stop showing up,
+ * this is the first thing to revisit.
+ */
+const CATEGORIES = (process.env["ALCHEMY_CATEGORIES"] ?? "external,erc20")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 export function hasAlchemy(): boolean {
   return RPC_URL.length > 0;
