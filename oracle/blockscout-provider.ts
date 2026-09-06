@@ -56,12 +56,23 @@ const UA =
  * against zero. The more a trader trades, the less of their history fits, and
  * the worse they score: the best traders on the board were ranked lowest.
  *
- * 50 pages is 2,500 rows, which covers the launch gate for every wallet
- * currently listed with room to spare. Reaching this cap now means the walk
- * genuinely could not span the window, and that is logged rather than passed
- * off as a complete read.
+ * 100 pages is 5,000 rows. Sized against measured counts rather than picked:
+ * the busiest listed wallet sampled has 2,151 token transfers in its ENTIRE
+ * history (44 pages), and the gate covers 24 days of a chain that is currently
+ * 129 days old, so a cold walk should need a small fraction of that. The
+ * margin is for the wallets not sampled and for traders who are far more
+ * active recently than their lifetime average — which is most of them.
+ *
+ * Raising it is close to free. The walk stops at the gate, so extra headroom
+ * costs nothing on a wallet that does not need it; the cap only binds for
+ * genuinely pathological addresses. And because the stop is the gate rather
+ * than lifetime, the pages a cold walk needs stays roughly constant as the
+ * chain ages — a fixed 24-day window does not grow.
+ *
+ * Reaching this cap means the walk genuinely could not span the window, and
+ * that is logged rather than passed off as a complete read.
  */
-const MAX_PAGES = Number(process.env["BLOCKSCOUT_MAX_PAGES"] ?? 50);
+const MAX_PAGES = Number(process.env["BLOCKSCOUT_MAX_PAGES"] ?? 100);
 
 /**
  * Has this page taken us past the start of the scoring window?
