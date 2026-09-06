@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { ExplorerLink } from "@/components/explorer-link";
 import { fmtUsd } from "@/lib/kols";
 import { useMarket } from "@/lib/market-store";
+import { useMarketFeed } from "@/lib/market-feed";
 
 type Holder = {
   trader: string;
@@ -34,10 +35,25 @@ type Holder = {
  */
 export function HoldersPanel({ kolId, limit = 12 }: { kolId: string; limit?: number }) {
   const { onChainListings } = useMarket();
+  const feed = useMarketFeed();
   const [holders, setHolders] = useState<Holder[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   const outstanding = Number(onChainListings[kolId]?.sharesOutstanding ?? 0n);
+
+  // Re-derive the holder table whenever a trade lands on THIS listing.
+  //
+  // The effect below used to depend on kolId alone, so the table was a
+  // snapshot taken when the page mounted: somebody buying while you watched
+  // changed the price, the tape and the chart, and left the holder list
+  // showing the world as it was before they arrived. It only corrected itself
+  // if you navigated away and back.
+  //
+  // Keyed on the newest fill id rather than a count, because ids are monotonic
+  // and a count cannot distinguish "a trade arrived" from "the feed window
+  // slid". Zero when this listing has no trades yet, which is a stable value
+  // and so does not re-run anything.
+  const newestFillId = feed.fills.find((f) => f.kol_id === kolId)?.id ?? 0;
 
   useEffect(() => {
     if (!supabase || !isSupabaseConfigured) {
@@ -53,7 +69,11 @@ export function HoldersPanel({ kolId, limit = 12 }: { kolId: string; limit?: num
         .select("side, trader, shares, wei")
         .eq("kol_id", kolId)
         .order("block_timestamp", { ascending: true })
-        .limit(5000);
+        // Every fill this listing has ever had. The average-cost walk needs the
+        // whole sequence — a truncated read silently prices holders against a
+        // history that starts in the middle. The drift check below catches it
+        // if this is ever exceeded: counted shares stop matching the contract.
+        .limit(50000);
       if (!alive) return;
 
       const acc: Record<string, { shares: number; cost: number }> = {};
@@ -86,7 +106,7 @@ export function HoldersPanel({ kolId, limit = 12 }: { kolId: string; limit?: num
     return () => {
       alive = false;
     };
-  }, [kolId]);
+  }, [kolId, newestFillId]);
 
   const { nativePriceUsd } = useMarket();
 
