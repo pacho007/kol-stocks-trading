@@ -11,7 +11,23 @@ primary_region = 'iad'
 
 [env]
   CYCLE_SECONDS = '1200'
-  LAUNCH_TS = '1786587668'
+  # Start of the scoring window: 2026-09-01T00:00:00Z. Only trades after this
+  # point count toward a listing's score.
+  #
+  # Was 2026-08-13, the moment the gate was first stamped. Moved deliberately,
+  # and the reason is the product rather than the clock: a score is meant to
+  # say how a trader is performing now, and six days of closed positions —
+  # about 206 per wallet across this cohort — is enough to rank on while
+  # staying current. It is also the window comparable trackers headline.
+  #
+  # The cost side is real but secondary. Reconstructing sells requires one
+  # execution trace per candidate transaction, and the 24-day window projected
+  # to ~111,000 of them against ~26,000 here. Traces already collected stay
+  # valid: they are keyed by transaction, and the narrower window is a subset.
+  #
+  # Widening it later is safe and cheap for the same reason — the traces are on
+  # the volume, so a wider window mostly re-reads what is already cached.
+  LAUNCH_TS = '1788220800'
   ONCHAIN_MIN_SCORE_DELTA = '2'
   ROBINHOOD_NETWORK = 'mainnet'
 

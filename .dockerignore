@@ -67,3 +67,10 @@ evm/lib/forge-std/**/out
 evm/lib/forge-std/**/.vscode
 evm/lib/forge-std/**/.idea
 fly.toml
+
+# The oracle stamps oracle/.launch on first run if LAUNCH_TS is unset. That
+# file is written next to the source, so without this it is COPYed into the
+# image and becomes a stale date baked into the container — one that would
+# silently take over the moment the env var was missing. fly.toml sets
+# LAUNCH_TS explicitly, so the file has no job in production.
+oracle/.launch
