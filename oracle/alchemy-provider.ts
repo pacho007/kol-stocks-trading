@@ -35,6 +35,8 @@
  * host appears in output. Absent, run.ts falls back to Blockscout.
  */
 
+import { existsSync, readFileSync, appendFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { LAUNCH_TS } from "./indexer.js";
 import type { PnlProvider } from "./indexer.js";
 import type { RawMetrics } from "./score.js";
@@ -67,8 +69,44 @@ const BACKOFF_BASE_MS = Number(process.env["ALCHEMY_BACKOFF_MS"] ?? 400);
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/** Concurrent traces. Cheaper calls than a transfer page, but far more of them. */
-const TRACE_CONCURRENCY = Number(process.env["ALCHEMY_TRACE_CONCURRENCY"] ?? 8);
+/**
+ * Traces per second, paced to the plan's compute-unit budget.
+ *
+ * THE MISTAKE THIS REPLACES
+ *
+ * Throughput was previously bounded by concurrency alone, on the assumption
+ * that N in flight against a fast endpoint is N/latency requests per second
+ * and that the ceiling was somewhere far above. It is not. Alchemy bills
+ * compute units per second, debug_traceTransaction costs ~309 CU, and a Pay
+ * As You Go plan allows 10,000 CU/s — so the real ceiling is about 32 traces
+ * per second no matter how many sockets are open.
+ *
+ * Measured latency is ~77ms, so 32 concurrent was attempting roughly 415
+ * traces/second: thirteen times the budget. Nearly every request came back
+ * 429 and the run's time went into exponential backoff rather than work. A
+ * cold pass that should take half an hour was on course for six.
+ *
+ * Pacing to the budget is what makes it fast. At 77ms latency, ~32/s needs
+ * only about three requests in flight; the limiter below spaces starts rather
+ * than trusting concurrency to imply a rate.
+ *
+ * Left below the theoretical 32 because the transfer queries share the same
+ * budget, and because a limit hit is far more expensive than a slot left idle.
+ */
+const TRACES_PER_SEC = Number(process.env["ALCHEMY_TRACES_PER_SEC"] ?? 28);
+
+/** In-flight cap. Only has to be enough to keep the pacer saturated. */
+const TRACE_CONCURRENCY = Number(process.env["ALCHEMY_TRACE_CONCURRENCY"] ?? 6);
+
+/** Spaces request starts so the sustained rate cannot exceed the budget. */
+let nextTraceSlot = 0;
+async function paceTrace(): Promise<void> {
+  const gap = 1000 / TRACES_PER_SEC;
+  const now = Date.now();
+  const at = Math.max(now, nextTraceSlot);
+  nextTraceSlot = at + gap;
+  if (at > now) await sleep(at - now);
+}
 
 /**
  * Net native value a transaction moved to this wallet, keyed by tx hash.
@@ -85,6 +123,71 @@ const TRACE_CONCURRENCY = Number(process.env["ALCHEMY_TRACE_CONCURRENCY"] ?? 8);
  * resolveNativeDeltas below to make it impossible rather than unlikely.
  */
 const traceCache = new Map<string, number>();
+
+/**
+ * Where the trace cache survives a restart.
+ *
+ * Without this the cache is process-local, so every deploy, scale change or
+ * crash discards it and repeats the entire cold pass — hours of work and real
+ * money, re-spent to learn what was already known. A mined trace never
+ * changes, so there is no staleness to reason about and no invalidation to get
+ * wrong: the file is append-only and always correct.
+ *
+ * A Fly volume rather than a table in Supabase, for the plain reason that the
+ * oracle has no service-role key and this is not data anything else reads. A
+ * gigabyte costs cents and holds far more entries than this will ever have.
+ *
+ * NDJSON rather than one JSON document, so a write is an append and a process
+ * killed mid-write loses at most the last line instead of the whole cache.
+ */
+const CACHE_PATH = process.env["TRACE_CACHE_PATH"] ?? "/data/trace-cache.ndjson";
+let cacheAppendFailed = false;
+
+function loadTraceCache(): void {
+  try {
+    if (!existsSync(CACHE_PATH)) return;
+    let kept = 0;
+    let skipped = 0;
+    for (const line of readFileSync(CACHE_PATH, "utf8").split("\n")) {
+      if (!line) continue;
+      try {
+        const [key, delta] = JSON.parse(line) as [string, number];
+        if (typeof key === "string" && typeof delta === "number" && Number.isFinite(delta)) {
+          traceCache.set(key, delta);
+          kept++;
+        } else skipped++;
+      } catch {
+        // A torn final line from a process killed mid-append. Skipping it is
+        // the whole reason this file is line-oriented.
+        skipped++;
+      }
+    }
+    console.log(
+      `Trace cache: ${kept} entries restored from ${CACHE_PATH}` +
+        (skipped ? ` (${skipped} unreadable line(s) skipped)` : ""),
+    );
+  } catch (e) {
+    console.warn(`Trace cache: could not read ${CACHE_PATH} — starting cold. ${String(e)}`);
+  }
+}
+
+function appendTraceCache(key: string, delta: number): void {
+  if (cacheAppendFailed) return;
+  try {
+    mkdirSync(dirname(CACHE_PATH), { recursive: true });
+    appendFileSync(CACHE_PATH, JSON.stringify([key, delta]) + "\n", "utf8");
+  } catch (e) {
+    // Warn once. A missing volume must not turn every trace into a failed
+    // write; the in-memory cache still works for the life of the process.
+    cacheAppendFailed = true;
+    console.warn(
+      `Trace cache: cannot write ${CACHE_PATH}, continuing in memory only. ` +
+        `Restarts will re-trace. ${String(e)}`,
+    );
+  }
+}
+
+loadTraceCache();
 
 /**
  * Transfer categories requested per wallet.
@@ -390,6 +493,7 @@ type CallFrame = {
  * book needs.
  */
 async function tracedNativeDelta(hash: string, wallet: string): Promise<number> {
+  await paceTrace();
   const root = await rpc<CallFrame>("debug_traceTransaction", [hash, { tracer: "callTracer" }]);
   const addr = wallet.toLowerCase();
   let net = 0n;
@@ -454,6 +558,7 @@ async function resolveNativeDeltas(
       try {
         const delta = await tracedNativeDelta(hash, wallet);
         traceCache.set(key, delta);
+        appendTraceCache(key, delta);
         m.nativeDelta = delta;
       } catch {
         // A trace that will not load leaves the movement unpriced, which the

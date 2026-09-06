@@ -1,73 +1,44 @@
-# Fly.io config for the SHARPS oracle.
+# fly.toml app configuration file generated for sharps-oracle on 2026-09-06T02:02:47+01:00
 #
-# Deliberately NOT a web service: there is no HTTP listener, nothing routes to
-# it, and it must never be scaled to zero — it is a worker whose whole job is
-# to stay up and keep reading the chain.
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
-# Deploy:
-#   fly launch --no-deploy --copy-config    (first time only)
-#   fly secrets set MARKET_ADDRESS=0x... \
-#                   ORACLE_AUTHORITY_PRIVATE_KEY=0x... \
-#                   BLOCKSCOUT_API_KEY=... \
-#                   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=...
-#   fly deploy
 
-app = "sharps-oracle"
-primary_region = "iad"
+app = 'sharps-oracle'
+primary_region = 'iad'
 
 [build]
-  dockerfile = "oracle/Dockerfile"
+  dockerfile = 'oracle/Dockerfile'
 
 [env]
-  # Pause BETWEEN cycles, so the effective cadence is cycle + pause.
-  #
-  # 1200, and the reason is gas rather than freshness. Each listing pushed
-  # costs ~61k gas; at the measured 0.4077 gwei that is 0.00313 ETH for a full
-  # 126-listing push. At a 15 minute cadence with 20 listings moving per cycle
-  # that runs about 0.048 ETH/day. Twenty minutes is a third of that, roughly
-  # 0.016 ETH/day, and the board still refreshes 72 times a day against scores
-  # derived from multi-day trading history.
-  #
-  # NOTE: the header's freshness dot in src/components/site-header.tsx has to
-  # stay wider than this pause plus a cycle's own runtime, or a healthy oracle
-  # reads as offline. Change one and check the other.
-  #
-  # Paired with ONCHAIN_MIN_SCORE_DELTA below: cadence cuts how often we look,
-  # the deadband cuts how much of what we find is worth paying to write.
-  CYCLE_SECONDS = "1200"
-
-  # Do not pay to write a score that moved by a point. See MIN_SCORE_DELTA in
-  # oracle/push-onchain-evm.ts — raise to 3 to cut the bill further at the cost
-  # of the board sitting up to 3 points off target.
-  ONCHAIN_MIN_SCORE_DELTA = "2"
-
-  # Mainnet. This machine signs with the oracle authority key and writes prices
-  # the whole board is read off, so it must target the same chain the site
-  # trades on — chain 4663.
-  #
-  # A wrong value here is caught rather than silently tolerated: push-onchain
-  # checks that MARKET_ADDRESS actually has code on this network AND that the
-  # key is the contract's oracleAuthority, and throws on either mismatch. So
-  # flipping this without updating the MARKET_ADDRESS secret fails loudly on
-  # the next cycle instead of quietly publishing to the wrong chain.
-  ROBINHOOD_NETWORK = "mainnet"
-
-  # Pin the launch gate. Scores count only trades after this instant, which is
-  # what every listing bio promises. Left unset, the oracle stamps "now" on
-  # first boot — so a redeploy that lost the file would reset every listing to
-  # a neutral 50 and unwind its price. Set this to the mainnet go-live epoch
-  # BEFORE the first deploy, and never change it afterwards.
-  LAUNCH_TS = "1786587668"
-
-# One machine, always on. auto_stop_machines would suspend the process, throw
-# away the incremental cache, and make every wake-up pay for a cold crawl —
-# which is the batch behaviour this replaced.
-[[vm]]
-  size = "shared-cpu-1x"
-  memory = "512mb"
+  CYCLE_SECONDS = '1200'
+  LAUNCH_TS = '1786587668'
+  ONCHAIN_MIN_SCORE_DELTA = '2'
+  ROBINHOOD_NETWORK = 'mainnet'
 
 [processes]
-  oracle = "npx tsx oracle/run.ts"
+  oracle = 'npx tsx oracle/run.ts'
 
-# No [http_service] block on purpose: nothing should be able to reach this
-# from the internet. It holds the oracle authority key.
+# Persists the oracle's trace cache across restarts.
+#
+# debug_traceTransaction is the only source of sell proceeds on this chain, and
+# a cold pass over 126 wallets is tens of thousands of traces — hours of wall
+# clock and real money. Held only in the process, that cost is paid again on
+# every deploy, scale change and crash. A mined trace never changes, so the
+# cache is safe to keep forever and there is nothing to invalidate.
+[mounts]
+  source = 'trace_cache'
+  destination = '/data'
+
+[[vm]]
+  # CPU was never the constraint, despite a load average that suggested it.
+  # Measured: a trace response parses in ~1ms and arrives in ~77ms, so the work
+  # is network-bound and Node's single thread is nowhere near saturated. The
+  # earlier slowness was throughput exceeding the plan's compute-unit budget
+  # and disappearing into backoff; ALCHEMY_TRACES_PER_SEC is the fix, not cores.
+  size = 'shared-cpu-1x'
+  # 512mb OOM-looped when the Blockscout provider cached every history row in
+  # memory. The Alchemy path holds no row cache and the trace cache is one
+  # number per transaction, so that pressure is gone — but a wallet's transfer
+  # pages are still tens of MB in flight, and this is not the place to be
+  # exactly right.
+  memory = '1024mb'
