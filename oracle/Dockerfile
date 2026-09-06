@@ -40,6 +40,37 @@ COPY tsconfig.json ./
 COPY oracle ./oracle
 COPY src ./src
 
+# push-onchain-evm.ts reads the contract ABI off disk at import time:
+#
+#   readFileSync(resolve(__dirname, "../evm/src/SharpsMarketAbi.json"))
+#
+# Missing it is not a degraded mode. The read is at module scope, so the
+# process throws ENOENT before main() runs, the machine restarts, and Fly
+# gives up after ten attempts — an image that builds and pushes cleanly and
+# then never starts.
+#
+# Only this one file, not the whole evm/ tree: everything else there is
+# Foundry source, build output and libraries the oracle never reads, and
+# copying the lot would bloat the image while hiding which part is actually a
+# runtime dependency.
+COPY evm/src/SharpsMarketAbi.json ./evm/src/
+
+# Two directories the process writes to every cycle, made writable before the
+# drop to an unprivileged user.
+#
+#   oracle/  .last-onchain-run-evm.json, the per-cycle push manifest
+#   public/  scores.json, the snapshot the frontend can fall back on
+#
+# Everything above is COPYed as root, so without this the first cycle gets as
+# far as pushing scores on chain and then dies on EACCES writing its manifest —
+# the failure appears after the work looks like it succeeded, which is the
+# expensive kind. publishScores mkdirs public/ itself, but creating a directory
+# under /app needs /app to be writable too, hence creating it here.
+#
+# Scoped to these two rather than `chown -R /app`, which would rewrite every
+# layer of node_modules for no benefit.
+RUN mkdir -p /app/public && chown -R node:node /app/oracle /app/public
+
 # Not root. The process only makes outbound HTTPS calls and signs with a key
 # from the environment; it has no reason to own the filesystem.
 USER node
