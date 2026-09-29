@@ -7,21 +7,10 @@
  *
  * This is READ-ONLY. It never signs, never moves funds, never needs a
  * private key. Publishing is oracle/publish.ts; signing is
- * oracle/push-onchain-evm.ts.
+ * oracle/push-onchain.ts.
  *
- * THE PROVIDER IS AN ARGUMENT, NOT A DEFAULT
- *
- * This file used to carry a complete second implementation: a Helius client
- * that read Solana swap history, roughly 280 lines of it, plus a
- * HeliusPnlProvider that runOracle took as its DEFAULT provider. The app has
- * run on Robinhood Chain for a long time and nothing reached that code except
- * this file's own CLI, which printed three hardcoded Solana wallets scoring
- * 50 and a missing-credential error — while looking exactly like the way to
- * test the oracle.
- *
- * The default was the real hazard. Any caller that forgot the second argument
- * silently got a Solana provider on an EVM chain. runOracle now requires one,
- * so that mistake is a compile error rather than a runtime surprise.
+ * The provider is a required argument, not a default, so a caller can never
+ * silently score against the wrong source.
  *
  * Run (exercises the production path against real chain data):
  *   npx tsx oracle/indexer.ts
@@ -33,41 +22,11 @@ import { scoreCohort, scoreToAnchor, applyRateCap, BASE_PRICE, type RawMetrics }
 // Config
 // ---------------------------------------------------------------------------
 
-/**
- * LAUNCH GATE — everyone starts fresh.
- * No historical trades count. Scores reflect ONLY trades made after the
- * moment the product went live. The launch time is persisted to a file so
- * restarting the watcher does NOT reset everyone's clock — go-live happens
- * once, the first time this runs.
- */
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { resolve as resolvePath, dirname as pathDirname } from "node:path";
+import { resolve as resolvePath } from "node:path";
 import { fileURLToPath as toPath } from "node:url";
+import { LAUNCH_TS } from "./launch.js";
 
-const LAUNCH_FILE = resolvePath(pathDirname(toPath(import.meta.url)), ".launch");
-
-/** Unix seconds of go-live. Set once, then reused on every subsequent run. */
-export const LAUNCH_TS: number = (() => {
-  // An explicit value wins over the file, and is what production should use.
-  // The file is written next to this source, which inside a container means it
-  // is part of the image: fine while it ships with a committed value, but a
-  // deploy that ever loses it would silently re-stamp "now" and reset every
-  // listing's history to nothing — scores would collapse to 50 and prices
-  // would unwind. Pinning LAUNCH_TS in the environment removes that failure
-  // mode entirely, which is why fly.toml sets it.
-  const fromEnv = Number(process.env["LAUNCH_TS"] ?? "");
-  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
-
-  if (existsSync(LAUNCH_FILE)) {
-    const v = Number(readFileSync(LAUNCH_FILE, "utf8").trim());
-    if (Number.isFinite(v) && v > 0) return v;
-  }
-  const now = Math.floor(Date.now() / 1000);
-  writeFileSync(LAUNCH_FILE, String(now), "utf8");
-  console.log(`\n*** GO-LIVE: launch time set to ${new Date(now * 1000).toISOString()} ***`);
-  console.log(`*** Everyone starts fresh. Only trades AFTER this count. ***\n`);
-  return now;
-})();
+export { LAUNCH_TS };
 
 // ---------------------------------------------------------------------------
 // PnL provider seam — swap this for a dedicated PnL API later if you want
@@ -114,21 +73,9 @@ export async function runOracle(
     `Indexing ${listings.length} wallets since launch ${new Date(LAUNCH_TS * 1000).toISOString()}...`,
   );
 
-  // How many wallets are worked on at once.
-  //
-  // This is the real ceiling on request parallelism, and it took a while to
-  // see. Each wallet walks its pages sequentially, so at most CONCURRENCY
-  // requests can ever be open — raising the provider's own MAX_INFLIGHT above
-  // this number does nothing at all, because there is nobody to fill the extra
-  // slots. Both had to move together.
-  //
-  // 16 when a key is present, matching the provider's in-flight cap, measured
-  // against the endpoint rather than guessed: ramps at 6, 12 and 20 concurrent
-  // returned no 429 at any level. 4 stays the default without a key, where the
-  // limit is real and was actually hit.
-  const CONCURRENCY = Number(
-    process.env["INDEXER_CONCURRENCY"] ?? (process.env["BLOCKSCOUT_API_KEY"] ? 16 : 4),
-  );
+  // How many wallets are worked on at once. The provider has its own
+  // request limiter; this only bounds how many wallets are in progress.
+  const CONCURRENCY = Number(process.env["INDEXER_CONCURRENCY"] ?? 4);
   const raw: (RawMetrics | undefined)[] = new Array(listings.length);
   const failed: string[] = [];
   let done = 0;
@@ -207,9 +154,9 @@ export async function runOracle(
       score: s.score,
       metrics: {
         id: s.id,
-        realizedPnlEth: s.realizedPnlEth,
+        realizedPnlSol: s.realizedPnlSol,
         winRate: s.winRate,
-        volumeEth: s.volumeEth,
+        volumeSol: s.volumeSol,
         trades: s.trades,
         // Carried through for display; not an input to the score.
         ...(s.topWins ? { topWins: s.topWins } : {}),
@@ -226,7 +173,6 @@ export async function runOracle(
 // helpers
 // ---------------------------------------------------------------------------
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const short = (w: string) => `${w.slice(0, 4)}..${w.slice(-4)}`;
 
 // ---------------------------------------------------------------------------
@@ -237,22 +183,19 @@ const short = (w: string) => `${w.slice(0, 4)}..${w.slice(-4)}`;
 
 async function main() {
   // A small real sample through the PRODUCTION path, so running this file
-  // verifies what actually ships. It used to run three hardcoded Solana
-  // wallets through a Solana provider that could never work on this chain,
-  // printed three scores of 50 and a credential error, and looked for all
-  // the world like the way to test the oracle.
+  // verifies what actually ships.
   const { KOLS } = await import("../src/lib/kols.js");
-  const { EvmPnlProvider } = await import("./evm-pnl-provider.js");
+  const { createSolanaProvider } = await import("./solana-provider.js");
   const sample: ListingInput[] = KOLS.slice(0, 4).map((k) => ({ id: k.id, wallet: k.wallet }));
 
-  const rows = await runOracle(sample, EvmPnlProvider);
+  const rows = await runOracle(sample, createSolanaProvider());
 
   console.log("\n=== Oracle output (opens equal, price earned by score) ===\n");
   console.log(["id", "score", "confidence", "targetAnchor"].join("\t"));
   for (const r of rows.sort((x, y) => y.score - x.score)) {
     console.log([r.id, r.score, r.confidence.toFixed(2), r.targetAnchor.toFixed(6)].join("\t"));
   }
-  console.log("\nReal Robinhood Chain data through the same scorer the service uses.");
+  console.log("\nReal Solana mainnet data through the same scorer the service uses.");
 }
 // run only if invoked directly (not when imported, e.g. by publish.ts)
 if (process.argv[1] && toPath(import.meta.url) === resolvePath(process.argv[1])) {

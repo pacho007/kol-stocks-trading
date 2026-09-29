@@ -55,14 +55,14 @@ const STEPS: Step[] = [
     anchor: "how",
     kicker: "",
     title: "Two percent each way, split in code",
-    body: "Every trade pays 2%. 1% stays in the listing's reserve, which is what pays out every sell. 0.5% accrues to the trader being tracked. 0.5% funds the platform. All three are constants in the contract — nobody can change them later.",
+    body: "Every trade pays 2%. 1% stays in the listing's reserve, which is what pays out every sell. 0.5% accrues to the trader being tracked. 0.5% funds the platform. All three are constants in the program — nobody can change them later.",
     prefer: "left",
   },
   {
     anchor: "wallet",
     kicker: "",
     title: "Connect and take a position",
-    body: "Trades settle on Robinhood Chain from your own wallet. No account, no deposit — what you buy is held by your address, and Portfolio tracks the rest.",
+    body: "Trades settle on Solana from your own wallet. No account, no deposit — what you buy is held by your address, and Portfolio tracks the rest.",
     prefer: "bottom",
   },
 ];

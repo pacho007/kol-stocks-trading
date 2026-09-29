@@ -1,159 +1,117 @@
 /**
- * verify-deployment.mjs — do all the moving parts agree on ONE contract?
+ * verify-deployment.mjs — do all the moving parts agree on ONE program?
  *
  * WHY THIS EXISTS
  *
- * MARKET_ADDRESS is configured in four separate places and nothing makes them
- * agree: .env.production (the site), a Lovable secret (the indexer), a GitHub
- * secret (the backstop oracle), and a Fly secret (the live oracle).
+ * The cluster and program id are configured in several places and nothing
+ * makes them agree: .env.production (the site), Supabase secrets (the
+ * indexer), a GitHub secret (the backstop oracle) and a Fly secret (the live
+ * oracle). Every component can be individually correct while the board reads
+ * one deployment and portfolios another.
  *
- * This has already gone wrong once. On testnet the frontend read
- * 0xe4896dd7… while the oracle and indexer wrote to 0xF3a21d10…, so the board
- * showed real scores from one contract while portfolios read balances from
- * another and came back empty. Every component was individually correct and
- * passed every check aimed at it. Nothing compared them to each other.
- *
- * The secrets themselves cannot be read from here, so this checks the OUTCOME
- * instead: which contract actually emitted the events sitting in the database,
- * versus the one the site is built to read. That is the comparison that
- * catches a split, and it needs no privileged access.
- *
- * Run before opening trading, after any redeploy, and any time the board and a
- * portfolio disagree:
+ * The secrets themselves cannot be read from here, so this checks OUTCOMES:
+ * the program is deployed on the cluster the site is built for, its config is
+ * initialized, the first listed trader has a listing, and the newest price
+ * event in the database came from a transaction that invoked THIS program.
  *
  *   node scripts/verify-deployment.mjs
+ *
+ * Env: SOLANA_RPC_URL (else the cluster default), SUPABASE_URL +
+ * SUPABASE_ANON_KEY (else read from .env.production) for the database check.
  */
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { PublicKey } from "@solana/web3.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => (existsSync(resolve(root, p)) ? readFileSync(resolve(root, p), "utf8") : "");
-const pick = (text, key) => (text.match(new RegExp(`^${key}\s*=\s*"?([^"\r\n]+)"?`, "m")) || [])[1];
+const pick = (text, key) =>
+  (text.match(new RegExp(`^${key}\\s*=\\s*"?([^"\\r\\n]+)"?`, "m")) || [])[1];
 
 const envProd = read(".env.production");
 const envLocal = read(".env");
-const deployed = read("evm/.deployed");
+const idl = JSON.parse(read("src/lib/solana/sharps-idl.json"));
 
-const network =
-  pick(envProd, "VITE_ROBINHOOD_NETWORK") ?? pick(envLocal, "VITE_ROBINHOOD_NETWORK") ?? "testnet";
+const cluster =
+  pick(envProd, "VITE_SOLANA_CLUSTER") ?? pick(envLocal, "VITE_SOLANA_CLUSTER") ?? "devnet";
+const programId = pick(envProd, "VITE_PROGRAM_ID") ?? idl.address;
 const RPC =
-  process.env.ROBINHOOD_RPC_URL ??
-  (network === "mainnet"
-    ? "https://rpc.mainnet.chain.robinhood.com"
-    : "https://rpc.testnet.chain.robinhood.com");
+  process.env.SOLANA_RPC_URL ??
+  pick(envProd, "VITE_SOLANA_RPC_URL") ??
+  (cluster.startsWith("mainnet")
+    ? "https://api.mainnet-beta.solana.com"
+    : cluster === "localnet"
+      ? "http://127.0.0.1:8899"
+      : "https://api.devnet.solana.com");
 
 const rpc = async (method, params = []) => {
   const r = await fetch(RPC, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-  }).then((x) => x.json());
-  if (r.error) throw new Error(`${method}: ${r.error.message}`);
-  return r.result;
+  });
+  const j = await r.json();
+  if (j.error) throw new Error(`${method}: ${JSON.stringify(j.error)}`);
+  return j.result;
 };
 
-const same = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
-const fails = [];
-const warns = [];
+let failed = 0;
+const ok = (msg) => console.log(`  ok    ${msg}`);
+const bad = (msg) => {
+  failed++;
+  console.log(`  FAIL  ${msg}`);
+};
 
-console.log(`\nSHARPS deployment check — ${network} (${RPC})\n`);
+console.log(`Site build: ${cluster} · program ${programId}\nRPC: ${RPC}\n`);
 
-// 1. what the site is built to read
-const siteAddr = pick(envProd, "VITE_MARKET_ADDRESS") ?? pick(envLocal, "VITE_MARKET_ADDRESS");
-const deployAddr = pick(deployed, "MARKET_ADDRESS");
-console.log(`  site (.env.production / .env) : ${siteAddr ?? "(unset)"}`);
-console.log(`  last deploy (evm/.deployed)   : ${deployAddr ?? "(unset)"}`);
-if (!siteAddr) fails.push("No VITE_MARKET_ADDRESS configured — the site cannot trade.");
-if (siteAddr && deployAddr && !same(siteAddr, deployAddr))
-  warns.push(`Site reads ${siteAddr} but the last recorded deploy was ${deployAddr}.`);
+const pid = new PublicKey(programId);
+const program = await rpc("getAccountInfo", [programId, { encoding: "base64" }]);
+if (program?.value?.executable) ok("program is deployed on this cluster");
+else bad("no executable program at that id on this cluster");
 
-// 2. is it a real contract on this chain, and does it hold listings
-if (siteAddr) {
-  const chainId = parseInt(await rpc("eth_chainId"), 16);
-  const expected = network === "mainnet" ? 4663 : 46630;
-  console.log(`  RPC chain id                  : ${chainId} (expects ${expected})`);
-  if (chainId !== expected) fails.push(`RPC is chain ${chainId}, not ${expected}.`);
+const [config] = PublicKey.findProgramAddressSync([Buffer.from("config")], pid);
+const cfg = await rpc("getAccountInfo", [config.toBase58(), { encoding: "base64" }]);
+if (cfg?.value) ok(`config initialized (${config.toBase58()})`);
+else bad("config account missing — run the admin init");
 
-  const code = await rpc("eth_getCode", [siteAddr, "latest"]);
-  console.log(
-    `  contract code at that address : ${code && code !== "0x" ? `${(code.length - 2) / 2} bytes` : "NONE"}`,
+const firstWallet = (read("src/lib/kols.ts").match(/wallet:\s*"([1-9A-HJ-NP-Za-km-z]{32,44})"/) ||
+  [])[1];
+if (firstWallet) {
+  const [listing] = PublicKey.findProgramAddressSync(
+    [Buffer.from("listing"), new PublicKey(firstWallet).toBuffer()],
+    pid,
   );
-  if (!code || code === "0x") fails.push(`No contract at ${siteAddr} on chain ${chainId}.`);
-  else {
-    // Does it hold OUR listings, not merely some listings? There is no
-    // listingCount() on this contract — create-listings.sh calls one and
-    // swallows the revert — so ask getListing() about a wallet we know we
-    // list. The last field of the returned tuple is `exists`, and a contract
-    // that has been deployed but never seeded answers false.
-    const kols = read("src/lib/kols.ts");
-    const firstWallet = (kols.match(/wallet:\s*"(0x[0-9a-fA-F]{40})"/) || [])[1];
-    if (firstWallet) {
-      const data = "0x084af0b2" + firstWallet.slice(2).toLowerCase().padStart(64, "0");
-      const res = await rpc("eth_call", [{ to: siteAddr, data }, "latest"]).catch(() => null);
-      // tuple ends (..., paused bool, exists bool) — last 32-byte word is `exists`
-      const exists = res && res !== "0x" ? res.slice(-64).replace(/^0+/, "") === "1" : null;
-      console.log(
-        `  our listings present on it    : ${exists === null ? "(could not read)" : exists ? "yes" : "NO"}`,
-      );
-      if (exists === false)
-        fails.push(
-          "The contract has no listing for the first wallet in kols.ts — create-listings has not " +
-            "been run against this deployment.",
-        );
-    }
-  }
+  const l = await rpc("getAccountInfo", [listing.toBase58(), { encoding: "base64" }]);
+  if (l?.value) ok(`first listed trader ${firstWallet} has a listing`);
+  else bad(`first listed trader ${firstWallet} has no on-chain listing yet`);
+} else {
+  bad("no Solana wallet found in src/lib/kols.ts");
 }
 
-// 3. THE CHECK THAT WAS MISSING: which contract produced the indexed data?
-const SUPA_URL =
-  process.env.SUPABASE_URL ??
-  pick(envProd, "VITE_SUPABASE_URL") ??
-  pick(envLocal, "VITE_SUPABASE_URL");
-const SUPA_KEY =
-  process.env.SUPABASE_ANON_KEY ??
-  pick(envProd, "VITE_SUPABASE_PUBLISHABLE_KEY") ??
-  pick(envLocal, "VITE_SUPABASE_PUBLISHABLE_KEY");
-
-if (SUPA_URL && SUPA_KEY) {
-  const rows = await fetch(
-    `${SUPA_URL}/rest/v1/price_history?select=tx_hash,block_number&order=block_number.desc&limit=1`,
-    { headers: { apikey: SUPA_KEY } },
-  ).then((r) => r.json());
-
-  if (!Array.isArray(rows) || rows.length === 0) {
-    console.log(`  feed source contract          : (no price history yet)`);
-    warns.push("public.price_history is empty — nothing has been indexed on this network yet.");
-  } else {
-    const tx = await rpc("eth_getTransactionByHash", [rows[0].tx_hash]);
-    const feedAddr = tx?.to ?? null;
-    console.log(`  feed source contract          : ${feedAddr ?? "(tx not found on this chain)"}`);
-    if (!tx) {
-      fails.push(
-        `The newest indexed event (${rows[0].tx_hash}) does not exist on chain ${network}. ` +
-          `The database was indexed against a different network.`,
-      );
-    } else if (siteAddr && !same(feedAddr, siteAddr)) {
-      fails.push(
-        `SPLIT BRAIN: the site reads ${siteAddr} but every indexed event came from ${feedAddr}. ` +
-          `Balances and portfolios will read one contract while prices and history come from another.`,
-      );
-    }
+const SUPABASE_URL = process.env.SUPABASE_URL ?? pick(envProd, "VITE_SUPABASE_URL");
+const SUPABASE_KEY =
+  process.env.SUPABASE_ANON_KEY ?? pick(envProd, "VITE_SUPABASE_PUBLISHABLE_KEY");
+if (SUPABASE_URL && SUPABASE_KEY) {
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/price_history?select=signature&order=block_time.desc&limit=1`,
+    { headers: { apikey: SUPABASE_KEY, authorization: `Bearer ${SUPABASE_KEY}` } },
+  );
+  const rows = r.ok ? await r.json() : null;
+  if (!rows) bad(`could not read price_history (HTTP ${r.status})`);
+  else if (rows.length === 0) console.log("  --    price_history is empty (nothing indexed yet)");
+  else {
+    const tx = await rpc("getTransaction", [
+      rows[0].signature,
+      { encoding: "json", maxSupportedTransactionVersion: 0 },
+    ]);
+    const keys = tx?.transaction?.message?.accountKeys ?? [];
+    if (keys.includes(programId)) ok("newest indexed price event came from this program");
+    else bad("newest indexed price event did NOT come from this program — indexer is split");
   }
 } else {
-  warns.push(
-    "No Supabase credentials found — skipped the feed-source check, which is the important one.",
-  );
+  console.log("  --    no Supabase credentials; skipped the database check");
 }
 
-console.log("");
-for (const w of warns) console.log(`  WARN  ${w}`);
-for (const f of fails) console.log(`  FAIL  ${f}`);
-console.log("");
-if (fails.length === 0 && warns.length === 0)
-  console.log("  All sources agree. Safe to open trading.\n");
-else if (fails.length === 0) console.log(`  No blocking problems (${warns.length} warning(s)).\n`);
-else {
-  console.log(`  ${fails.length} blocking problem(s). Do not open trading.\n`);
-  process.exit(1);
-}
+console.log(failed ? `\n${failed} check(s) failed.` : "\nAll checks passed.");
+process.exit(failed ? 1 : 0);

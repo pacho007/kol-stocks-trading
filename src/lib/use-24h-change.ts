@@ -18,9 +18,9 @@ export type Mover = {
  * WHY THIS READS price_history AND NOT listings
  *
  * public.listings looks like the right source — it is the "current state"
- * table and it has a price_wei column. It was not usable: every row held its
+ * table and it has a price_lamports column. It was not usable: every row held its
  * seed values (score 50, opening price, last_update_ts null) because the
- * indexer's write to it was guarded by `last_update_ts <= block_timestamp`,
+ * indexer's write to it was guarded by `last_update_ts <= block_time`,
  * which is NULL rather than TRUE on a seeded row, so a listing's first update
  * never applied. Reading it showed the opening price as "now" and inverted the
  * sign of every move.
@@ -76,14 +76,14 @@ export function use24hChange(ids: readonly string[]): Mover[] | null {
       // staleness is stated there rather than by blanking every number.
       const { data: newestRow } = await supabase
         .from("price_history")
-        .select("block_timestamp")
-        .order("block_timestamp", { ascending: false })
+        .select("block_time")
+        .order("block_time", { ascending: false })
         .limit(1)
         .maybeSingle();
       if (!alive) return;
 
-      const anchorMs = newestRow?.block_timestamp
-        ? new Date(newestRow.block_timestamp).getTime()
+      const anchorMs = newestRow?.block_time
+        ? new Date(newestRow.block_time).getTime()
         : Date.now();
       const cutoff = new Date(anchorMs - 24 * 60 * 60 * 1000).toISOString();
 
@@ -102,9 +102,9 @@ export function use24hChange(ids: readonly string[]): Mover[] | null {
       // guessing at it.
       const history = await supabase
         .from("price_history")
-        .select("kol_id, price_wei, block_timestamp")
+        .select("kol_id, price_lamports, block_time")
         .in("kol_id", wanted)
-        .order("block_timestamp", { ascending: true })
+        .order("block_time", { ascending: true })
         .limit(4000);
       if (!alive) return;
 
@@ -116,14 +116,14 @@ export function use24hChange(ids: readonly string[]): Mover[] | null {
       const latest = new Map<string, number>();
       for (const r of history.data ?? []) {
         const id = String(r.kol_id);
-        const wei = Number(r.price_wei);
-        if (!Number.isFinite(wei) || wei <= 0) continue;
-        const t = new Date(String(r.block_timestamp)).getTime();
-        if (t <= cutoffMs) base.set(id, wei);
+        const lamports = Number(r.price_lamports);
+        if (!Number.isFinite(lamports) || lamports <= 0) continue;
+        const t = new Date(String(r.block_time)).getTime();
+        if (t <= cutoffMs) base.set(id, lamports);
         // A listing first scored INSIDE the window has no price before it;
         // its earliest event is the only sensible baseline.
-        else if (!base.has(id)) base.set(id, wei);
-        latest.set(id, wei);
+        else if (!base.has(id)) base.set(id, lamports);
+        latest.set(id, lamports);
       }
       const byId = new Map(KOLS.map((k) => [k.id, k]));
       const rows: Mover[] = [];

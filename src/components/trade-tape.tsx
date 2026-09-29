@@ -64,9 +64,9 @@ export function TradeTape({ kolId, limit = 12 }: { kolId?: string; limit?: numbe
     void (async () => {
       const { data } = await supabase
         .from("fills")
-        .select("id, kol_id, side, trader, shares, wei, block_timestamp, tx_hash")
+        .select("id, kol_id, side, trader, shares, lamports, block_time, signature")
         .eq("kol_id", kolId)
-        .order("block_timestamp", { ascending: false })
+        .order("block_time", { ascending: false })
         .limit(Math.max(limit, 50));
       if (alive && data) setOwn(data as unknown as FillRow[]);
     })();
@@ -83,7 +83,7 @@ export function TradeTape({ kolId, limit = 12 }: { kolId?: string; limit?: numbe
     const live = feed.fills.filter((f) => f.kol_id === kolId);
     const seen = new Set(live.map((f) => f.id));
     const merged = [...live, ...(own ?? []).filter((f) => !seen.has(f.id))];
-    merged.sort((a, b) => +new Date(b.block_timestamp) - +new Date(a.block_timestamp));
+    merged.sort((a, b) => +new Date(b.block_time) - +new Date(a.block_time));
     return merged.slice(0, limit);
   })();
 
@@ -135,7 +135,7 @@ export function TradeTape({ kolId, limit = 12 }: { kolId?: string; limit?: numbe
     <ul className="divide-y divide-border/60">
       {rows.map((f) => {
         const kol = getKol(f.kol_id);
-        const usd = (Number(f.wei) / 1e18) * nativePriceUsd;
+        const usd = (Number(f.lamports) / 1e9) * nativePriceUsd;
         const buy = f.side === "buy";
         const isNew = flash.has(f.id);
         return (
@@ -168,9 +168,9 @@ export function TradeTape({ kolId, limit = 12 }: { kolId?: string; limit?: numbe
 
             <span className="num text-[11px] text-muted-foreground">
               {Number(f.shares).toLocaleString()} sh
-              {f.tx_hash && (
+              {f.signature && (
                 <ExplorerLink
-                  tx={f.tx_hash}
+                  tx={f.signature}
                   label=""
                   className="ml-1.5 align-middle text-muted-foreground/70"
                 />
@@ -189,7 +189,7 @@ export function TradeTape({ kolId, limit = 12 }: { kolId?: string; limit?: numbe
             </span>
 
             <span className="num w-8 shrink-0 text-right text-[10px] text-muted-foreground">
-              {ago(f.block_timestamp, now)}
+              {ago(f.block_time, now)}
             </span>
           </li>
         );

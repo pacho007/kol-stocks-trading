@@ -44,8 +44,8 @@ export const isSupabaseConfigured = supabase !== null;
 export type PriceHistoryRow = {
   kol_id: string;
   score: number;
-  price_wei: string;
-  block_timestamp: string;
+  price_lamports: string;
+  block_time: string;
 };
 
 /** Current authoritative listing state — mirrors public.listings. */
@@ -53,9 +53,9 @@ export type ListingRow = {
   kol_id: string;
   kol_wallet: string;
   score: number;
-  price_wei: string;
+  price_lamports: string;
   shares_outstanding: string;
-  vault_balance_wei: string;
+  vault_balance_lamports: string;
   paused: boolean;
   last_update_ts: string | null;
 };
@@ -81,8 +81,8 @@ export type FeedClosedTrade = {
  */
 export type ListingMetricsRow = {
   kol_id: string;
-  realized_pnl_eth: number;
-  volume_eth: number;
+  realized_pnl_sol: number;
+  volume_sol: number;
   win_rate: number;
   trades: number;
   top_wins: FeedClosedTrade[];
@@ -102,7 +102,7 @@ export type ListingMetricsRow = {
  */
 export type ListingVolumeRow = {
   kol_id: string;
-  volume_wei: string;
+  volume_lamports: string;
   fill_count: number;
   trader_count: number;
 };
@@ -120,12 +120,12 @@ export type FillRow = {
   side: "buy" | "sell";
   trader: string;
   shares: string;
-  wei: string;
-  block_timestamp: string;
-  tx_hash: string;
+  lamports: string;
+  block_time: string;
+  signature: string;
 };
 
-/** wei (18dp) -> a float price in the chain's native token. */
-export function weiToNative(wei: string): number {
-  return Number(wei) / 1e18;
+/** lamports (9dp) -> a float amount in SOL. */
+export function lamportsToNative(lamports: string): number {
+  return Number(lamports) / 1e9;
 }

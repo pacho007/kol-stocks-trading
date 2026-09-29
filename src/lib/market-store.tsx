@@ -8,41 +8,42 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Address } from "viem";
 import { KOLS } from "./kols";
 import { useMarketFeed } from "./market-feed";
 import { supabase, isSupabaseConfigured } from "./supabase";
 import { OPEN_PRICE_USD, scoreToPriceUsd } from "./pricing";
 import { sessionState } from "./sessions";
-import { getPublicClient, weiToEth, ethToWei, MARKET_ADDRESS } from "./evm/chain";
-import { useEvmWallet } from "./evm/wallet-provider";
+import { getConnection, lamportsToSol, solToLamports } from "./solana/chain";
+import { useSolanaWallet } from "./solana/wallet-provider";
 import {
+  fetchListing,
   fetchListings,
   fetchShareBalances,
-  sharesForBudget,
-  quoteSell,
-  buy as buyOnChain,
-  sell as sellOnChain,
+  buyTx,
+  sellTx,
   type OnChainListing,
-} from "./evm/market";
+} from "./solana/market";
+import {
+  OPEN_PRICE_LAMPORTS as CURVE_OPEN_PRICE,
+  quoteSell,
+  sharesForBudget,
+} from "./solana/curve";
 
 /**
- * Real-money market store, on Robinhood Chain. Trading is genuinely on-chain
- * (see evm/src/SharpsMarket.sol) — buy()/sell() sign and send real
- * transactions, positions come from the contract's own share ledger, and
- * price is read from each listing's on-chain state, not recomputed
- * client-side.
+ * Real-money market store, on Solana. Trading is genuinely on-chain (see
+ * anchor/programs/sharps) — buy()/sell() sign and send real transactions,
+ * positions come from the program's own position accounts, and price is read
+ * from each listing's on-chain state.
  *
  * Pricing is a bonding curve scaled by the trader's score. The reserve is held
- * equal to the curve's value of all outstanding shares, so a sell is always
- * payable in full — quotes come from the contract (quoteBuy/quoteSell/
- * sharesForBudget), never from price * amount, which the curve makes wrong.
+ * at or above the curve's value of all outstanding shares, so a sell is always
+ * payable in full. Quotes come from lib/solana/curve.ts, an exact mirror of
+ * the program's math applied to the listing's live state — never from
+ * price * amount, which the curve makes wrong.
  *
- * Before a listing has been created on-chain (mid-rollout — see
- * oracle/push-onchain-evm.ts and the createListing admin script), there is
- * nothing to trade against it. `prices` falls back to an ESTIMATED
- * display-only price (scoreToPriceUsd) for those listings only; buy()/sell()
- * will revert against the contract for anything not yet listed.
+ * Before a listing has been created on-chain there is nothing to trade
+ * against it. `prices` falls back to an ESTIMATED display-only price
+ * (scoreToPriceUsd) for those listings only; buy()/sell() refuse them.
  *
  * Chart history does NOT come from this store's own polling — it comes from
  * the shared feed (lib/market-feed.tsx), so every trader sees the same chart.
@@ -77,10 +78,10 @@ export type ClosedTrade = {
 
 export type KolMetrics = {
   /** Realized PnL over the scoring window, in the chain's native token. */
-  realizedPnlEth: number;
+  realizedPnlSol: number;
   winRate: number;
   /** Traded volume over the scoring window, in the chain's native token. */
-  volumeEth: number;
+  volumeSol: number;
   trades: number;
   topWins?: ClosedTrade[];
   topLosses?: ClosedTrade[];
@@ -98,8 +99,8 @@ export type Trade = {
 
 type Ctx = {
   prices: Record<string, number>;
-  /** Same prices in wei — the ETH-independent basis for change-since-open. */
-  pricesWei: Record<string, bigint>;
+  /** Same prices in lamports — the SOL/USD-independent basis for change-since-open. */
+  pricesLamports: Record<string, bigint>;
   scores: Record<string, number>;
   history: Record<string, PricePoint[]>;
   metrics: Record<string, KolMetrics>;
@@ -109,7 +110,6 @@ type Ctx = {
   live: boolean;
   connected: boolean;
   connecting: boolean;
-  wrongChain: boolean;
   marketOpen: boolean;
   /** Connected wallet's native-token balance. */
   nativeBalance: number;
@@ -120,7 +120,6 @@ type Ctx = {
   trades: Trade[];
   connect: () => void;
   disconnect: () => void;
-  switchChain: () => void;
   buyWithNative: (
     id: string,
     nativeIn: number,
@@ -133,13 +132,11 @@ type Ctx = {
 };
 
 /**
- * Static ETH/USD estimate for display conversion only — never used to size or
- * settle a trade (the contract prices everything in wei). Same rough
- * approximation the Solana build made with SOL_PRICE_USD; replace with a real
- * price feed (Chainlink is available on Robinhood Chain) before treating any
- * USD figure here as authoritative.
+ * Fallback SOL/USD for display conversion only — never used to size or settle
+ * a trade (the program prices everything in lamports). Replaced by the
+ * oracle's published nativePriceUsd as soon as scores.json loads.
  */
-const NATIVE_PRICE_USD = 2500;
+const NATIVE_PRICE_USD = 200;
 
 const MarketCtx = createContext<Ctx | null>(null);
 
@@ -147,23 +144,22 @@ const MarketCtx = createContext<Ctx | null>(null);
 // priced up or down until the oracle feed reports real post-launch performance.
 const SEED_SCORES: Record<string, number> = Object.fromEntries(KOLS.map((k) => [k.id, 50]));
 
-/** Listings addressed by their KOL wallet — no PDA derivation needed on EVM. */
-const KOL_WALLETS: { id: string; wallet: Address }[] = KOLS.map((k) => ({
+/** Listings addressed by their KOL wallet (the listing PDA is derived from it). */
+const KOL_WALLETS: { id: string; wallet: string }[] = KOLS.map((k) => ({
   id: k.id,
-  wallet: k.wallet as Address,
+  wallet: k.wallet,
 }));
 
 export function MarketProvider({ children }: { children: ReactNode }) {
   const {
     address,
+    publicKey,
     connected,
     connecting,
-    wrongChain,
-    walletClient,
+    sendAndConfirm,
     connect: walletConnect,
     disconnect: walletDisconnect,
-    switchChain,
-  } = useEvmWallet();
+  } = useSolanaWallet();
 
   const [scores, setScores] = useState<Record<string, number>>(SEED_SCORES);
   const [localMetrics, setMetrics] = useState<Record<string, KolMetrics>>({});
@@ -190,7 +186,8 @@ export function MarketProvider({ children }: { children: ReactNode }) {
    */
   const [trades, setTrades] = useState<Trade[]>([]);
 
-  const tradesKey = address ? `sharps.trades.${address.toLowerCase()}` : null;
+  // Base58 is case-sensitive, so the address is used exactly as given.
+  const tradesKey = address ? `sharps.trades.${address}` : null;
 
   // Seed from the local cache when this wallet connects or changes.
   //
@@ -239,7 +236,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const nativePriceRef = useRef(NATIVE_PRICE_USD);
   nativePriceRef.current = nativePriceUsd;
 
-  const client = useMemo(() => getPublicClient(), []);
+  const connection = useMemo(() => getConnection(), []);
 
   useEffect(() => setLive(true), []);
 
@@ -259,8 +256,8 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     let alive = true;
     const refresh = async () => {
       try {
-        const bal = await client.getBalance({ address });
-        if (alive) setNativeBalance(weiToEth(bal));
+        const bal = await connection.getBalance(publicKey!);
+        if (alive) setNativeBalance(lamportsToSol(bal));
       } catch {
         /* transient RPC error — next tick retries */
       }
@@ -271,10 +268,10 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       alive = false;
       clearInterval(id);
     };
-  }, [connected, address, client]);
+  }, [connected, address, publicKey, connection]);
 
-  // Real positions — the contract's own share ledger for this wallet, read in
-  // one multicall rather than the Solana build's per-token-account scan.
+  // Real positions — this wallet's position account in every listing, read in
+  // batches of 100 with getMultipleAccountsInfo.
   //
   // Cost basis is not derivable from a balance: the chain knows you hold 49
   // shares, not what you paid. It now comes from public.fills, which records
@@ -282,14 +279,14 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   // shown instead of three dashes on a page whose entire job is telling you
   // how your position is doing.
   useEffect(() => {
-    if (!connected || !address || !MARKET_ADDRESS) {
+    if (!connected || !address) {
       setPositions([]);
       return;
     }
     let alive = true;
     const refresh = async () => {
       try {
-        const { balances, failedIds } = await fetchShareBalances(client, KOL_WALLETS, address);
+        const { balances, failedIds } = await fetchShareBalances(connection, KOL_WALLETS, address);
         if (!alive) return;
 
         // Average cost of the shares still held, from this wallet's own fills.
@@ -300,9 +297,9 @@ export function MarketProvider({ children }: { children: ReactNode }) {
         if (supabase && isSupabaseConfigured) {
           const { data } = await supabase
             .from("fills")
-            .select("kol_id, side, shares, wei, block_timestamp, tx_hash")
-            .eq("trader", address.toLowerCase())
-            .order("block_timestamp", { ascending: true })
+            .select("kol_id, side, shares, lamports, block_time, signature")
+            .eq("trader", address)
+            .order("block_time", { ascending: true })
             // Explicit, because PostgREST applies a server-side ceiling to an
             // unbounded select and silently returns a truncated page. A cost
             // book walked from a truncated history is wrong without saying so.
@@ -321,21 +318,21 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           // for history as well as for balances.
           const fromChain: Trade[] = (data ?? []).map((f) => {
             const shares = Number(f.shares);
-            const native = Number(f.wei) / 1e18;
+            const native = Number(f.lamports) / 1e9;
             return {
               id: String(f.kol_id),
               side: f.side === "sell" ? ("sell" as const) : ("buy" as const),
               shares,
               price: shares > 0 ? (native / shares) * nativePriceRef.current : 0,
               native,
-              at: new Date(String(f.block_timestamp)).getTime(),
-              signature: String(f.tx_hash),
+              at: new Date(String(f.block_time)).getTime(),
+              signature: String(f.signature),
             };
           });
           // Newest first, and merged with anything local the indexer has not
           // caught up to yet — a trade made seconds ago is not in fills, and
           // vanishing from your own history until the next index would read as
-          // a lost trade. Deduped on tx hash, which is the same trade by any
+          // a lost trade. Deduped on signature, which is the same trade by any
           // route.
           setTrades((local) => {
             const seen = new Set(fromChain.map((t) => t.signature));
@@ -347,10 +344,10 @@ export function MarketProvider({ children }: { children: ReactNode }) {
             const id = String(f.kol_id);
             const a = (acc[id] ??= { shares: 0, cost: 0 });
             const n = Number(f.shares);
-            const wei = Number(f.wei);
+            const lamports = Number(f.lamports);
             if (f.side === "buy") {
               a.shares += n;
-              a.cost += wei;
+              a.cost += lamports;
             } else {
               // Selling removes shares at the running average, leaving the
               // average of what remains unchanged — which is the property that
@@ -362,7 +359,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           }
           for (const [id, a] of Object.entries(acc)) {
             if (a.shares > 0) {
-              entries[id] = (a.cost / a.shares / 1e18) * nativePriceRef.current;
+              entries[id] = (a.cost / a.shares / 1e9) * nativePriceRef.current;
             }
           }
         }
@@ -397,7 +394,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       alive = false;
       clearInterval(id);
     };
-  }, [connected, address, client, nativePriceUsd]);
+  }, [connected, address, connection, nativePriceUsd]);
 
   // REAL ORACLE FEED (display/breakdown data). Fetches scores.json published
   // by oracle/publish.ts. Falls back to seed scores if the file isn't there
@@ -417,11 +414,10 @@ export function MarketProvider({ children }: { children: ReactNode }) {
             confidence?: number;
           }[];
           nativePriceUsd?: number;
-          solPriceUsd?: number;
           updatedAt?: string;
         };
         if (!alive || !Array.isArray(data.rows)) return;
-        const nativeUsd = data.nativePriceUsd ?? data.solPriceUsd;
+        const nativeUsd = data.nativePriceUsd;
         if (typeof nativeUsd === "number" && nativeUsd > 0) setNativePriceUsd(nativeUsd);
         if (data.updatedAt) setLastUpdated(data.updatedAt);
         setScores((prev) => {
@@ -433,20 +429,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
           const next = { ...prev };
           for (const r of data.rows) {
             if (!r.metrics) continue;
-            // These were realizedPnlSol/volumeSol before the move to Robinhood
-            // Chain, and a scores.json published by an older oracle may still
-            // be sitting in public/ or on a deployed build. Accept either
-            // spelling rather than rendering "—" for PnL and volume until the
-            // next oracle run, same as nativePriceUsd ?? solPriceUsd above.
-            const m = r.metrics as KolMetrics & {
-              realizedPnlSol?: number;
-              volumeSol?: number;
-            };
-            next[r.id] = {
-              ...m,
-              realizedPnlEth: m.realizedPnlEth ?? m.realizedPnlSol ?? 0,
-              volumeEth: m.volumeEth ?? m.volumeSol ?? 0,
-            };
+            next[r.id] = r.metrics;
           }
           return next;
         });
@@ -471,15 +454,14 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // ON-CHAIN LISTING STATE — the actual tradable price/pool per listing, read
-  // in a single multicall. Listings not yet created come back exists=false and
-  // fall through to the display-estimate below.
+  // ON-CHAIN LISTING STATE — the actual tradable price/pool per listing.
+  // Listings not yet created have no account and fall through to the
+  // display-estimate below.
   useEffect(() => {
-    if (!MARKET_ADDRESS) return;
     let alive = true;
     const pull = async () => {
       try {
-        const next = await fetchListings(client, KOL_WALLETS);
+        const next = await fetchListings(connection, KOL_WALLETS);
         if (alive) setOnChainListings(next);
       } catch {
         /* transient RPC error — stale data kept meanwhile */
@@ -491,7 +473,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       alive = false;
       clearInterval(id);
     };
-  }, [client]);
+  }, [connection]);
 
   // Shared feed is the preferred source of current price: it's what every
   // other trader is seeing at this moment. Direct chain reads are the
@@ -503,12 +485,12 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     for (const k of KOLS) {
       const fromFeed = feed.listings[k.id];
       if (fromFeed) {
-        next[k.id] = (Number(fromFeed.price_wei) / 1e18) * nativePriceRef.current;
+        next[k.id] = (Number(fromFeed.price_lamports) / 1e9) * nativePriceRef.current;
         continue;
       }
       const onChain = onChainListings[k.id];
       if (onChain) {
-        next[k.id] = weiToEth(onChain.priceWei) * nativePriceRef.current;
+        next[k.id] = lamportsToSol(onChain.priceLamports) * nativePriceRef.current;
       } else {
         // not listed on-chain yet — display-only estimate, never used to trade.
         next[k.id] = scoreToPriceUsd(scores[k.id] ?? 50);
@@ -525,29 +507,24 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   }, [feed.listings, onChainListings, scores, nativePriceUsd]);
 
   /**
-   * Each listing's price in wei, kept alongside the USD figures.
+   * Each listing's price in lamports, kept alongside the USD figures.
    *
    * Change-since-open has to be measured here, not in USD. The USD price is
-   * wei x a live ETH rate, so comparing it to a fixed dollar constant folds
-   * every move in ETH into what is supposed to be a measure of one trader's
-   * performance. With OPEN_PRICE_USD at $0.01 and the contract's actual open
-   * of 4e12 wei worth about $0.0096, every untouched listing reported roughly
-   * -4.4% — a loss it had not made, on a board where the whole point is that
-   * listings start equal and only diverge on merit.
-   *
-   * In wei the comparison is exact and ETH-independent: an unchanged listing
-   * reads 0.00%, and a move means the score or the curve moved.
+   * lamports x a live SOL rate, so comparing it to a fixed dollar constant
+   * folds every move in SOL into what is supposed to be a measure of one
+   * trader's performance. In lamports the comparison is exact: an unchanged
+   * listing reads 0.00%, and a move means the score or the curve moved.
    */
-  const pricesWei = useMemo(() => {
+  const pricesLamports = useMemo(() => {
     const next: Record<string, bigint> = {};
     for (const k of KOLS) {
       const fromFeed = feed.listings[k.id];
       if (fromFeed) {
-        next[k.id] = BigInt(fromFeed.price_wei);
+        next[k.id] = BigInt(fromFeed.price_lamports);
         continue;
       }
       const onChain = onChainListings[k.id];
-      if (onChain) next[k.id] = onChain.priceWei;
+      if (onChain) next[k.id] = onChain.priceLamports;
     }
     return next;
   }, [feed.listings, onChainListings]);
@@ -570,8 +547,8 @@ export function MarketProvider({ children }: { children: ReactNode }) {
     const next: Record<string, KolMetrics> = { ...localMetrics };
     for (const [id, m] of Object.entries(feed.metrics)) {
       next[id] = {
-        realizedPnlEth: m.realized_pnl_eth,
-        volumeEth: m.volume_eth,
+        realizedPnlSol: m.realized_pnl_sol,
+        volumeSol: m.volume_sol,
         winRate: m.win_rate,
         trades: m.trades,
         topWins: m.top_wins ?? [],
@@ -688,36 +665,34 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       id: string,
       nativeIn: number,
     ): Promise<{ shares: number; nativeSpent: number; signature: string }> => {
-      if (!connected || !address || !walletClient) throw new Error("Connect a wallet first");
-      if (wrongChain) throw new Error("Wrong network — switch to Robinhood Chain");
+      if (!connected || !publicKey) throw new Error("Connect a wallet first");
       const entry = KOL_WALLETS.find((k) => k.id === id);
       if (!entry) throw new Error(`Unknown listing: ${id}`);
+      if (!onChainListings[id]) throw new Error("This listing isn't live on-chain yet");
 
-      const listing = onChainListings[id];
+      // Quote against the listing as it is NOW, not the last 30s poll: the
+      // curve moves with every trade, and a stale supply would size the
+      // slippage guard against a price that no longer exists.
+      const listing = await fetchListing(connection, entry.wallet);
       if (!listing) throw new Error("This listing isn't live on-chain yet");
 
-      const valueWei = ethToWei(nativeIn);
-      // Ask the contract, don't divide by price: the curve makes each share
-      // dearer than the last, so budget/price overestimates and would trip
-      // the slippage guard on the way in.
-      const expectedShares = await sharesForBudget(client, entry.wallet, valueWei);
+      const lamportsIn = solToLamports(nativeIn);
+      // Not budget / price: the curve makes each share dearer than the last,
+      // so that division overestimates and would trip the slippage guard.
+      const expectedShares = sharesForBudget(listing, lamportsIn);
       if (expectedShares === 0n) throw new Error("Amount is too small to buy a whole share");
       const minSharesOut =
         (expectedShares * BigInt(Math.floor((1 - SLIPPAGE_TOLERANCE) * 1000))) / 1000n;
 
-      const balBefore = await client.getBalance({ address });
-      const signature = await buyOnChain(
-        walletClient,
-        address,
-        entry.wallet,
-        valueWei,
-        minSharesOut,
+      const balBefore = await connection.getBalance(publicKey);
+      const signature = await sendAndConfirm(
+        buyTx(publicKey, entry.wallet, lamportsIn, minSharesOut),
       );
-      await client.waitForTransactionReceipt({ hash: signature });
-      const balAfter = await client.getBalance({ address });
+      const balAfter = await connection.getBalance(publicKey);
 
-      // Actual executed cost (includes gas), not the pre-trade quote.
-      const nativeSpent = Math.max(0, weiToEth(balBefore - balAfter));
+      // Actual executed cost (includes the network fee and, on a first buy,
+      // the position account's rent), not the pre-trade quote.
+      const nativeSpent = Math.max(0, lamportsToSol(balBefore - balAfter));
       const shares = Number(expectedShares);
 
       setTrades((t) =>
@@ -736,7 +711,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       );
       return { shares, nativeSpent, signature };
     },
-    [connected, address, walletClient, wrongChain, onChainListings, client],
+    [connected, publicKey, onChainListings, connection, sendAndConfirm],
   );
 
   const sell = useCallback(
@@ -744,29 +719,30 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       id: string,
       shares: number,
     ): Promise<{ shares: number; nativeOut: number; signature: string }> => {
-      if (!connected || !address || !walletClient) throw new Error("Connect a wallet first");
-      if (wrongChain) throw new Error("Wrong network — switch to Robinhood Chain");
+      if (!connected || !publicKey) throw new Error("Connect a wallet first");
       const entry = KOL_WALLETS.find((k) => k.id === id);
       if (!entry) throw new Error(`Unknown listing: ${id}`);
+      if (!onChainListings[id]) throw new Error("This listing isn't live on-chain yet");
 
-      const listing = onChainListings[id];
+      const listing = await fetchListing(connection, entry.wallet);
       if (!listing) throw new Error("This listing isn't live on-chain yet");
 
       const sharesIn = BigInt(Math.floor(shares)); // whole shares only
       if (sharesIn <= 0n) throw new Error("Enter at least one whole share");
       // Curve price, not shares * spot: selling walks back DOWN the curve, so
       // each share fetches slightly less than the current marginal price.
-      const quotedOut = await quoteSell(client, entry.wallet, sharesIn);
-      const minWeiOut = (quotedOut * BigInt(Math.floor((1 - SLIPPAGE_TOLERANCE) * 1000))) / 1000n;
+      const quotedOut = quoteSell(listing, sharesIn);
+      const minLamportsOut =
+        (quotedOut * BigInt(Math.floor((1 - SLIPPAGE_TOLERANCE) * 1000))) / 1000n;
 
-      const balBefore = await client.getBalance({ address });
-      const signature = await sellOnChain(walletClient, address, entry.wallet, sharesIn, minWeiOut);
-      await client.waitForTransactionReceipt({ hash: signature });
-      const balAfter = await client.getBalance({ address });
+      const balBefore = await connection.getBalance(publicKey);
+      const signature = await sendAndConfirm(
+        sellTx(publicKey, entry.wallet, sharesIn, minLamportsOut),
+      );
+      const balAfter = await connection.getBalance(publicKey);
 
-      // Actual executed proceeds (net of gas) — can be less than
-      // shares * quoted price if the listing was undercollateralized.
-      const nativeOut = Math.max(0, weiToEth(balAfter - balBefore));
+      // Actual executed proceeds, net of the network fee.
+      const nativeOut = Math.max(0, lamportsToSol(balAfter - balBefore));
 
       setTrades((t) =>
         [
@@ -784,7 +760,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       );
       return { shares: Number(sharesIn), nativeOut, signature };
     },
-    [connected, address, walletClient, wrongChain, onChainListings, client],
+    [connected, publicKey, onChainListings, connection, sendAndConfirm],
   );
 
   const reset = useCallback(() => {
@@ -806,7 +782,7 @@ export function MarketProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       prices,
-      pricesWei,
+      pricesLamports,
       scores,
       metrics,
       breakdowns,
@@ -816,7 +792,6 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       live,
       connected,
       connecting,
-      wrongChain,
       marketOpen,
       nativeBalance,
       nativePriceUsd,
@@ -829,16 +804,13 @@ export function MarketProvider({ children }: { children: ReactNode }) {
         });
       },
       disconnect: walletDisconnect,
-      switchChain: () => {
-        switchChain().catch(() => {});
-      },
       buyWithNative,
       sell,
       reset,
     }),
     [
       prices,
-      pricesWei,
+      pricesLamports,
       scores,
       metrics,
       breakdowns,
@@ -848,7 +820,6 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       live,
       connected,
       connecting,
-      wrongChain,
       marketOpen,
       nativeBalance,
       nativePriceUsd,
@@ -857,7 +828,6 @@ export function MarketProvider({ children }: { children: ReactNode }) {
       trades,
       walletConnect,
       walletDisconnect,
-      switchChain,
       buyWithNative,
       sell,
       reset,
@@ -881,14 +851,14 @@ export function useMarket() {
  *  - changePct: move since the equal open (so day-one = 0%)
  */
 export function useKolStats(id: string) {
-  const { prices, pricesWei, scores, metrics, breakdowns, onChainListings } = useMarket();
+  const { prices, pricesLamports, scores, metrics, breakdowns, onChainListings } = useMarket();
   const feed = useMarketFeed();
   const price = prices[id] ?? OPEN_PRICE_USD;
   // Prefer the score every other trader is seeing (shared feed), then the
   // direct on-chain read, then the scores.json snapshot which can lag.
   const score = feed.listings[id]?.score ?? onChainListings[id]?.score ?? scores[id] ?? 50;
   const marketCapUsd = price * 10_000_000; // SHARES_PER_LISTING
-  const changePct = changePctFromWei(pricesWei[id]) ?? 0;
+  const changePct = changePctFromLamports(pricesLamports[id]) ?? 0;
   const m = metrics[id];
   return {
     price,
@@ -896,8 +866,8 @@ export function useKolStats(id: string) {
     marketCapUsd,
     changePct,
     winRate: m ? m.winRate : undefined,
-    realizedPnlEth: m ? m.realizedPnlEth : undefined,
-    volumeEth: m ? m.volumeEth : undefined,
+    realizedPnlSol: m ? m.realizedPnlSol : undefined,
+    volumeSol: m ? m.volumeSol : undefined,
     trades: m ? m.trades : undefined,
     topWins: m?.topWins ?? [],
     topLosses: m?.topLosses ?? [],
@@ -905,24 +875,22 @@ export function useKolStats(id: string) {
   };
 }
 
-/** The contract's opening price (SharpsMarket.OPEN_PRICE_WEI, score 50). */
-export const OPEN_PRICE_WEI = 4_000_000_000_000n;
+/** The program's opening price for every listing (score 50, empty supply). */
+export const OPEN_PRICE_LAMPORTS = CURVE_OPEN_PRICE;
 
 /**
- * Change since the equal open, measured in wei.
+ * Change since the equal open, measured in lamports.
  *
- * Deliberately not derived from the USD price. USD is wei x a live ETH rate,
- * so comparing it to a fixed dollar constant mixes ETH's movement into a
- * number that is supposed to describe one trader. That is what made every
- * untouched listing read about -4.4%: the constant said /usr/bin/bash.01 and 4e12 wei
- * was worth /usr/bin/bash.0096.
+ * Deliberately not derived from the USD price. USD is lamports x a live SOL
+ * rate, so comparing it to a fixed dollar constant mixes SOL's movement into a
+ * number that is supposed to describe one trader.
  *
  * Returns null when there is no on-chain price yet, so callers can show a dash
  * rather than assert a move that has not happened.
  */
-function changePctFromWei(wei: bigint | undefined): number | null {
-  if (wei === undefined) return null;
-  return (Number(wei - OPEN_PRICE_WEI) / Number(OPEN_PRICE_WEI)) * 100;
+function changePctFromLamports(lamports: bigint | undefined): number | null {
+  if (lamports === undefined) return null;
+  return (Number(lamports - OPEN_PRICE_LAMPORTS) / Number(OPEN_PRICE_LAMPORTS)) * 100;
 }
 
 /** Shares minted per listing — the denominator behind every market cap here. */
@@ -967,7 +935,13 @@ export function useLiveSeries(): Record<string, number[]> {
  * indexer subscribes to PriceUpdated only, so any number would be invented.
  */
 export function useLiveMetrics() {
-  const { prices, pricesWei, nativePriceUsd, scores: rawScores, onChainListings } = useMarket();
+  const {
+    prices,
+    pricesLamports,
+    nativePriceUsd,
+    scores: rawScores,
+    onChainListings,
+  } = useMarket();
   const feed = useMarketFeed();
   return useMemo(() => {
     const changePct: Record<string, number> = {};
@@ -983,19 +957,19 @@ export function useLiveMetrics() {
     const score: Record<string, number> = {};
     for (const k of KOLS) {
       const price = prices[k.id] ?? OPEN_PRICE_USD;
-      changePct[k.id] = changePctFromWei(pricesWei[k.id]) ?? 0;
+      changePct[k.id] = changePctFromLamports(pricesLamports[k.id]) ?? 0;
       marketCapUsd[k.id] = price * SHARES_PER_LISTING;
       const v = feed.volume[k.id];
       score[k.id] =
         feed.listings[k.id]?.score ?? onChainListings[k.id]?.score ?? rawScores[k.id] ?? 50;
       volumeUsd24h[k.id] = feed.configured
-        ? (Number(v?.volume_wei ?? 0) / 1e18) * nativePriceUsd
+        ? (Number(v?.volume_lamports ?? 0) / 1e9) * nativePriceUsd
         : undefined;
     }
     return { changePct, marketCapUsd, volumeUsd24h, score };
   }, [
     prices,
-    pricesWei,
+    pricesLamports,
     feed.volume,
     feed.listings,
     feed.configured,
@@ -1024,7 +998,7 @@ export function useLiveMetrics() {
  * figure at all on a stat bar people read as live.
  */
 export function useIndexStats() {
-  const { prices, pricesWei, metrics, onChainListings, nativePriceUsd } = useMarket();
+  const { prices, pricesLamports, metrics, onChainListings, nativePriceUsd } = useMarket();
   const feed = useMarketFeed();
 
   return useMemo(() => {
@@ -1034,13 +1008,13 @@ export function useIndexStats() {
     let winSum = 0;
     let winCount = 0;
     let listedOnChain = 0;
-    let volumeWei = 0n;
+    let volumeLamports = 0n;
 
     for (const k of KOLS) {
       const price = prices[k.id] ?? OPEN_PRICE_USD;
       capUsd += price * SHARES_PER_LISTING;
 
-      const changePct = changePctFromWei(pricesWei[k.id]) ?? 0;
+      const changePct = changePctFromLamports(pricesLamports[k.id]) ?? 0;
       if (bestId === null || changePct > bestChangePct) {
         bestChangePct = changePct;
         bestId = k.id;
@@ -1057,7 +1031,7 @@ export function useIndexStats() {
 
       if (onChainListings[k.id] || feed.listings[k.id]) listedOnChain++;
       const v = feed.volume[k.id];
-      if (v?.volume_wei) volumeWei += BigInt(v.volume_wei);
+      if (v?.volume_lamports) volumeLamports += BigInt(v.volume_lamports);
     }
 
     return {
@@ -1070,7 +1044,7 @@ export function useIndexStats() {
       listedOnChain,
       // Undefined rather than 0 when there is no fills feed: an authoritative
       // $0K is a claim that nothing traded, which is not what we know.
-      volumeUsd24h: feed.configured ? (Number(volumeWei) / 1e18) * nativePriceUsd : undefined,
+      volumeUsd24h: feed.configured ? (Number(volumeLamports) / 1e9) * nativePriceUsd : undefined,
       totalListings: KOLS.length,
       live: feed.configured,
     };

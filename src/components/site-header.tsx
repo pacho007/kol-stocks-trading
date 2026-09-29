@@ -8,8 +8,8 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useMarket } from "@/lib/market-store";
 import { useSession } from "@/hooks/use-session";
-import { useEvmWallet } from "@/lib/evm/wallet-provider";
-import { ACTIVE_CHAIN, MARKET_ADDRESS } from "@/lib/evm/chain";
+import { useSolanaWallet } from "@/lib/solana/wallet-provider";
+import { CLUSTER_NAME, PROGRAM_ID } from "@/lib/solana/chain";
 
 const NAV = [
   { to: "/market", label: "Market" },
@@ -19,9 +19,9 @@ const NAV = [
   { to: "/sharps", label: "$SHARPS" },
 ] as const;
 
-/** Truncated hex address, e.g. "0x7xKX…9fTq", from the connected EVM wallet. */
+/** Truncated base58 address, e.g. "7xKX…9fTq", from the connected wallet. */
 function shortAddress(addr: string) {
-  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+  return `${addr.slice(0, 4)}…${addr.slice(-4)}`;
 }
 
 export function ConnectWalletButton({
@@ -31,17 +31,8 @@ export function ConnectWalletButton({
   full?: boolean;
   size?: "sm" | "lg";
 }) {
-  const {
-    wallets,
-    selected,
-    address,
-    connected,
-    connecting,
-    wrongChain,
-    connect,
-    disconnect,
-    switchChain,
-  } = useEvmWallet();
+  const { wallets, selected, address, connected, connecting, connect, disconnect } =
+    useSolanaWallet();
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -93,25 +84,6 @@ export function ConnectWalletButton({
     };
   }, [pickerOpen]);
 
-  // On EVM the wallet is only usable on the right network — surface that as
-  // its own state rather than letting a trade fail deep in the contract call.
-  if (connected && address && wrongChain) {
-    return (
-      <button
-        onClick={() => {
-          switchChain().catch(() => toast.error("Could not switch network"));
-        }}
-        className={`group inline-flex items-center justify-center gap-2 rounded-lg border text-[11px] font-semibold tracking-[0.12em] uppercase transition-colors duration-200 ${
-          size === "lg" ? "h-12 px-6" : "h-9 px-4"
-        } ${full ? "w-full" : ""} border-down/40 bg-down/10 text-down hover:bg-down/16`}
-        title={`Wrong network — click to switch to ${ACTIVE_CHAIN.name}`}
-      >
-        <Wallet className="size-3.5 opacity-80" />
-        Wrong network
-      </button>
-    );
-  }
-
   if (connected && address) {
     return (
       <button
@@ -120,14 +92,12 @@ export function ConnectWalletButton({
           // Say what actually happened. "Disconnected" alone left people
           // clicking connect again and getting the same account back with no
           // prompt, because the wallet had not been told anything.
-          toast("Wallet disconnected", {
-            description: "Your wallet will ask which account to use next time.",
-          });
+          toast("Wallet disconnected");
         }}
         className={`group inline-flex items-center justify-center gap-2 rounded-lg border text-[11px] font-semibold tracking-[0.12em] uppercase transition-colors duration-200 ${
           size === "lg" ? "h-12 px-6" : "h-9 px-4"
         } ${full ? "w-full" : ""} border-up/30 bg-up/8 text-up hover:bg-up/14`}
-        title={`${selected?.info.name ?? "Wallet"} · ${ACTIVE_CHAIN.name} · click to disconnect and choose a different account`}
+        title={`${selected?.name ?? "Wallet"} · ${CLUSTER_NAME} · click to disconnect`}
       >
         <Wallet className="size-3.5 opacity-80" />
         {shortAddress(address)}
@@ -135,14 +105,17 @@ export function ConnectWalletButton({
     );
   }
 
-  const installedWallets = wallets;
+  // Installed wallets first; the rest link out to install.
+  const installedWallets = [...wallets].sort((a, b) => Number(b.installed) - Number(a.installed));
+  const readyCount = wallets.filter((w) => w.installed).length;
 
   return (
     <div className={`relative ${full ? "w-full" : ""}`} ref={pickerRef}>
       <button
         onClick={() => {
-          if (installedWallets.length === 1 && installedWallets[0]) {
-            connect(installedWallets[0]).catch(() => {
+          const only = wallets.filter((w) => w.installed);
+          if (readyCount === 1 && only[0]) {
+            connect(only[0]).catch(() => {
               /* user rejected the wallet prompt */
             });
           } else {
@@ -156,7 +129,7 @@ export function ConnectWalletButton({
       >
         <Wallet className="size-3.5 opacity-80" />
         {connecting ? "Connecting…" : "Connect Wallet"}
-        {installedWallets.length > 1 && <ChevronDown className="size-3 opacity-60" />}
+        {readyCount !== 1 && <ChevronDown className="size-3 opacity-60" />}
       </button>
 
       {pickerOpen &&
@@ -165,7 +138,7 @@ export function ConnectWalletButton({
         createPortal(
           // Portalled to <body> so a clipping ancestor (the hero panel is
           // overflow-hidden) can't cut it off, and scrollable + viewport-capped
-          // because EIP-6963 discovers an unbounded number of wallets.
+          // because the Wallet Standard discovers an unbounded number of wallets.
           <div
             ref={menuRef}
             style={{ position: "fixed", top: menuPos.top, right: menuPos.right }}
@@ -173,12 +146,12 @@ export function ConnectWalletButton({
           >
             {installedWallets.length === 0 ? (
               <p className="px-3 py-2 text-[11px] text-muted-foreground">
-                No EVM wallet detected. Install MetaMask or Rabby.
+                No Solana wallet detected. Install Phantom, Solflare or Backpack.
               </p>
             ) : (
               installedWallets.map((w) => (
                 <button
-                  key={w.info.rdns}
+                  key={w.name}
                   onClick={() => {
                     connect(w).catch(() => {
                       /* user rejected the wallet prompt */
@@ -187,8 +160,11 @@ export function ConnectWalletButton({
                   }}
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-[11px] font-medium text-foreground hover:bg-primary/10"
                 >
-                  {w.info.icon && <img src={w.info.icon} alt="" className="size-4" />}
-                  {w.info.name}
+                  {w.icon && <img src={w.icon} alt="" className="size-4" />}
+                  {w.name}
+                  {!w.installed && (
+                    <span className="ml-auto text-[10px] text-muted-foreground">Install</span>
+                  )}
                 </button>
               ))
             )}
@@ -298,7 +274,7 @@ export function SiteFooter() {
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-8 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <p className="num flex items-center gap-2 tracking-wide">
           <SharpsMark size={14} className="shrink-0 text-primary/70" />
-          SHARPS © 2026, {ACTIVE_CHAIN.name}. Not financial advice.
+          SHARPS © 2026, {CLUSTER_NAME}. Not financial advice.
         </p>
         {/* The official account, stated where the product itself states it.
             Impersonation is the standard attack on a launch — a fake @sharps
@@ -318,18 +294,14 @@ export function SiteFooter() {
           </svg>
           @TradeSharps
         </a>
-        {/* The contract holding everyone's money, one click away. Not showing
-            it at all was the strangest omission in the product: it is the one
+        {/* The program holding everyone's money, one click away: it is the one
             address a visitor most wants to check before connecting a wallet. */}
-        {MARKET_ADDRESS && (
-          <p className="num flex items-center gap-1.5 tracking-wide">
-            <span className="text-muted-foreground/70">Contract</span>
-            <ExplorerLink address={MARKET_ADDRESS} />
-          </p>
-        )}
+        <p className="num flex items-center gap-1.5 tracking-wide">
+          <span className="text-muted-foreground/70">Program</span>
+          <ExplorerLink address={PROGRAM_ID.toBase58()} />
+        </p>
         <p className="num tracking-wide">
-          Displayed price is a quote, not a guaranteed redemption value — sell payouts are capped by
-          each listing&apos;s available on-chain balance.
+          Sells pay the curve price from each listing&apos;s own on-chain reserve, less a 2% fee.
         </p>
       </div>
     </footer>
@@ -355,7 +327,7 @@ function OracleStatus() {
     return (
       <div
         className="hidden items-center gap-2 sm:flex"
-        title="No oracle publish recorded yet. Prices still come from the contract; this only tracks when scores were last refreshed."
+        title="No oracle publish recorded yet. Prices still come from the program; this only tracks when scores were last refreshed."
       >
         <span className="size-1.5 rounded-full bg-muted-foreground/40" />
         <span className="num text-[10px] tracking-[0.18em] uppercase text-muted-foreground">

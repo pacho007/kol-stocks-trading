@@ -6,6 +6,7 @@
  *
  * RPC_URL overrides the default http://127.0.0.1:8899.
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- accounts come from an untyped IDL */
 import { test, before } from "node:test";
 import assert from "node:assert/strict";
 import * as anchor from "@coral-xyz/anchor";
@@ -55,8 +56,7 @@ const asOracle = () => programFor(oracle);
 const asAlice = () => programFor(alice);
 const asBob = () => programFor(bob);
 
-const fetchListing = (w: PublicKey) =>
-  (asAdmin().account as any).listing.fetch(listingPda(w));
+const fetchListing = (w: PublicKey) => (asAdmin().account as any).listing.fetch(listingPda(w));
 const fetchConfig = () => (asAdmin().account as any).config.fetch(configPda);
 const fetchPosition = (w: PublicKey, o: PublicKey) =>
   (asAdmin().account as any).position.fetch(positionPda(listingPda(w), o));
@@ -82,7 +82,11 @@ test("create listing is admin-only and opens at 0.0001 SOL", async () => {
   await expectError(
     asAlice()
       .methods.createListing(kol.publicKey)
-      .accountsPartial({ admin: alice.publicKey, config: configPda, listing: listingPda(kol.publicKey) })
+      .accountsPartial({
+        admin: alice.publicKey,
+        config: configPda,
+        listing: listingPda(kol.publicKey),
+      })
       .rpc(),
     "Unauthorized",
   );
@@ -100,7 +104,8 @@ test("create listing is admin-only and opens at 0.0001 SOL", async () => {
 });
 
 // Mirrors curve.rs, for checking what the program charged.
-const reserveAt = (s: bigint) => (s === 0n ? 0n : (1_000_000n * s + 4n * ((s * (s - 1n)) / 2n)) / 10n);
+const reserveAt = (s: bigint) =>
+  s === 0n ? 0n : (1_000_000n * s + 4n * ((s * (s - 1n)) / 2n)) / 10n;
 const cost = (s: bigint, n: bigint) => reserveAt(s + n) - reserveAt(s);
 
 test("buy takes exact cost, splits fees, never overspends", async () => {
@@ -138,10 +143,7 @@ test("buy takes exact cost, splits fees, never overspends", async () => {
   const spent = before - (await connection.getBalance(alice.publicKey));
   // total + position rent + tx fee (5000 lamports, one signature)
   assert.equal(BigInt(spent), total + BigInt(posRent) + 5000n);
-  assert.equal(
-    BigInt((await connection.getBalance(listing)) - listingBefore),
-    total - protocol,
-  );
+  assert.equal(BigInt((await connection.getBalance(listing)) - listingBefore), total - protocol);
   assert.equal(BigInt((await connection.getBalance(configPda)) - configBefore), protocol);
 
   const pos = await fetchPosition(kol.publicKey, alice.publicKey);
@@ -154,7 +156,12 @@ test("slippage guard on buy", async () => {
   await expectError(
     asBob()
       .methods.buy(new BN(1_000_000), new BN(1_000_000))
-      .accountsPartial({ buyer: bob.publicKey, config: configPda, listing, position: positionPda(listing, bob.publicKey) })
+      .accountsPartial({
+        buyer: bob.publicKey,
+        config: configPda,
+        listing,
+        position: positionPda(listing, bob.publicKey),
+      })
       .rpc(),
     "SlippageExceeded",
   );
@@ -239,7 +246,12 @@ test("transfer shares, then both holders sell at full curve price", async () => 
   await expectError(
     asBob()
       .methods.sell(bobShares.addn(1), new BN(0))
-      .accountsPartial({ seller: bob.publicKey, config: configPda, listing, position: positionPda(listing, bob.publicKey) })
+      .accountsPartial({
+        seller: bob.publicKey,
+        config: configPda,
+        listing,
+        position: positionPda(listing, bob.publicKey),
+      })
       .rpc(),
     "InsufficientShares",
   );
@@ -259,13 +271,23 @@ test("transfer shares, then both holders sell at full curve price", async () => 
     await expectError(
       prog.methods
         .sell(pos.shares, new BN((payout + 1n).toString()))
-        .accountsPartial({ seller: who.publicKey, config: configPda, listing, position: positionPda(listing, who.publicKey) })
+        .accountsPartial({
+          seller: who.publicKey,
+          config: configPda,
+          listing,
+          position: positionPda(listing, who.publicKey),
+        })
         .rpc(),
       "SlippageExceeded",
     );
     await prog.methods
       .sell(pos.shares, new BN(payout.toString()))
-      .accountsPartial({ seller: who.publicKey, config: configPda, listing, position: positionPda(listing, who.publicKey) })
+      .accountsPartial({
+        seller: who.publicKey,
+        config: configPda,
+        listing,
+        position: positionPda(listing, who.publicKey),
+      })
       .rpc();
     const got = BigInt((await connection.getBalance(who.publicKey)) - before) + 5000n;
     assert.equal(got, payout);
@@ -277,10 +299,7 @@ test("transfer shares, then both holders sell at full curve price", async () => 
   // Listing account holds exactly rent + reserve + escrow.
   const info = await connection.getAccountInfo(listing);
   const rent = await rentFor(info!.data.length);
-  assert.equal(
-    info!.lamports,
-    rent + l.vaultBalance.toNumber() + l.traderEscrow.toNumber(),
-  );
+  assert.equal(info!.lamports, rent + l.vaultBalance.toNumber() + l.traderEscrow.toNumber());
 });
 
 test("only the listed wallet can claim its fees", async () => {
@@ -328,12 +347,23 @@ test("pause blocks trading; listing pause too", async () => {
   const buy = () =>
     asBob()
       .methods.buy(new BN(10_000_000), new BN(1))
-      .accountsPartial({ buyer: bob.publicKey, config: configPda, listing, position: positionPda(listing, bob.publicKey) })
+      .accountsPartial({
+        buyer: bob.publicKey,
+        config: configPda,
+        listing,
+        position: positionPda(listing, bob.publicKey),
+      })
       .rpc();
 
-  await asAdmin().methods.setPaused(true).accountsPartial({ admin: admin.publicKey, config: configPda }).rpc();
+  await asAdmin()
+    .methods.setPaused(true)
+    .accountsPartial({ admin: admin.publicKey, config: configPda })
+    .rpc();
   await expectError(buy(), "MarketPaused");
-  await asAdmin().methods.setPaused(false).accountsPartial({ admin: admin.publicKey, config: configPda }).rpc();
+  await asAdmin()
+    .methods.setPaused(false)
+    .accountsPartial({ admin: admin.publicKey, config: configPda })
+    .rpc();
 
   await asAdmin()
     .methods.setListingPaused(true)
@@ -353,13 +383,22 @@ test("two-step admin handover", async () => {
     .accountsPartial({ admin: admin.publicKey, config: configPda })
     .rpc();
   await expectError(
-    asAlice().methods.acceptAdmin().accountsPartial({ newAdmin: alice.publicKey, config: configPda }).rpc(),
+    asAlice()
+      .methods.acceptAdmin()
+      .accountsPartial({ newAdmin: alice.publicKey, config: configPda })
+      .rpc(),
     "Unauthorized",
   );
-  await asBob().methods.acceptAdmin().accountsPartial({ newAdmin: bob.publicKey, config: configPda }).rpc();
+  await asBob()
+    .methods.acceptAdmin()
+    .accountsPartial({ newAdmin: bob.publicKey, config: configPda })
+    .rpc();
   assert.ok((await fetchConfig()).admin.equals(bob.publicKey));
   await expectError(
-    asAdmin().methods.setPaused(true).accountsPartial({ admin: admin.publicKey, config: configPda }).rpc(),
+    asAdmin()
+      .methods.setPaused(true)
+      .accountsPartial({ admin: admin.publicKey, config: configPda })
+      .rpc(),
     "Unauthorized",
   );
 });

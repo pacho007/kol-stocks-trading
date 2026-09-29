@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { checkMarketConfig, type ConfigProblem } from "@/lib/evm/preflight";
+import { checkMarketConfig, type ConfigProblem } from "@/lib/solana/preflight";
 
 /**
  * Says out loud when the build is pointed somewhere it shouldn't be.

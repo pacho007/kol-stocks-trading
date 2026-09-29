@@ -2,51 +2,30 @@
  * run.ts — the oracle as a service, rather than as a scheduled batch.
  * ---------------------------------------------------------------------------
  * One process that stays up and keeps reading the market: index the cohort,
- * publish the scores, push the ones that moved on chain, repeat. It replaces
- * the GitHub Actions schedule, which could not do this job for two independent
- * reasons:
+ * publish the scores, push the ones that moved on chain, repeat.
  *
- *   - Each batch re-walked every wallet's entire history, so one cycle took
- *     ~10.5 minutes and got slower as those wallets kept trading. A five-minute
- *     cron can never be met by a ten-minute job; the concurrency group just
- *     cancelled the overlap.
- *   - GitHub treats `schedule` as best-effort and drops most triggers on a
- *     quiet repo. Measured on this one: three runs a day against a five-minute
- *     cron.
- *
- * What makes continuous operation actually work is the incremental provider
- * (see createIncrementalBlockscoutProvider). The first cycle costs a full
- * crawl; every cycle after it reads one page per wallet, because Blockscout
- * returns newest-first and there is no reason to re-read history that has not
- * changed. Measured over 108 wallets unauthenticated: 550.5s cold, 109.5s
- * warm, identical metrics either way. The cache lives in this process — which
- * is precisely why this has to be a process and not a job.
- *
- * A warm cycle is bound by MIN_GAP_MS, not by latency: ~324 requests spaced
- * 400ms apart without an API key. With BLOCKSCOUT_API_KEY that spacing drops
- * to 120ms and concurrency goes 4 -> 16, which should land a warm cycle near
- * 40s. That is derived from the constants rather than measured.
- *
- * Two properties come free from staying up, which the batch could never have:
- *   - prevAnchors carries across cycles, so the rate cap actually smooths
- *     score -> price over time instead of restarting from BASE_PRICE each run.
- *   - A cycle is never concurrent with itself.
+ * It has to be a process: the Solana provider caches each wallet's history
+ * and the newest signature it has read, so the first cycle costs a full read
+ * since launch and every cycle after it reads only what is new. prevAnchors
+ * also carries across cycles, so the rate cap smooths score -> price over
+ * time. A cycle is never concurrent with itself.
  *
  * Run:
- *   MARKET_ADDRESS=0x... ORACLE_AUTHORITY_PRIVATE_KEY=0x... \
- *   BLOCKSCOUT_API_KEY=... npx tsx oracle/run.ts
+ *   TRADER_RPC_URL=https://mainnet.helius-rpc.com/?api-key=... \
+ *   SOLANA_CLUSTER=devnet ORACLE_KEYPAIR_PATH=~/.config/sharps-devnet/oracle.json \
+ *   npx tsx oracle/run.ts
  *
  * Env:
- *   CYCLE_SECONDS      pause between cycles, default 30
- *   PUSH_ONCHAIN       "0" to publish scores without signing anything
- *   ROBINHOOD_NETWORK  "mainnet" to target chain 4663
+ *   CYCLE_SECONDS    pause between cycles, default 30
+ *   PUSH_ONCHAIN     "0" to publish scores without signing anything
+ *   TRADER_RPC_URL   where traders are read from (Solana mainnet)
+ *   SOLANA_CLUSTER / SOLANA_RPC_URL   where the market program lives
  */
 
 import { runOracle, type ListingInput } from "./indexer.js";
-import { createIncrementalBlockscoutProvider } from "./blockscout-provider.js";
-import { createAlchemyProvider, hasAlchemy, alchemyHost } from "./alchemy-provider.js";
+import { createSolanaProvider, traderRpcHost } from "./solana-provider.js";
 import { loadFullListings, fetchNativePriceUsd, publishScores } from "./publish.js";
-import { connectOracle, pushScoresOnChain } from "./push-onchain-evm.js";
+import { connectOracle, pushScoresOnChain } from "./push-onchain.js";
 
 /**
  * Pause BETWEEN cycles, not a cycle period. The next cycle starts this long
@@ -79,25 +58,8 @@ async function main(): Promise<void> {
   // Preflight once at boot rather than one reverted batch at a time.
   const chainCtx = PUSH_ONCHAIN ? await connectOracle() : null;
 
-  // Alchemy when configured, Blockscout otherwise.
-  //
-  // Not a preference between two equivalent sources. Blockscout is a public
-  // instance that has returned HTTP 500 for the majority of wallets for hours
-  // at a stretch, and its API shape forces a backwards page-walk that has to
-  // be bounded by a page count — a bound that, once exceeded, silently scores
-  // a partial history as a complete one. Alchemy takes fromBlock, so the
-  // scoring window is requested rather than approached and cannot be truncated.
-  //
-  // Blockscout stays as the fallback because it needs no credential: an oracle
-  // that refuses to start without a paid key is worse than one that starts
-  // slowly. Which one is in use is logged, because "the scores look wrong" and
-  // "the scores came from the flaky source" are the same investigation.
-  const provider = hasAlchemy() ? createAlchemyProvider() : createIncrementalBlockscoutProvider();
-  console.log(
-    hasAlchemy()
-      ? `History source: Alchemy (${alchemyHost()})`
-      : "History source: Blockscout (public). Set ALCHEMY_RPC_URL for a faster, bounded read.",
-  );
+  const provider = createSolanaProvider();
+  console.log(`Trader history source: ${traderRpcHost()}`);
   let prevAnchors: Record<string, number> = {};
 
   let cycle = 0;
@@ -126,9 +88,7 @@ async function main(): Promise<void> {
 
       if (chainCtx) {
         await pushScoresOnChain(
-          chainCtx.publicClient,
-          chainCtx.walletClient,
-          chainCtx.marketAddress,
+          chainCtx,
           listings,
           rows.map((r) => ({ id: r.id, wallet: r.wallet, score: r.score })),
         );

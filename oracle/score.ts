@@ -23,11 +23,11 @@
 export type RawMetrics = {
   id: string;
   /** realized PnL over the trailing window, in SOL (can be negative) */
-  realizedPnlEth: number;
+  realizedPnlSol: number;
   /** fraction of trades that were profitable, 0..1 */
   winRate: number;
   /** total traded volume over the window, in SOL */
-  volumeEth: number;
+  volumeSol: number;
   /** number of closed trades over the window */
   trades: number;
   /**
@@ -68,7 +68,7 @@ export type ScoredMetrics = RawMetrics & {
 };
 
 /** Equal opening price for every listing. All divergence is earned. */
-export const BASE_PRICE = 0.001; // in SOL, matches the frontend's stated base
+export const BASE_PRICE = 0.0001; // in SOL — the program's open price (curve.rs BASE)
 
 /** How the four sub-metrics are weighted into the composite score. */
 export const WEIGHTS = {
@@ -123,17 +123,17 @@ function percentile(value: number, all: number[]): number {
  * Percentile-normalizes each sub-metric across the cohort, then blends.
  */
 export function scoreCohort(cohort: RawMetrics[]): ScoredMetrics[] {
-  const pnl = cohort.map((c) => c.realizedPnlEth);
+  const pnl = cohort.map((c) => c.realizedPnlSol);
   const win = cohort.map((c) => c.winRate);
   // log-compress volume so a single mega-whale doesn't flatten everyone else
-  const vol = cohort.map((c) => Math.log1p(Math.max(0, c.volumeEth)));
+  const vol = cohort.map((c) => Math.log1p(Math.max(0, c.volumeSol)));
   const trd = cohort.map((c) => Math.log1p(Math.max(0, c.trades)));
 
   return cohort.map((c, i) => {
     // FRESH START: a trader with no post-launch trades yet sits at the neutral
-    // opening score (50 -> $0.01). Only once they trade do they diverge. This
+    // opening score (50 -> the open price). Only once they trade do they diverge. This
     // makes day-one a true equal start instead of ranking noise on all-zeros.
-    if (c.trades === 0 && c.volumeEth === 0 && c.realizedPnlEth === 0) {
+    if (c.trades === 0 && c.volumeSol === 0 && c.realizedPnlSol === 0) {
       return {
         ...c,
         score: 50,

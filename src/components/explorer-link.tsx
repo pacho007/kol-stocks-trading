@@ -1,5 +1,5 @@
 import { ExternalLink } from "lucide-react";
-import { explorerAddressUrl, explorerTxUrl, EXPLORER_NAME } from "@/lib/evm/chain";
+import { explorerAddressUrl, explorerTxUrl, EXPLORER_NAME } from "@/lib/solana/chain";
 
 /**
  * A wallet, contract or transaction, linked to the chain.

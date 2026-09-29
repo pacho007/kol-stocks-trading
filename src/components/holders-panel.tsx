@@ -16,16 +16,16 @@ type Holder = {
  *
  * WHERE THIS COMES FROM, AND WHAT THAT COSTS
  *
- * The contract stores balances in `shareBalances[kolWallet][holder]`, a
- * mapping — there is no way to enumerate it from chain state, so the holder
- * list has to be rebuilt from events. public.fills has every Bought and Sold,
+ * The program stores each balance in its own position account, so the holder
+ * list could be read with getProgramAccounts — but that has no cost basis, so
+ * it is rebuilt from events instead. public.fills has every Bought and Sold,
  * so replaying them in block order reconstructs both the balance and, with
  * average-cost accounting, what each wallet paid for what it still holds.
  *
  * The gap: the indexer records Bought and Sold but NOT SharesTransferred, so a
  * wallet-to-wallet transfer would leave the sender listed and the receiver
  * missing. Rather than present that as fact, the derived total is reconciled
- * against the contract's own sharesOutstanding and any discrepancy is shown.
+ * against the program's own sharesOutstanding and any discrepancy is shown.
  * A holder table that is quietly wrong is worse than one that admits its
  * blind spot, because people size positions off it.
  *
@@ -66,13 +66,13 @@ export function HoldersPanel({ kolId, limit = 12 }: { kolId: string; limit?: num
       // walked from a truncated or reversed history.
       const { data } = await supabase
         .from("fills")
-        .select("side, trader, shares, wei")
+        .select("side, trader, shares, lamports")
         .eq("kol_id", kolId)
-        .order("block_timestamp", { ascending: true })
+        .order("block_time", { ascending: true })
         // Every fill this listing has ever had. The average-cost walk needs the
         // whole sequence — a truncated read silently prices holders against a
         // history that starts in the middle. The drift check below catches it
-        // if this is ever exceeded: counted shares stop matching the contract.
+        // if this is ever exceeded: counted shares stop matching the program.
         .limit(50000);
       if (!alive) return;
 
@@ -81,10 +81,10 @@ export function HoldersPanel({ kolId, limit = 12 }: { kolId: string; limit?: num
         const who = String(f.trader).toLowerCase();
         const a = (acc[who] ??= { shares: 0, cost: 0 });
         const n = Number(f.shares);
-        const wei = Number(f.wei);
+        const lamports = Number(f.lamports);
         if (f.side === "buy") {
           a.shares += n;
-          a.cost += wei;
+          a.cost += lamports;
         } else {
           // Selling removes shares at the running average, so what remains
           // keeps the entry price it had. Same rule as the portfolio.
@@ -175,11 +175,11 @@ export function HoldersPanel({ kolId, limit = 12 }: { kolId: string; limit?: num
                       division themselves. */}
                   <td className="px-4 py-2.5 text-right">
                     <span className="num block tabular-nums text-muted-foreground">
-                      {fmtUsd((h.cost / 1e18) * nativePriceUsd)}
+                      {fmtUsd((h.cost / 1e9) * nativePriceUsd)}
                     </span>
                     <span className="num block text-[10px] tabular-nums text-muted-foreground/70">
                       {h.shares > 0
-                        ? `${fmtUsd((h.cost / 1e18 / h.shares) * nativePriceUsd)} / share`
+                        ? `${fmtUsd((h.cost / 1e9 / h.shares) * nativePriceUsd)} / share`
                         : "—"}
                     </span>
                   </td>

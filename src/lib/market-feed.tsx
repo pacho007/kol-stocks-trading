@@ -82,8 +82,8 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
         supabase.from("listings").select("*"),
         supabase
           .from("price_history")
-          .select("kol_id, price_wei, block_timestamp")
-          .order("block_timestamp", { ascending: false })
+          .select("kol_id, price_lamports, block_time")
+          .order("block_time", { ascending: false })
           .limit(HISTORY_LIMIT * 20),
         // Fetched with the rest rather than lazily per listing: the market
         // table and leaderboard need win rate for every row at once, and 108
@@ -95,8 +95,8 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
         // would grow without limit as the market gets busier.
         supabase
           .from("fills")
-          .select("id, kol_id, side, trader, shares, wei, block_timestamp, tx_hash")
-          .order("block_timestamp", { ascending: false })
+          .select("id, kol_id, side, trader, shares, lamports, block_time, signature")
+          .order("block_time", { ascending: false })
           .limit(FILL_LIMIT),
       ]);
       if (!alive) return;
@@ -127,8 +127,8 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
           const id = String(row.kol_id);
           const series = (next[id] ??= []);
           series.push({
-            t: new Date(row.block_timestamp as string).getTime(),
-            p: Number(row.price_wei) / 1e18,
+            t: new Date(row.block_time as string).getTime(),
+            p: Number(row.price_lamports) / 1e9,
           });
         }
         for (const [id, series] of Object.entries(next)) {
@@ -167,14 +167,14 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
         (payload) => {
           const row = payload.new as {
             kol_id?: string;
-            price_wei?: string;
-            block_timestamp?: string;
+            price_lamports?: string;
+            block_time?: string;
           } | null;
-          if (!row?.kol_id || !row.price_wei || !row.block_timestamp) return;
+          if (!row?.kol_id || !row.price_lamports || !row.block_time) return;
           const kolId = row.kol_id;
           const point: FeedPricePoint = {
-            t: new Date(row.block_timestamp).getTime(),
-            p: Number(row.price_wei) / 1e18,
+            t: new Date(row.block_time).getTime(),
+            p: Number(row.price_lamports) / 1e9,
           };
           setHistory((prev) => {
             const arr = prev[kolId]?.slice() ?? [];
@@ -200,8 +200,8 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
         // re-query on every trade, apply the fill locally — the numbers agree
         // because the view sums exactly these rows, and the next full load
         // re-derives them and drops anything that has aged out of the window.
-        const row = payload.new as { kol_id?: string; wei?: string; trader?: string } | null;
-        if (!row?.kol_id || !row.wei) return;
+        const row = payload.new as { kol_id?: string; lamports?: string; trader?: string } | null;
+        if (!row?.kol_id || !row.lamports) return;
         const kolId = row.kol_id;
         // Prepend to the tape immediately. This is the one place the product can
         // show that somebody else is trading right now, so it should not wait
@@ -211,7 +211,7 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
           const cur = prev[kolId];
           const base = cur ?? {
             kol_id: kolId,
-            volume_wei: "0",
+            volume_lamports: "0",
             fill_count: 0,
             trader_count: 0,
           };
@@ -219,7 +219,9 @@ export function MarketFeedProvider({ children }: { children: ReactNode }) {
             ...prev,
             [kolId]: {
               ...base,
-              volume_wei: (BigInt(base.volume_wei || "0") + BigInt(row.wei!)).toString(),
+              volume_lamports: (
+                BigInt(base.volume_lamports || "0") + BigInt(row.lamports!)
+              ).toString(),
               fill_count: base.fill_count + 1,
             },
           };

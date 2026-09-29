@@ -1,8 +1,8 @@
-# deploy-indexer.ps1 — ship the price indexer and point it at the deployed market.
+# deploy-indexer.ps1 — ship the price indexer and point it at the deployed program.
 #
 #   powershell -ExecutionPolicy Bypass -File .\deploy-indexer.ps1
 #
-# Deploys supabase/functions/index-price-history and sets the three values it
+# Deploys supabase/functions/index-price-history and sets the two values it
 # needs. Notably NOT among them: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
 # Supabase injects both into the Edge Functions runtime automatically, so no
 # secret is typed, stored, or transmitted here — every value below is public.
@@ -15,15 +15,10 @@ $ErrorActionPreference = "Stop"
 $ProjectRef   = "ncsydqwcbtjppfgwxyvt"
 $FunctionName = "index-price-history"
 
-# Deployed SharpsMarket on Robinhood Chain testnet (chain id 46630).
-$MarketAddress = "0x4546baeE5e02b65E60AA713D1A8586c08d1305Ed"
-
-# The block the contract was deployed in. The indexer starts scanning here;
-# at ~100ms blocks, a value even a day early would mean grinding through
-# millions of empty blocks before reaching the first real event.
-$DeployBlock   = "111826920"
-
-$RpcUrl        = "https://rpc.testnet.chain.robinhood.com"
+# The sharps program (anchor/programs/sharps), and the cluster it runs on.
+# Must match VITE_SOLANA_CLUSTER / VITE_PROGRAM_ID in the app build.
+$ProgramId    = "5HVwtd2UXjn9q1v8L3zV4iidkopPUXGyXntbnQzgR1Ei"
+$RpcUrl       = "https://api.devnet.solana.com"
 
 Set-Location -Path $PSScriptRoot
 
@@ -38,14 +33,12 @@ npx --yes supabase functions deploy $FunctionName --project-ref $ProjectRef
 Write-Host ""
 Write-Host "3/3  Setting configuration (all public values)..." -ForegroundColor Cyan
 npx --yes supabase secrets set --project-ref $ProjectRef `
-  "ROBINHOOD_RPC_URL=$RpcUrl" `
-  "MARKET_ADDRESS=$MarketAddress" `
-  "MARKET_DEPLOY_BLOCK=$DeployBlock"
+  "SOLANA_RPC_URL=$RpcUrl" `
+  "PROGRAM_ID=$ProgramId"
 
 Write-Host ""
 Write-Host "Done." -ForegroundColor Green
-Write-Host "  market:       $MarketAddress"
-Write-Host "  deploy block: $DeployBlock"
-Write-Host "  rpc:          $RpcUrl"
+Write-Host "  program: $ProgramId"
+Write-Host "  rpc:     $RpcUrl"
 Write-Host ""
-Write-Host "Next: run supabase/migrations/0002_schedule_indexer.sql to put it on a timer."
+Write-Host "It runs every 5 minutes via pg_cron (supabase/migrations/0005)."

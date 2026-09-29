@@ -1,8 +1,8 @@
 /**
  * pricing.ts (frontend) — display-only price estimate, browser-safe.
  * --------------------------------------------------------------------
- * Once a listing exists on-chain (evm/src/SharpsMarket.sol), its real price
- * lives in that listing's `priceWei` and is what
+ * Once a listing exists on-chain (anchor/programs/sharps), its real price
+ * lives in that listing's `priceLamports` and is what
  * src/lib/market-store.tsx actually trades against — this file is no
  * longer in that path. It exists only to show a reasonable estimated price
  * for listings that haven't been created on-chain yet (mid-rollout), so the
@@ -10,7 +10,8 @@
  * trade — buy()/sell() always read/write the real on-chain price.
  */
 
-export const OPEN_PRICE_USD = 0.01;
+/** The program's 0.0001 SOL open price at roughly $200/SOL. */
+export const OPEN_PRICE_USD = 0.02;
 export const SHARES_PER_LISTING = 10_000_000;
 export const PRICE_FLOOR_MULT = 0.1;
 export const PRICE_CAP_MULT = 25;

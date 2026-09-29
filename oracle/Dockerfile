@@ -1,8 +1,8 @@
 # The oracle as a long-running service.
 #
-# It needs to stay up rather than be scheduled: the incremental provider's
-# per-wallet cache lives in the process, and that cache is what turns a
-# ten-minute cycle into a ten-second one. A restart is cheap but not free —
+# It needs to stay up rather than be scheduled: the Solana provider's
+# per-wallet history cache lives in the process, and that cache is what turns
+# a full read since launch into a read of only what is new. A restart is cheap but not free —
 # it costs one cold cycle — so this image is built to run, not to be cycled.
 FROM node:22-slim
 
@@ -35,30 +35,16 @@ COPY package.json package-lock.json ./
 RUN npm install --no-audit --no-fund
 
 # The oracle imports the wallet list straight from the app source
-# (src/lib/kols.ts), so that has to come along.
+# (src/lib/kols.ts), and the program's IDL and account decoding from
+# src/lib/solana/, so that has to come along.
 COPY tsconfig.json ./
 COPY oracle ./oracle
 COPY src ./src
 
-# push-onchain-evm.ts reads the contract ABI off disk at import time:
-#
-#   readFileSync(resolve(__dirname, "../evm/src/SharpsMarketAbi.json"))
-#
-# Missing it is not a degraded mode. The read is at module scope, so the
-# process throws ENOENT before main() runs, the machine restarts, and Fly
-# gives up after ten attempts — an image that builds and pushes cleanly and
-# then never starts.
-#
-# Only this one file, not the whole evm/ tree: everything else there is
-# Foundry source, build output and libraries the oracle never reads, and
-# copying the lot would bloat the image while hiding which part is actually a
-# runtime dependency.
-COPY evm/src/SharpsMarketAbi.json ./evm/src/
-
 # Two directories the process writes to every cycle, made writable before the
 # drop to an unprivileged user.
 #
-#   oracle/  .last-onchain-run-evm.json, the per-cycle push manifest
+#   oracle/  .launch, the go-live stamp when LAUNCH_TS is not set
 #   public/  scores.json, the snapshot the frontend can fall back on
 #
 # Everything above is COPYed as root, so without this the first cycle gets as

@@ -11,50 +11,25 @@ primary_region = 'iad'
 
 [env]
   CYCLE_SECONDS = '1200'
-  # Start of the scoring window: 2026-09-01T00:00:00Z. Only trades after this
-  # point count toward a listing's score.
-  #
-  # Was 2026-08-13, the moment the gate was first stamped. Moved deliberately,
-  # and the reason is the product rather than the clock: a score is meant to
-  # say how a trader is performing now, and six days of closed positions —
-  # about 206 per wallet across this cohort — is enough to rank on while
-  # staying current. It is also the window comparable trackers headline.
-  #
-  # The cost side is real but secondary. Reconstructing sells requires one
-  # execution trace per candidate transaction, and the 24-day window projected
-  # to ~111,000 of them against ~26,000 here. Traces already collected stay
-  # valid: they are keyed by transaction, and the narrower window is a subset.
-  #
-  # Widening it later is safe and cheap for the same reason — the traces are on
-  # the volume, so a wider window mostly re-reads what is already cached.
-  LAUNCH_TS = '1788220800'
+  # Where the market program lives. Traders themselves are always read from
+  # Solana mainnet via the TRADER_RPC_URL secret, whatever this says.
+  SOLANA_CLUSTER = 'devnet'
   ONCHAIN_MIN_SCORE_DELTA = '2'
-  ROBINHOOD_NETWORK = 'mainnet'
+  # LAUNCH_TS (unix seconds) pins the start of the scoring window: only trades
+  # after it count. Set it explicitly for the Solana launch — without it the
+  # oracle stamps "now" on first boot into oracle/.launch, which lives in the
+  # image and is lost on redeploy, resetting every score.
+  # LAUNCH_TS = ''
+
+# Secrets (fly secrets set …):
+#   TRADER_RPC_URL   dedicated Solana mainnet RPC for reading trader wallets
+#   ORACLE_KEYPAIR   the oracle key as a JSON byte array
+#   ORACLE_SYNC_URL / ORACLE_SYNC_SECRET   listing_metrics sync endpoint
 
 [processes]
   oracle = 'npx tsx oracle/run.ts'
 
-# Persists the oracle's trace cache across restarts.
-#
-# debug_traceTransaction is the only source of sell proceeds on this chain, and
-# a cold pass over 126 wallets is tens of thousands of traces — hours of wall
-# clock and real money. Held only in the process, that cost is paid again on
-# every deploy, scale change and crash. A mined trace never changes, so the
-# cache is safe to keep forever and there is nothing to invalidate.
-[mounts]
-  source = 'trace_cache'
-  destination = '/data'
-
 [[vm]]
-  # CPU was never the constraint, despite a load average that suggested it.
-  # Measured: a trace response parses in ~1ms and arrives in ~77ms, so the work
-  # is network-bound and Node's single thread is nowhere near saturated. The
-  # earlier slowness was throughput exceeding the plan's compute-unit budget
-  # and disappearing into backoff; ALCHEMY_TRACES_PER_SEC is the fix, not cores.
+  # Network-bound work; the per-wallet history cache is the memory cost.
   size = 'shared-cpu-1x'
-  # 512mb OOM-looped when the Blockscout provider cached every history row in
-  # memory. The Alchemy path holds no row cache and the trace cache is one
-  # number per transaction, so that pressure is gone — but a wallet's transfer
-  # pages are still tens of MB in flight, and this is not the place to be
-  # exactly right.
   memory = '1024mb'

@@ -5,22 +5,20 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { fileURLToPath } from "node:url";
 import { loadEnv, type Plugin } from "vite";
 
 /**
- * Refuse to build a bundle whose network settings disagree with each other.
+ * Refuse to build a bundle whose cluster settings disagree with each other.
  *
- * VITE_ROBINHOOD_NETWORK picks the chain; VITE_ROBINHOOD_RPC_URL, when set,
- * overrides that chain's default RPC. Nothing keeps the two honest, and Vite
- * loads plain `.env` in production mode as well — so a developer's local
- * `.env` pinning the testnet RPC silently survives into a mainnet build. The
- * result is the worst possible combination: the header says Robinhood Chain
- * 4663, links go to rh-scan, and every read and every signed transaction goes
- * to testnet. Nothing errors, and the site looks live.
- *
- * The runtime preflight does detect this, but only once it is deployed and in
- * front of users. A mismatch is fully knowable at build time, so fail here —
- * a failed build costs a minute, a wrong-chain deploy costs trust.
+ * VITE_SOLANA_CLUSTER picks the cluster; VITE_SOLANA_RPC_URL, when set,
+ * overrides its default RPC. Nothing keeps the two honest, and Vite loads
+ * plain `.env` in production mode as well — so a local `.env` pinning a devnet
+ * RPC silently survives into a mainnet build: the header says Solana, and
+ * every signed transaction goes to devnet. A mismatch is knowable at build
+ * time, so fail here — a failed build costs a minute, a wrong-cluster deploy
+ * costs trust. (src/lib/solana/preflight.ts also checks at runtime, by
+ * genesis hash, for RPCs whose URL names neither cluster.)
  */
 function networkConsistency(): Plugin {
   return {
@@ -28,51 +26,54 @@ function networkConsistency(): Plugin {
     apply: "build",
     config(_config, { mode }) {
       const env = loadEnv(mode, process.cwd(), "VITE_");
-      const network = env["VITE_ROBINHOOD_NETWORK"] ?? "testnet";
-      const rpc = env["VITE_ROBINHOOD_RPC_URL"];
+      const cluster = env["VITE_SOLANA_CLUSTER"] ?? "devnet";
+      const rpc = env["VITE_SOLANA_RPC_URL"];
       if (!rpc) return;
 
-      // Substring rather than an exact host list: the point is to catch an RPC
-      // that plainly names the other network, which is the mistake that
-      // actually happens. A private or proxied RPC names neither and passes.
-      const rpcIsTestnet = /testnet/i.test(rpc);
+      const wantMainnet = cluster === "mainnet-beta" || cluster === "mainnet";
+      const rpcIsDevnet = /devnet|testnet|localhost|127\.0\.0\.1/i.test(rpc);
       const rpcIsMainnet = /mainnet/i.test(rpc);
-      const wantMainnet = network === "mainnet";
 
-      if (wantMainnet && rpcIsTestnet) {
+      if (wantMainnet && rpcIsDevnet) {
         throw new Error(
-          `Refusing to build: VITE_ROBINHOOD_NETWORK=mainnet but VITE_ROBINHOOD_RPC_URL is ${rpc}.
-` +
-            `This build would show mainnet everywhere and send every transaction to testnet.
-` +
-            `Set VITE_ROBINHOOD_RPC_URL to a mainnet RPC, or remove it to use the chain default.`,
+          `Refusing to build: VITE_SOLANA_CLUSTER=${cluster} but VITE_SOLANA_RPC_URL is ${rpc}.\n` +
+            `This build would show mainnet everywhere and send every transaction elsewhere.`,
         );
       }
       if (!wantMainnet && rpcIsMainnet) {
         throw new Error(
-          `Refusing to build: VITE_ROBINHOOD_NETWORK=${network} but VITE_ROBINHOOD_RPC_URL is ${rpc}.
-` + `A testnet build must not point at a mainnet RPC. Remove the override or fix it.`,
+          `Refusing to build: VITE_SOLANA_CLUSTER=${cluster} but VITE_SOLANA_RPC_URL is ${rpc}.\n` +
+            `A devnet build must not point at a mainnet RPC. Remove the override or fix it.`,
         );
       }
     },
   };
 }
 
+/**
+ * @solana/web3.js depends on rpc-websockets, which publishes only "browser"
+ * and "node" export conditions — none for Cloudflare's workerd, the Lovable
+ * deploy target, so the server build cannot resolve it at all. Its browser
+ * build only needs the global WebSocket, which workerd has; and the server
+ * never opens a subscription anyway (every chain read runs client-side, in
+ * effects). So resolve it to the browser build everywhere.
+ */
+const RPC_WEBSOCKETS_BROWSER = fileURLToPath(
+  new URL("./node_modules/rpc-websockets/dist/index.browser.mjs", import.meta.url),
+);
+
 export default defineConfig({
-  vite: { plugins: [networkConsistency()] },
+  vite: {
+    plugins: [networkConsistency()],
+    resolve: { alias: [{ find: /^rpc-websockets$/, replacement: RPC_WEBSOCKETS_BROWSER }] },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  // Cloudflare's `workerd` runtime is the Lovable deploy target. The previous
-  // `node-server` override existed only because @solana/web3.js and
-  // wallet-adapter pulled in rpc-websockets / @solana/codecs, neither of which
-  // publishes a workerd export condition. Those dependencies are gone — the
-  // app is on Robinhood Chain via viem now, which is fetch-based and runs on
-  // workerd unmodified — so the override is no longer needed and Lovable's
-  // default preset applies.
-  //
-  // Keep it that way: adding a dependency that needs Node built-ins (fs,
-  // native addons) will break the deploy, not just local dev.
+  // Cloudflare's `workerd` runtime is the Lovable deploy target. Keep it
+  // that way: a dependency that needs Node built-ins (fs, native addons) will
+  // break the deploy, not just local dev — see the rpc-websockets alias above
+  // for how the Solana client is kept workerd-compatible.
 });

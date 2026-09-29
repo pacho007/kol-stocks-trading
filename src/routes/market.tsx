@@ -177,7 +177,7 @@ function Market() {
                         {fmtCompact(marketCapUsd[k.id] ?? 0)}
                       </td>
                       <td className="num px-4 py-3 text-sm text-muted-foreground">
-                        {metrics[k.id] ? `${metrics[k.id]!.volumeEth.toFixed(1)} ETH` : "—"}
+                        {metrics[k.id] ? `${metrics[k.id]!.volumeSol.toFixed(1)} SOL` : "—"}
                       </td>
                       <td className="px-4 py-3">
                         <Sparkline data={series[k.id] ?? []} up={up} className="h-8 w-32" />

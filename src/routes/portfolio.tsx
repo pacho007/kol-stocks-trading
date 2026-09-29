@@ -141,7 +141,7 @@ function Portfolio() {
         {[
           ["Total equity", fmtUsd(equity), ""],
           ["Holdings value", fmtUsd(holdings), ""],
-          ["Wallet balance", `${nativeBalance.toFixed(4)} ETH`, ""],
+          ["Wallet balance", `${nativeBalance.toFixed(4)} SOL`, ""],
           [
             "Unrealized P&L",
             hasUnknownCostBasis ? `${fmtUsd(pnl)}+` : fmtUsd(pnl),

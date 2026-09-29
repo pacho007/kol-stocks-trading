@@ -1,90 +1,47 @@
 /**
  * index-price-history — the chain indexer behind the shared market feed.
  * ---------------------------------------------------------------------------
- * Reads SharpsMarket's PriceUpdated events from Robinhood Chain and writes
- * them into Postgres (public.price_history + public.listings). Supabase
- * Realtime then broadcasts those row changes to every connected client, so
- * all traders see the same price, chart, and market cap at the same moment.
+ * Reads the sharps program's events from Solana and writes them into Postgres
+ * (public.price_history, public.fills, public.listings). Supabase Realtime
+ * then broadcasts those row changes to every connected client, so all traders
+ * see the same price, chart, and market cap at the same moment.
  *
- * WHY THIS EXISTS: the frontend used to record price history per-browser into
- * localStorage, which meant two people looking at the same KOL could see
- * different charts, and a new visitor saw a flat line until their own session
- * accumulated data. On-chain events are the real, shared history — this
- * function is what turns them into a feed everyone reads from.
+ * HOW EVENTS ARE READ
+ *  - getSignaturesForAddress(PROGRAM_ID) lists every transaction that touched
+ *    the program, newest first, back to the stored cursor (last_signature).
+ *  - Each transaction is processed OLDEST FIRST, and the cursor advances after
+ *    each chunk is committed — so a run that hits its time budget simply stops,
+ *    and the next run continues exactly where it left off.
+ *  - Anchor's emit! writes "Program data: <base64>" log lines. A line is only
+ *    accepted when the sharps program is the one executing at that point in
+ *    the log (tracked through the invoke/success stack): any program in the
+ *    same transaction could print a line that LOOKS like our event, and a
+ *    forged Bought would otherwise become real traded volume.
  *
  * DESIGN NOTES
- *  - The chain stays the source of truth. This DB is a queryable mirror,
- *    rebuildable from scratch by resetting indexer_state.last_indexed_block
- *    to the contract's deploy block and re-running.
- *  - Idempotent: rows are keyed by (tx_hash, log_index) with `on conflict do
- *    nothing`, so retries, overlapping ranges after a restart, or a partial
- *    failure mid-batch can never double-write a chart point.
- *  - Advances last_indexed_block ONLY after the rows for that range are
- *    committed, so a crash mid-run re-reads that range next time rather than
- *    skipping it. Re-reading is safe precisely because writes are idempotent.
- *  - Runs with the service role, the only writer RLS allows (see
- *    supabase/migrations/0001_market_state.sql).
+ *  - The chain stays the source of truth. This DB is a rebuildable mirror:
+ *    clear the tables and set indexer_state.last_signature to null.
+ *  - Idempotent: rows are keyed by (signature, event_index) with
+ *    `on conflict do nothing`, so retries and re-reads never double-write.
+ *  - Runs with the service role, the only writer RLS allows.
  *
- * Invoke on a schedule (pg_cron / Supabase scheduled functions). Required
- * secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ROBINHOOD_RPC_URL,
- * MARKET_ADDRESS, and optionally MARKET_DEPLOY_BLOCK (first block to scan).
+ * Required secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SOLANA_RPC_URL,
+ * PROGRAM_ID.
  */
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { createPublicClient, http, parseAbiItem, type Address } from "npm:viem@2";
+import { eventDiscriminator, programEvents } from "./events.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-/**
- * Defaults to TESTNET, matching src/lib/evm/chain.ts. This used to default to
- * mainnet, which is the wrong direction to fail in: a missing secret would
- * have silently indexed a different chain than the one the app trades on, and
- * written the result into the price history every user reads as authoritative.
- * A wrong shared feed is worse than an empty one, so the safe default is the
- * chain where being wrong costs nothing.
- */
-const RPC_URL = Deno.env.get("ROBINHOOD_RPC_URL") ?? "https://rpc.testnet.chain.robinhood.com";
-const MARKET_ADDRESS = Deno.env.get("MARKET_ADDRESS") as Address | undefined;
+/** Devnet by default — a wrong shared feed is worse than an empty one. */
+const RPC_URL = Deno.env.get("SOLANA_RPC_URL") ?? "https://api.devnet.solana.com";
+const PROGRAM_ID = Deno.env.get("PROGRAM_ID");
 
-/**
- * The block SharpsMarket was deployed in. Leaving this at 0 is not merely
- * slow: at ~100ms blocks the scan would spend every run grinding through
- * millions of empty pre-deploy blocks, MAX_WINDOWS_PER_RUN at a time, and
- * would take a very long time to reach the first real event.
- */
-const DEPLOY_BLOCK = BigInt(Deno.env.get("MARKET_DEPLOY_BLOCK") ?? "0");
-
-/**
- * Robinhood Chain produces ~100ms blocks, so a day is on the order of a
- * million blocks and an unbounded getLogs would be refused by any RPC. Scan in
- * bounded windows and stop after a fixed number of them, letting the next
- * scheduled run pick up where this one stopped — a backfill therefore
- * converges over several runs instead of one run timing out forever.
- */
-const BLOCK_WINDOW = BigInt(Deno.env.get("INDEXER_BLOCK_WINDOW") ?? "10000");
-const MAX_WINDOWS_PER_RUN = Number(Deno.env.get("INDEXER_MAX_WINDOWS") ?? "20");
-
-const PRICE_UPDATED = parseAbiItem(
-  "event PriceUpdated(address indexed kolWallet, uint8 score, uint256 priceWei, uint256 timestamp)",
-);
-
-/**
- * Trades. Indexed alongside PriceUpdated because nothing else records that a
- * trade happened: PriceUpdated says the price changed, not how much changed
- * hands. Without these, traded volume, fill counts and holder activity are
- * unanswerable, and the product had to either hide the figure or substitute a
- * different quantity under the same word.
- *
- * Scanned in the same block windows and inserted with the same
- * (tx_hash, log_index) idempotency, so re-reads and retries cannot inflate
- * volume — which is exactly the number double-counting would corrupt.
- */
-const BOUGHT = parseAbiItem(
-  "event Bought(address indexed kolWallet, address indexed buyer, uint256 shares, uint256 weiCost, uint256 timestamp)",
-);
-const SOLD = parseAbiItem(
-  "event Sold(address indexed kolWallet, address indexed seller, uint256 shares, uint256 weiOut, bool haircut, uint256 timestamp)",
-);
+/** Stop starting new work after this long, well inside the function timeout. */
+const TIME_BUDGET_MS = Number(Deno.env.get("INDEXER_TIME_BUDGET_MS") ?? "100000");
+const CHUNK = Number(Deno.env.get("INDEXER_CHUNK") ?? "25");
+const CONCURRENCY = Number(Deno.env.get("INDEXER_CONCURRENCY") ?? "5");
 
 type Json = Record<string, unknown>;
 
@@ -95,286 +52,234 @@ function jsonResponse(body: Json, status = 200): Response {
   });
 }
 
+// ------------------------------------------------------------------ RPC
+
+let rpcId = 0;
+async function rpc<T>(method: string, params: unknown[]): Promise<T> {
+  let delay = 400;
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(RPC_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params }),
+    });
+    if (res.status === 429 && attempt < 6) {
+      await new Promise((r) => setTimeout(r, delay));
+      delay *= 2;
+      continue;
+    }
+    const body = await res.json();
+    if (body.error) throw new Error(`${method}: ${JSON.stringify(body.error)}`);
+    return body.result as T;
+  }
+}
+
+type SigInfo = { signature: string; slot: number; err: unknown; blockTime: number | null };
+type Tx = {
+  slot: number;
+  blockTime: number | null;
+  meta: { err: unknown; logMessages: string[] | null } | null;
+};
+
+async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        out[i] = await fn(items[i]!);
+      }
+    }),
+  );
+  return out;
+}
+
+// ------------------------------------------------------------------ run
+
 Deno.serve(async () => {
-  if (!MARKET_ADDRESS) {
-    return jsonResponse({ error: "MARKET_ADDRESS is not set — nothing to index." }, 500);
+  const started = Date.now();
+  if (!PROGRAM_ID) return jsonResponse({ error: "PROGRAM_ID is not set — nothing to index." }, 500);
+
+  // REFUSE TO INDEX THE WRONG CLUSTER. PROGRAM_ID and SOLANA_RPC_URL are
+  // independent secrets; a program id with no executable account on this RPC
+  // means they name different clusters, and indexing would silently record
+  // nothing forever.
+  const programInfo = await rpc<{ value: { executable: boolean } | null }>("getAccountInfo", [
+    PROGRAM_ID,
+    { encoding: "base64" },
+  ]).catch(() => null);
+  if (!programInfo?.value?.executable) {
+    return jsonResponse(
+      {
+        error:
+          `PROGRAM_ID ${PROGRAM_ID} is not a deployed program on the cluster at SOLANA_RPC_URL. ` +
+          `Refusing to index rather than silently recording nothing.`,
+      },
+      500,
+    );
   }
 
   const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });
 
-  const chain = createPublicClient({ transport: http(RPC_URL) });
-
-  // REFUSE TO INDEX THE WRONG CHAIN.
-  //
-  // RPC_URL and MARKET_ADDRESS are two independent secrets, and nothing ties
-  // them together. Forgetting to update ROBINHOOD_RPC_URL at the mainnet
-  // cutover leaves this pointed at testnet while holding the mainnet address:
-  // getLogs on an address with no code is not an error, it just returns
-  // nothing, so the function reports success forever and the price history
-  // silently stops advancing. That failure is invisible until someone asks
-  // why the chart is flat.
-  //
-  // A deployed contract has code and a wrong-chain address does not, so one
-  // getCode call turns that silent mismatch into a loud one. Cheap: a single
-  // call per invocation, against an RPC this function is about to hammer with
-  // getLogs anyway.
-  const deployedCode = await chain.getCode({ address: MARKET_ADDRESS }).catch(() => undefined);
-  if (!deployedCode || deployedCode === "0x") {
-    const chainId = await chain.getChainId().catch(() => 0);
-    return jsonResponse(
-      {
-        error:
-          `MARKET_ADDRESS ${MARKET_ADDRESS} has no contract code on the chain at ROBINHOOD_RPC_URL ` +
-          `(chain id ${chainId || "unknown"}). Refusing to index rather than silently recording ` +
-          `nothing. Check that ROBINHOOD_RPC_URL and MARKET_ADDRESS name the same network.`,
-        chainId,
-        marketAddress: MARKET_ADDRESS,
-      },
-      500,
-    );
-  }
-
-  // Map on-chain wallet -> our listing id. Only wallets we actually list are
-  // indexed; an event for an unknown wallet is skipped rather than inventing
-  // a listing row (kol_id is a real foreign key).
   const { data: listingRows, error: listingErr } = await db
     .from("listings")
     .select("kol_id, kol_wallet");
-  if (listingErr) {
+  if (listingErr)
     return jsonResponse({ error: `failed to load listings: ${listingErr.message}` }, 500);
-  }
+  // Exact match: base58 is case-sensitive.
   const walletToId = new Map<string, string>(
-    (listingRows ?? []).map((r) => [String(r.kol_wallet).toLowerCase(), String(r.kol_id)]),
+    (listingRows ?? []).map((r) => [String(r.kol_wallet), String(r.kol_id)]),
   );
   if (walletToId.size === 0) {
     return jsonResponse(
-      {
-        error:
-          "no rows in public.listings — seed listings before indexing (see scripts/seed-listings).",
-      },
+      { error: "no rows in public.listings — seed listings before indexing." },
       500,
     );
   }
 
   const { data: stateRow, error: stateErr } = await db
     .from("indexer_state")
-    .select("last_indexed_block")
+    .select("last_signature")
     .eq("id", 1)
     .single();
-  if (stateErr) {
+  if (stateErr)
     return jsonResponse({ error: `failed to read indexer_state: ${stateErr.message}` }, 500);
-  }
+  const until: string | null = stateRow?.last_signature ?? null;
 
-  const storedBlock = BigInt(stateRow?.last_indexed_block ?? 0);
-  let fromBlock = storedBlock > 0n ? storedBlock + 1n : DEPLOY_BLOCK;
-  const headBlock = await chain.getBlockNumber();
-
-  // REFUSE A CURSOR THAT IS AHEAD OF THE CHAIN.
-  //
-  // fromBlock comes from the database and headBlock from the chain, and nothing
-  // ties them together. Point this at a different network and the cursor is
-  // simply a number from somewhere else: testnet ran to block ~113,000,000
-  // while mainnet's head is ~54,800,000, so a cutover without resetting
-  // indexer_state leaves fromBlock 58 million blocks past the end of the chain.
-  //
-  // Nothing about that is an error. The window loop condition is false on the
-  // first pass, so it scans nothing, writes nothing, and returns ok:true with
-  // caughtUp:true — a green health check over a feed that will never index
-  // another row. Prices would sit frozen and the trade tape stay empty while
-  // the contract filled orders normally.
-  //
-  // A cursor beyond the head is impossible on the chain it came from, so it can
-  // only mean the network changed underneath it. Say so, and say how to fix it.
-  if (fromBlock > headBlock + 1n) {
-    return jsonResponse(
-      {
-        error:
-          `indexer_state.last_indexed_block (${storedBlock}) is ahead of the chain head ` +
-          `(${headBlock}). That cannot happen on the chain it was recorded from, so this ` +
-          `database was indexed against a different network. Reset the cursor to the ` +
-          `contract's deploy block on THIS network before indexing, and clear the rows ` +
-          `carried over from the old one.`,
-        storedBlock: storedBlock.toString(),
-        headBlock: headBlock.toString(),
-      },
-      500,
-    );
-  }
-
-  let windows = 0;
-  let inserted = 0;
-  let skippedUnknownWallet = 0;
-  let fillsInserted = 0;
-
-  while (fromBlock <= headBlock && windows < MAX_WINDOWS_PER_RUN) {
-    const toBlock =
-      fromBlock + BLOCK_WINDOW - 1n > headBlock ? headBlock : fromBlock + BLOCK_WINDOW - 1n;
-
-    // All three event types come from the same window in parallel — one extra
-    // round-trip per window rather than a second full scan of the chain.
-    const [logs, boughtLogs, soldLogs] = await Promise.all([
-      chain.getLogs({ address: MARKET_ADDRESS, event: PRICE_UPDATED, fromBlock, toBlock }),
-      chain.getLogs({ address: MARKET_ADDRESS, event: BOUGHT, fromBlock, toBlock }),
-      chain.getLogs({ address: MARKET_ADDRESS, event: SOLD, fromBlock, toBlock }),
+  // Every signature newer than the cursor, newest first, then flipped.
+  const pending: SigInfo[] = [];
+  let before: string | undefined;
+  for (;;) {
+    const page = await rpc<SigInfo[]>("getSignaturesForAddress", [
+      PROGRAM_ID,
+      { limit: 1000, ...(before ? { before } : {}), ...(until ? { until } : {}) },
     ]);
+    pending.push(...page);
+    if (page.length < 1000) break;
+    before = page[page.length - 1]!.signature;
+  }
+  pending.reverse();
 
-    // Fills first: a trade is what caused the price change indexed below, so
-    // recording it first means the two are never observed out of order.
+  const discs = new Map<string, string>();
+  for (const name of ["PriceUpdated", "Bought", "Sold"])
+    discs.set(await eventDiscriminator(name), name);
+
+  let processed = 0;
+  let pricesInserted = 0;
+  let fillsInserted = 0;
+  let skippedUnknownWallet = 0;
+
+  for (let i = 0; i < pending.length; i += CHUNK) {
+    if (Date.now() - started > TIME_BUDGET_MS) break;
+    const chunk = pending.slice(i, i + CHUNK);
+    const txs = await mapLimit(chunk, CONCURRENCY, (s) =>
+      s.err
+        ? Promise.resolve(null)
+        : rpc<Tx | null>("getTransaction", [
+            s.signature,
+            { encoding: "json", maxSupportedTransactionVersion: 0, commitment: "confirmed" },
+          ]),
+    );
+
+    const priceRows: Record<string, unknown>[] = [];
     const fillRows: Record<string, unknown>[] = [];
-    for (const log of boughtLogs) {
-      const wallet = String(log.args.kolWallet).toLowerCase();
-      const kolId = walletToId.get(wallet);
-      if (!kolId) continue;
-      fillRows.push({
-        kol_id: kolId,
-        kol_wallet: wallet,
-        side: "buy",
-        trader: String(log.args.buyer).toLowerCase(),
-        shares: String(log.args.shares),
-        wei: String(log.args.weiCost),
-        block_number: Number(log.blockNumber),
-        block_timestamp: new Date(Number(log.args.timestamp) * 1000).toISOString(),
-        tx_hash: log.transactionHash,
-        log_index: log.logIndex,
-      });
-    }
-    for (const log of soldLogs) {
-      const wallet = String(log.args.kolWallet).toLowerCase();
-      const kolId = walletToId.get(wallet);
-      if (!kolId) continue;
-      fillRows.push({
-        kol_id: kolId,
-        kol_wallet: wallet,
-        side: "sell",
-        trader: String(log.args.seller).toLowerCase(),
-        shares: String(log.args.shares),
-        wei: String(log.args.weiOut),
-        block_number: Number(log.blockNumber),
-        block_timestamp: new Date(Number(log.args.timestamp) * 1000).toISOString(),
-        tx_hash: log.transactionHash,
-        log_index: log.logIndex,
-      });
-    }
-    if (fillRows.length > 0) {
-      const { error: fillErr } = await db
-        .from("fills")
-        .upsert(fillRows, { onConflict: "tx_hash,log_index", ignoreDuplicates: true });
-      if (fillErr) {
-        return jsonResponse(
-          { error: `fills insert failed at blocks ${fromBlock}-${toBlock}: ${fillErr.message}` },
-          500,
-        );
-      }
-      fillsInserted += fillRows.length;
-    }
-
-    if (logs.length > 0) {
-      const rows = [];
-      for (const log of logs) {
-        const wallet = String(log.args.kolWallet).toLowerCase();
-        const kolId = walletToId.get(wallet);
+    chunk.forEach((s, j) => {
+      const tx = txs[j];
+      if (!tx?.meta || tx.meta.err || !tx.meta.logMessages) return;
+      programEvents(tx.meta.logMessages, PROGRAM_ID, discs).forEach((ev, eventIndex) => {
+        const kolId = walletToId.get(ev.kolWallet);
         if (!kolId) {
           skippedUnknownWallet++;
-          continue;
+          return;
         }
-        rows.push({
+        const blockTime = new Date(Number(ev.ts) * 1000).toISOString();
+        const common = {
           kol_id: kolId,
-          kol_wallet: wallet,
-          score: Number(log.args.score),
-          price_wei: String(log.args.priceWei),
-          block_number: Number(log.blockNumber),
-          // The contract emits block.timestamp directly in the event, so this
-          // needs no extra per-block RPC round-trip.
-          block_timestamp: new Date(Number(log.args.timestamp) * 1000).toISOString(),
-          tx_hash: log.transactionHash,
-          log_index: log.logIndex,
-        });
-      }
-
-      if (rows.length > 0) {
-        // Idempotent: duplicates on (tx_hash, log_index) are dropped, so a
-        // re-read of an already-indexed range is a no-op rather than an error.
-        const { error: insertErr } = await db
-          .from("price_history")
-          .upsert(rows, { onConflict: "tx_hash,log_index", ignoreDuplicates: true });
-        if (insertErr) {
-          return jsonResponse(
-            { error: `insert failed at blocks ${fromBlock}-${toBlock}: ${insertErr.message}` },
-            500,
-          );
+          kol_wallet: ev.kolWallet,
+          slot: tx.slot,
+          block_time: blockTime,
+          signature: s.signature,
+          event_index: eventIndex,
+        };
+        if (ev.kind === "price") {
+          priceRows.push({
+            ...common,
+            score: ev.score,
+            price_lamports: ev.priceLamports.toString(),
+          });
+        } else {
+          fillRows.push({
+            ...common,
+            side: ev.side,
+            trader: ev.trader,
+            shares: ev.shares.toString(),
+            lamports: ev.lamports.toString(),
+          });
         }
-        inserted += rows.length;
+      });
+    });
 
-        // Current-state mirror: last event in this window per KOL wins. Read
-        // by clients for "what is the price right now", and what Realtime
-        // broadcasts on change.
-        const latestPerKol = new Map<string, (typeof rows)[number]>();
-        for (const row of rows) {
-          const prev = latestPerKol.get(row.kol_id);
-          if (
-            !prev ||
-            row.block_number > prev.block_number ||
-            (row.block_number === prev.block_number && row.log_index > prev.log_index)
-          ) {
-            latestPerKol.set(row.kol_id, row);
-          }
-        }
-        for (const row of latestPerKol.values()) {
-          const { error: updateErr } = await db
-            .from("listings")
-            .update({
-              score: row.score,
-              price_wei: row.price_wei,
-              last_update_ts: row.block_timestamp,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("kol_id", row.kol_id)
-            // Never let an out-of-order or replayed event walk current state
-            // backwards past a newer one already recorded.
-            //
-            // The null arm is not defensive padding — without it this guard
-            // never passes at all. Seeded rows have last_update_ts NULL, and
-            // `NULL <= anything` is NULL rather than TRUE, so the filter
-            // matched no row on a listing's FIRST update, which is the one
-            // that would have set the column non-null. Every listing stayed
-            // frozen at its seed values (score 50, opening price) forever
-            // while price_history filled in correctly beside it, and nothing
-            // errored — the update simply reported zero rows affected.
-            .or(`last_update_ts.is.null,last_update_ts.lte."${row.block_timestamp}"`);
-          if (updateErr) {
-            return jsonResponse(
-              { error: `listing update failed for ${row.kol_id}: ${updateErr.message}` },
-              500,
-            );
-          }
+    // Fills first: a trade is what caused the price change recorded with it.
+    if (fillRows.length > 0) {
+      const { error } = await db
+        .from("fills")
+        .upsert(fillRows, { onConflict: "signature,event_index", ignoreDuplicates: true });
+      if (error) return jsonResponse({ error: `fills insert failed: ${error.message}` }, 500);
+      fillsInserted += fillRows.length;
+    }
+    if (priceRows.length > 0) {
+      const { error } = await db
+        .from("price_history")
+        .upsert(priceRows, { onConflict: "signature,event_index", ignoreDuplicates: true });
+      if (error) return jsonResponse({ error: `price insert failed: ${error.message}` }, 500);
+      pricesInserted += priceRows.length;
+
+      // Current-state mirror: the last event per KOL in this chunk wins.
+      const latest = new Map<string, Record<string, unknown>>();
+      for (const row of priceRows) latest.set(String(row.kol_id), row);
+      for (const row of latest.values()) {
+        const { error: updateErr } = await db
+          .from("listings")
+          .update({
+            score: row.score,
+            price_lamports: row.price_lamports,
+            last_update_ts: row.block_time,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("kol_id", String(row.kol_id))
+          // Never walk current state backwards past a newer event; the null
+          // arm lets a seeded row take its first update.
+          .or(`last_update_ts.is.null,last_update_ts.lte."${row.block_time}"`);
+        if (updateErr) {
+          return jsonResponse({ error: `listing update failed: ${updateErr.message}` }, 500);
         }
       }
     }
 
-    // Only advance the cursor once this window's rows are committed. A crash
-    // before here means the range is simply re-read next run (safe, since
-    // writes are idempotent) rather than silently skipped.
+    // Advance only after this chunk's rows are committed.
+    const last = chunk[chunk.length - 1]!;
     const { error: cursorErr } = await db
       .from("indexer_state")
-      .update({ last_indexed_block: Number(toBlock), updated_at: new Date().toISOString() })
+      .update({
+        last_signature: last.signature,
+        last_slot: last.slot,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", 1);
-    if (cursorErr) {
+    if (cursorErr)
       return jsonResponse({ error: `cursor update failed: ${cursorErr.message}` }, 500);
-    }
-
-    fromBlock = toBlock + 1n;
-    windows++;
+    processed += chunk.length;
   }
 
   return jsonResponse({
     ok: true,
-    headBlock: Number(headBlock),
-    indexedThrough: Number(fromBlock - 1n),
-    caughtUp: fromBlock > headBlock,
-    windowsScanned: windows,
-    rowsInserted: inserted,
+    pending: pending.length,
+    processed,
+    caughtUp: processed === pending.length,
+    pricesInserted,
     fillsInserted,
     skippedUnknownWallet,
   });

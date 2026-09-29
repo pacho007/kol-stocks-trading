@@ -3,7 +3,7 @@ import { ArrowRight, Coins, Flame, Users, Wallet } from "lucide-react";
 import { SharpsMark } from "@/components/brand";
 import { ExplorerLink } from "@/components/explorer-link";
 import { TokenAddress } from "@/components/token-address";
-import { MARKET_ADDRESS } from "@/lib/evm/chain";
+import { PROGRAM_ID } from "@/lib/solana/chain";
 
 export const Route = createFileRoute("/sharps")({
   head: () => ({
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/sharps")({
       { property: "og:title", content: "$SHARPS · The Platform Token | SHARPS" },
       {
         property: "og:description",
-        content: "The token behind the platform. Launching on Pons.",
+        content: "The token behind the platform. Launching on Solana.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -29,15 +29,15 @@ export const Route = createFileRoute("/sharps")({
 /**
  * The $SHARPS page.
  *
- * Written deliberately close to what the contract actually does, because the
- * numbers here are checkable and will be checked. SharpsMarket.sol fixes the
+ * Written deliberately close to what the program actually does, because the
+ * numbers here are checkable and will be checked. The sharps program fixes the
  * fee split at 1% reserve / 0.5% listed trader / 0.5% protocol, and those are
- * `constant` — no admin can change them. So this page says 0.5%, names the
- * treasury as where it accrues, and links the contract.
+ * constants — no admin can change them. So this page says 0.5%, names the
+ * treasury as where it accrues, and links the program.
  *
  * What it does NOT do is state a distribution rate, a supply, a date or a
  * ratio. None of that is enforced anywhere yet, and a page promising "1% to
- * holders" while the contract routes 0.5% to a treasury is precisely the
+ * holders" while the program routes 0.5% to a treasury is precisely the
  * screenshot that follows a project around. Everything discretionary is
  * labelled discretionary.
  */
@@ -66,7 +66,7 @@ function SharpsToken() {
           Where the value comes from
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          A trade on SHARPS costs 2% each way. That fee is not a single pot — the contract splits it
+          A trade on SHARPS costs 2% each way. That fee is not a single pot — the program splits it
           three ways and the split is fixed in code, so nobody can move it later.
         </p>
 
@@ -112,16 +112,9 @@ function SharpsToken() {
         </div>
 
         <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-          These are <span className="num text-foreground">constant</span> in the contract — not
-          settings. Verify them yourself
-          {MARKET_ADDRESS ? (
-            <>
-              {" "}
-              on <ExplorerLink address={MARKET_ADDRESS} label="the market contract" />.
-            </>
-          ) : (
-            " on the market contract once it is deployed."
-          )}
+          These are <span className="num text-foreground">constants</span> in the program — not
+          settings. Verify them yourself on{" "}
+          <ExplorerLink address={PROGRAM_ID.toBase58()} label="the market program" />.
         </p>
       </section>
 
@@ -138,16 +131,16 @@ function SharpsToken() {
           </p>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
             Distributions are made by the team from the treasury, by airdrop. They are not enforced
-            by the market contract, which only accrues the fee — so treat the share and the schedule
+            by the market program, which only accrues the fee — so treat the share and the schedule
             as discretionary rather than guaranteed, and judge them on what actually arrives.
           </p>
         </div>
       </section>
 
-      {/* pons */}
+      {/* launch */}
       <section className="rise mt-12" style={{ animationDelay: "180ms" }}>
         <h2 className="num text-[10px] tracking-[0.3em] uppercase text-muted-foreground">
-          Launching on Pons
+          Launching on Solana
         </h2>
         <div className="mt-3 panel p-5">
           <div className="flex flex-wrap items-center gap-3">
@@ -155,13 +148,13 @@ function SharpsToken() {
               Date TBA
             </span>
             <span className="num text-[11px] tracking-widest uppercase text-muted-foreground">
-              Robinhood Chain
+              Solana
             </span>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-            $SHARPS launches on Pons, on the same chain the platform settles on. That keeps the
-            token, the market contract and every listed wallet on one network — no bridge between
-            the thing you hold and the thing that earns.
+            $SHARPS launches on Solana, the same chain the platform settles on. That keeps the
+            token, the market program and every listed wallet on one network — no bridge between the
+            thing you hold and the thing that earns.
           </p>
         </div>
       </section>
@@ -179,7 +172,7 @@ function SharpsToken() {
             },
             {
               title: "One network, one stack",
-              body: "The token, the market and the traders being priced all live on Robinhood Chain. Nothing is bridged or wrapped.",
+              body: "The token, the market and the traders being priced all live on Solana. Nothing is bridged or wrapped.",
             },
             {
               title: "Independent of any listing",
@@ -210,7 +203,7 @@ function SharpsToken() {
               allocation or timing, and none of it is financial advice.
             </li>
             <li>
-              Holder distributions are discretionary and sent manually. The market contract accrues
+              Holder distributions are discretionary and sent manually. The market program accrues
               the protocol fee; it does not pay anybody out automatically.
             </li>
             <li>

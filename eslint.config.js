@@ -16,10 +16,9 @@ export default tseslint.config(
       // satisfy. Same reason routeTree.gen.ts is in .prettierignore.
       "src/integrations/supabase/**",
       "src/routeTree.gen.ts",
-      // Foundry dependency + build output.
-      "evm/lib/**",
-      "evm/out/**",
-      "evm/cache/**",
+      // Anchor build output.
+      "anchor/target/**",
+      "anchor/node_modules/**",
     ],
   },
   {

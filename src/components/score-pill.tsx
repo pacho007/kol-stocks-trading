@@ -28,8 +28,8 @@ export function scoreBand(score: number): { label: string; tone: "up" | "down" |
  * matters because the reason a listing is unmeasured varies and changes. Some
  * wallets simply have not traded yet. Others trade constantly but in ways the
  * PnL reconstruction deliberately ignores — staking, minting, token-to-token
- * swaps — because it only recognises a native-ETH round trip and refuses to
- * guess at the rest (see oracle/blockscout-provider.ts). Either way the honest
+ * swaps — because it only recognises a SOL round trip and refuses to
+ * guess at the rest (see oracle/solana-provider.ts). Either way the honest
  * statement to a buyer is the same: there is nothing behind this price yet.
  *
  * Deriving it also means the badge clears itself the moment a wallet makes a
@@ -73,7 +73,7 @@ export function ScorePill({
       <span
         title={
           `No measurable trades yet, so this is the opening score every listing starts at, ` +
-          `not a judgement. Scores move on completed round trips priced in ETH; activity like ` +
+          `not a judgement. Scores move on completed round trips priced in SOL; activity like ` +
           `staking, minting or token-to-token swaps is not counted rather than guessed at.`
         }
         className={`num inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-muted/40 font-bold tabular-nums text-muted-foreground ${

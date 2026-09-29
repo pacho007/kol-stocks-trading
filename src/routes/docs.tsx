@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ACTIVE_CHAIN, ROBINHOOD_MAINNET_ID } from "@/lib/evm/chain";
+import { CLUSTER_NAME, IS_MAINNET } from "@/lib/solana/chain";
 import { KOLS } from "@/lib/kols";
 import {
   Accordion,
@@ -13,7 +13,6 @@ import { ArrowRight } from "lucide-react";
 const TAGGED = KOLS.filter((k) => k.handle && k.handle.length > 1).length;
 
 /** Read from the build, so the docs cannot claim a network the app is not on. */
-const IS_MAINNET = ACTIVE_CHAIN.id === ROBINHOOD_MAINNET_ID;
 
 export const Route = createFileRoute("/docs")({
   head: () => ({
@@ -88,19 +87,19 @@ function Docs() {
           <DocSection id="overview" kicker="01 · Overview" title="Traders, priced like stocks">
             <p>
               Every listing on SHARPS is tied to a single, real wallet on{" "}
-              <b className="text-foreground">Robinhood Chain</b> — a trader whose on-chain activity
-              is public. Instead of buying the coins they trade, you buy shares in the trader
+              <b className="text-foreground">Solana</b> — a trader whose on-chain activity is
+              public. Instead of buying the coins they trade, you buy shares in the trader
               themselves. As their tracked performance moves, so does the price of their stock.
             </p>
             <p>
-              Trading is genuinely on-chain: buying and selling call the SHARPS contract directly,
-              your shares are recorded in that contract's own ledger against your address, and the
-              ETH behind every listing sits in that listing's own on-chain vault — not in a company
-              account.
+              Trading is genuinely on-chain: buying and selling call the SHARPS program directly,
+              your shares are recorded in a position account the program keeps for your address, and
+              the SOL behind every listing sits in that listing's own on-chain account — not in a
+              company account.
             </p>
             <p>
               Price, chart, and market cap are served from one shared feed rebuilt from the
-              contract's own on-chain events — so every trader looking at a listing sees the same
+              program's own on-chain events — so every trader looking at a listing sees the same
               numbers at the same moment, rather than whatever their own browser happened to poll.
             </p>
           </DocSection>
@@ -108,9 +107,9 @@ function Docs() {
           <DocSection id="listings" kicker="02 · Listings" title="What a ticker actually is">
             <p>
               Each listing has a ticker (like <span className="num text-foreground">$COOK</span>), a
-              name, and a linked wallet address you can verify yourself on any Robinhood Chain
-              explorer. A listing exists on-chain once it's been created by the contract admin —
-              until then it shows an estimated price only, and can't be traded.
+              name, and a linked wallet address you can verify yourself on any Solana explorer. A
+              listing exists on-chain once it's been created by the program admin — until then it
+              shows an estimated price only, and can't be traded.
             </p>
             <dl className="mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
               {[
@@ -152,9 +151,9 @@ function Docs() {
             </p>
             <InfoCard tone="warning" title="Verify before you trade on a name">
               A label is not proof of ownership. If it matters that a listing really is who it says
-              it is, check the wallet address yourself on a Robinhood Chain explorer first. Some
-              traders also run more than one tracked wallet, so the same person can appear as two
-              listings with distinct tickers.
+              it is, check the wallet address yourself on a Solana explorer first. Some traders also
+              run more than one tracked wallet, so the same person can appear as two listings with
+              distinct tickers.
             </InfoCard>
           </DocSection>
 
@@ -220,8 +219,8 @@ function Docs() {
             <p>
               <b className="text-foreground">The curve.</b> Each share costs slightly more than the
               one before it. Buying walks the price up; selling walks it back down. Crucially, every
-              wei paid in stays in that listing's own reserve, and the reserve is kept exactly equal
-              to the curve's value of all outstanding shares. That equality is what guarantees a
+              lamport paid in stays in that listing's own reserve, and the reserve is never allowed
+              below the curve's value of all outstanding shares. That equality is what guarantees a
               sell can always be paid in full.
             </p>
             <p>
@@ -231,12 +230,12 @@ function Docs() {
               <a href="#scoring" className="text-gold-light hover:underline">
                 the scoring model
               </a>
-              ) to the contract, and the contract turns that score into a multiplier on the whole
+              ) to the program, and the program turns that score into a multiplier on the whole
               curve. Score 50 is neutral (1×); higher lifts the curve, lower drops it.
             </p>
             <InfoCard tone="neutral" title="Why a rising score doesn't always move the price">
               A higher multiplier means every outstanding share is redeemable for more — that's a
-              claim on the reserve. So the contract only raises the multiplier as far as the reserve
+              claim on the reserve. So the program only raises the multiplier as far as the reserve
               can actually cover. Trading fees build that headroom over time.
               <br />
               <br />
@@ -252,23 +251,21 @@ function Docs() {
             <p>
               The oracle key is deliberately narrow: it can only push scores. It cannot touch a
               reserve or a share balance. Even fully compromised, it can nudge a multiplier within
-              the solvency bound and the 25%-per-update rate cap — it can never move a single wei of
-              anyone's funds.
+              the solvency bound and the 25%-per-update rate cap — it can never move a single
+              lamport of anyone's funds.
             </p>
           </DocSection>
 
           <DocSection id="buying" kicker="06 · Buying" title="What happens when you buy">
             <ol className="list-decimal space-y-2 pl-5">
-              <li>
-                Connect an EVM wallet on Robinhood Chain and pick how much ETH you want to spend.
-              </li>
+              <li>Connect a Solana wallet and pick how much SOL you want to spend.</li>
               <li>
                 The app quotes you a share count at the listing's current on-chain price, and
                 submits a real transaction for your wallet to approve.
               </li>
               <li>
-                The contract moves your ETH into that listing's vault and credits you the matching
-                number of shares in its ledger, against your address.
+                The program moves your SOL into that listing's reserve and credits the matching
+                number of shares to your position account.
               </li>
               <li>
                 A minimum-shares guard protects you if the price moves between the quote and your
@@ -276,26 +273,27 @@ function Docs() {
               </li>
             </ol>
             <p>
-              Shares are always whole numbers — SHARPS doesn't do fractional shares. Any leftover
-              ETH that doesn't divide evenly into a whole share is refunded to you in the same
-              transaction, not absorbed.
+              Shares are always whole numbers — SHARPS doesn't do fractional shares. Only the exact
+              cost of the whole shares you receive leaves your wallet — the remainder of the amount
+              you entered never moves. Your first buy of a listing also pays a small, one-off
+              account rent (about 0.0014 SOL) for your position account.
             </p>
             <InfoCard tone="neutral" title="How shares are held">
-              Shares live in the SHARPS contract's own ledger keyed to your address — they are not
-              ERC-20 tokens, so they won't appear in your wallet's token list and can't be traded on
-              an outside DEX. You can send them to another address directly through the contract,
+              Shares live in a position account the SHARPS program keeps for your address — they are
+              not SPL tokens, so they won't appear in your wallet's token list and can't be traded
+              on an outside DEX. You can send them to another address directly through the program,
               and only you can move your own balance.
             </InfoCard>
           </DocSection>
 
           <DocSection id="selling" kicker="07 · Selling" title="What happens when you sell">
             <p>
-              Selling burns your shares and pays you ETH out of that listing's reserve, at the full
+              Selling burns your shares and pays you SOL out of that listing's reserve, at the full
               curve price, minus the 2% sell fee. You walk back down the same curve you bought on,
               so each share you sell fetches slightly less than the one before it.
             </p>
             <InfoCard tone="neutral" title="A sell can always be paid">
-              The reserve is held equal to the curve's value of every outstanding share. Unwinding
+              The reserve never falls below the curve's value of every outstanding share. Unwinding
               your shares along that same curve is therefore always covered — not usually, not
               probably, but by construction. There is no code path that can pay you less than the
               quote you were shown.
@@ -317,7 +315,7 @@ function Docs() {
           <DocSection id="feed" kicker="08 · The feed" title="Why everyone sees the same numbers">
             <p>
               Price, chart, and market cap are served from a single shared feed, rebuilt from the
-              contract's own on-chain events by an indexer, and pushed to every connected browser in
+              program's own on-chain events by an indexer, and pushed to every connected browser in
               real time.
             </p>
             <p>
@@ -338,20 +336,20 @@ function Docs() {
             <dl className="grid gap-px overflow-hidden rounded-lg border border-border bg-border">
               {[
                 [
-                  "The contract (on Robinhood Chain)",
+                  "The program (on Solana)",
                   "Holds every listing, every reserve, and every share balance. Buys, sells, and score updates are all real transactions against it. It is the only thing that can move funds.",
                 ],
                 [
                   "The scoring pipeline (off-chain)",
-                  "Reads each tracked wallet's history from the chain via a public explorer API, reconstructs realized PnL and win rate, ranks the field, and pushes the resulting scores on-chain with a narrow oracle key.",
+                  "Reads each tracked wallet's swaps from Solana via an RPC indexer, reconstructs realized PnL and win rate, ranks the field, and pushes the resulting scores on-chain with a narrow oracle key.",
                 ],
                 [
                   "The indexer (off-chain)",
-                  "Watches the contract's PriceUpdated events and writes them to a shared database, which every client reads. Idempotent: replaying the same events can't duplicate history.",
+                  "Watches the program's PriceUpdated events and writes them to a shared database, which every client reads. Idempotent: replaying the same events can't duplicate history.",
                 ],
                 [
                   "This app",
-                  "Reads the shared feed for display and talks to the contract directly for trades. It never custodies anything.",
+                  "Reads the shared feed for display and talks to the program directly for trades. It never custodies anything.",
                 ],
               ].map(([k, v]) => (
                 <div key={k} className="bg-card px-4 py-3.5">
@@ -385,11 +383,11 @@ function Docs() {
               ))}
             </dl>
             <p className="mt-4">
-              No function in the contract lets anyone — admin, oracle, or otherwise — withdraw from
-              a listing's reserve outside of a normal sell by the shareholder.
+              No function in the program lets anyone — admin, oracle, or otherwise — withdraw from a
+              listing's reserve outside of a normal sell by the shareholder.
             </p>
             <InfoCard tone="warning" title="Not audited">
-              The contract has not been through a third-party security audit, and it holds user
+              The program has not been through a third-party security audit, and it holds user
               funds. The reserve invariant is covered by an automated test suite, but tests are not
               an audit. Size your exposure accordingly.
             </InfoCard>
@@ -410,26 +408,22 @@ function Docs() {
 
           <DocSection id="wallet" kicker="12 · Wallet & network" title="Connecting and networks">
             <p>
-              SHARPS works with any standard EVM browser wallet (MetaMask, Rabby, Coinbase Wallet,
-              and others) — click <span className="text-foreground">Connect Wallet</span> in the
-              header and approve the connection. No account, email, or signup required.
+              SHARPS works with any Solana browser wallet (Phantom, Solflare, Backpack, and others)
+              — click <span className="text-foreground">Connect Wallet</span> in the header and
+              approve the connection. No account, email, or signup required.
             </p>
             <p>
-              This build is connected to{" "}
-              <b className="text-foreground">
-                {ACTIVE_CHAIN.name} (chain ID {ACTIVE_CHAIN.id})
-              </b>
-              .{" "}
+              This build is connected to <b className="text-foreground">{CLUSTER_NAME}</b>.{" "}
               {IS_MAINNET
-                ? "Every trade uses real ETH and is irreversible."
-                : "Testnet ETH has no real-world value; nothing here is real money."}{" "}
+                ? "Every trade uses real SOL and is irreversible."
+                : "Devnet SOL has no real-world value; nothing here is real money."}{" "}
               The app only reaches mainnet when it is explicitly configured for it, so a missing
               setting can never quietly point you at real funds. The network is always shown in the
               header and site footer.
             </p>
             <p>
-              If your wallet is connected to a different network, the connect button says so and
-              offers to switch — rather than letting a trade fail with an unexplained error.
+              Your wallet must be on the same network as this build. For devnet, switch it in the
+              wallet's own settings (in Phantom: Settings → Developer Settings → Testnet Mode).
             </p>
           </DocSection>
 
@@ -441,23 +435,16 @@ function Docs() {
                 future results.
               </li>
               <li>
-                <b className="text-foreground">Sell payouts can be capped.</b> See{" "}
-                <a href="#selling" className="text-gold-light hover:underline">
-                  Selling shares
-                </a>{" "}
-                — an undercollateralized listing pays out less than its quoted price.
-              </li>
-              <li>
-                <b className="text-foreground">Admin controls exist.</b> A contract admin key can
+                <b className="text-foreground">Admin controls exist.</b> A program admin key can
                 pause trading market-wide or on an individual listing, and can create new listings.
-                It cannot access, redirect, or withdraw funds from any vault.
+                It cannot access, redirect, or withdraw funds from any reserve.
               </li>
               <li>
                 <b className="text-foreground">On-chain, irreversible.</b> Every buy and sell is a
-                real Robinhood Chain transaction. Once confirmed, it cannot be undone.
+                real Solana transaction. Once confirmed, it cannot be undone.
               </li>
               <li>
-                <b className="text-foreground">Unaudited contract.</b> The SHARPS contract has not
+                <b className="text-foreground">Unaudited program.</b> The SHARPS program has not
                 been through a third-party security audit. It holds user funds. Treat it accordingly
                 and don't commit more than you're willing to lose.
               </li>
@@ -476,7 +463,7 @@ function Docs() {
                 ["Listing", "One tracked trader wallet, tradable as a stock with its own ticker."],
                 [
                   "Share",
-                  "A unit of a listing, held in the contract's ledger against your address. Whole numbers only.",
+                  "A unit of a listing, held in your position account on the program. Whole numbers only.",
                 ],
                 [
                   "Perf score",
@@ -492,7 +479,7 @@ function Docs() {
                 ],
                 [
                   "Reserve",
-                  "The ETH backing one listing, held by the contract. Kept equal to the curve value of all outstanding shares.",
+                  "The SOL backing one listing, held in its on-chain account. Never below the curve value of all outstanding shares.",
                 ],
                 [
                   "Backing / share",
@@ -557,31 +544,31 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "What am I actually buying — the trader's coin, or something else?",
-    a: "Neither the trader's coin nor a share in a company. You're buying a share recorded in the SHARPS contract's ledger, representing a claim on that specific listing's on-chain vault, priced against the trader's tracked performance.",
+    a: "Neither the trader's coin nor a share in a company. You're buying a share recorded by the SHARPS program, representing a claim on that specific listing's on-chain reserve, priced against the trader's tracked performance.",
   },
   {
     q: "Will my shares show up in my wallet like a normal token?",
-    a: "No. Shares are held in the SHARPS contract's own ledger against your address, not as ERC-20 tokens, so they won't appear in your wallet's token list and can't be traded on an outside DEX. You can still send them to another address through the contract, and only you can move your balance.",
+    a: "No. Shares are held in a position account the SHARPS program keeps for your address, not as SPL tokens, so they won't appear in your wallet's token list and can't be traded on an outside DEX. You can still send them to another address through the program, and only you can move your balance.",
   },
   {
     q: "Can a sell ever pay out less than I was quoted?",
-    a: "No. The reserve is held equal to the curve value of every outstanding share, so unwinding along that curve is always covered by construction. The quote you see is what lands, minus the 2% sell fee that's already shown. An earlier version of SHARPS could pay less than quoted on a thin listing; that design is gone.",
+    a: "No. The reserve never falls below the curve value of every outstanding share, so unwinding along that curve is always covered by construction. The quote you see is what lands, minus the 2% sell fee that's already shown. An earlier version of SHARPS could pay less than quoted on a thin listing; that design is gone.",
   },
   {
     q: "What does a trade cost?",
-    a: "2% to buy and 2% to sell — about 4% for a round trip before the price moves at all. Those fees stay in that listing's own reserve rather than going to the protocol, and they're what allows a rising score to lift the price without breaking the sell guarantee.",
+    a: "2% to buy and 2% to sell — about 4% for a round trip before the price moves at all. Half of each fee stays in the listing's own reserve (a quarter goes to the listed trader, a quarter to the protocol), and that reserve half is what allows a rising score to lift the price without breaking the sell guarantee.",
   },
   {
     q: "Why is the price not moving even though the score went up?",
-    a: "A higher price means every outstanding share is redeemable for more, which is a claim on the reserve. The contract only raises the price as far as the reserve can actually back, and fees build that headroom over time. So a strong trader with little trading volume shows a high score and a price still catching up. The listing page says so explicitly rather than hiding the gap.",
+    a: "A higher price means every outstanding share is redeemable for more, which is a claim on the reserve. The program only raises the price as far as the reserve can actually back, and fees build that headroom over time. So a strong trader with little trading volume shows a high score and a price still catching up. The listing page says so explicitly rather than hiding the gap.",
   },
   {
     q: "Why did buying push the price up?",
     a: "Shares sit on a bonding curve: each one costs slightly more than the last. Your buy moves along it, and a later sell walks back down it. It also means a large buy fills at a higher average price than the figure shown for a single share.",
   },
   {
-    q: "Can the team move funds out of a listing's vault?",
-    a: "No function in the contract allows the admin, the oracle authority, or anyone else to withdraw or redirect vault funds outside of a normal sell. The admin can only pause trading or create new listings.",
+    q: "Can the team move funds out of a listing's reserve?",
+    a: "No function in the program allows the admin, the oracle authority, or anyone else to withdraw or redirect reserve funds outside of a normal sell. The admin can only pause trading or create new listings.",
   },
   {
     q: "Why did a trader's score go down?",
@@ -593,13 +580,13 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Do other people see the same prices and charts I do?",
-    a: "Yes. Price, chart, and market cap all come from one shared feed rebuilt from the contract's on-chain events, so everyone sees the same data at the same time rather than a per-browser view.",
+    a: "Yes. Price, chart, and market cap all come from one shared feed rebuilt from the program's on-chain events, so everyone sees the same data at the same time rather than a per-browser view.",
   },
   {
     q: "Is this real money?",
     a: IS_MAINNET
-      ? `Yes. This build is connected to ${ACTIVE_CHAIN.name} (chain ID ${ACTIVE_CHAIN.id}) and every trade uses real ETH. Trades are irreversible.`
-      : `No. This build is connected to ${ACTIVE_CHAIN.name} (chain ID ${ACTIVE_CHAIN.id}), where ETH has no real-world value. The app only uses real funds when explicitly pointed at mainnet, and the current network is always shown in the header and site footer.`,
+      ? `Yes. This build is connected to ${CLUSTER_NAME} and every trade uses real SOL. Trades are irreversible.`
+      : `No. This build is connected to ${CLUSTER_NAME}, where SOL has no real-world value. The app only uses real funds when explicitly pointed at mainnet, and the current network is always shown in the header and site footer.`,
   },
 ];
 

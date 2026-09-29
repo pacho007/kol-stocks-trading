@@ -22,8 +22,8 @@ name: Oracle
 #     13:04, 17:21. `workflow_dispatch` fires on time; `schedule` does not.
 #
 # oracle/run.ts fixes the first by caching per-wallet history in the process
-# (see createIncrementalBlockscoutProvider), which is only possible in
-# something that stays up — hence a service, not a job.
+# (see createSolanaProvider), which is only possible in something that stays
+# up — hence a service, not a job.
 #
 # What is left here is a manual safety net: a way to force a cycle from the
 # GitHub UI if the service is down or being redeployed. It has no schedule at
@@ -35,10 +35,9 @@ on:
   # MANUAL ONLY. There is deliberately no schedule here.
   #
   # This ran every 6 hours as a backstop, which was survivable while there was
-  # one network. It is not survivable across the mainnet cutover: this workflow
-  # carries its own copy of MARKET_ADDRESS, ROBINHOOD_RPC_URL and
-  # ROBINHOOD_NETWORK in GitHub secrets, separate from the ones the Fly service
-  # uses. Leave those on testnet after the cutover and every six hours it wakes
+  # one network. It is not survivable across a cluster cutover: this workflow
+  # carries its own copy of SOLANA_CLUSTER and SOLANA_RPC_URL in GitHub
+  # secrets, separate from the ones the Fly service uses. Leave those on testnet after the cutover and every six hours it wakes
   # up, scores wallets against the wrong contract, and writes the result into
   # the same public.listing_metrics the live site reads — so the board flips
   # between mainnet and testnet numbers depending on which writer went last.
@@ -67,12 +66,10 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    # A 108-wallet crawl against the free Blockscout endpoint runs 30-45
-    # minutes: one request per second, up to six pages per wallet. The first
-    # attempt at 25 minutes was cancelled mid-crawl, which wastes the whole run
-    # since scores are only written at the end. This is a ceiling to catch a
-    # wedged run, not a target.
-    timeout-minutes: 20
+    # A cold read of every wallet since launch, from a single job. A ceiling to
+    # catch a wedged run, not a target — with a dedicated TRADER_RPC_URL it
+    # finishes well inside this.
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -108,28 +105,24 @@ jobs:
           # Fallback, for a Supabase project whose service role key is reachable.
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          BLOCKSCOUT_API_KEY: ${{ secrets.BLOCKSCOUT_API_KEY }}
+          TRADER_RPC_URL: ${{ secrets.TRADER_RPC_URL }}
         run: npx tsx oracle/publish.ts
 
       - name: Push scores on-chain
         if: github.event_name == 'schedule' || inputs.push_onchain
         env:
-          ORACLE_AUTHORITY_PRIVATE_KEY: ${{ secrets.ORACLE_AUTHORITY_PRIVATE_KEY }}
-          MARKET_ADDRESS: ${{ secrets.MARKET_ADDRESS }}
-          ROBINHOOD_RPC_URL: ${{ secrets.ROBINHOOD_RPC_URL }}
-          ROBINHOOD_NETWORK: ${{ secrets.ROBINHOOD_NETWORK }}
-        run: npx tsx oracle/push-onchain-evm.ts --from-scores
+          ORACLE_KEYPAIR: ${{ secrets.ORACLE_KEYPAIR }}
+          SOLANA_CLUSTER: ${{ secrets.SOLANA_CLUSTER }}
+          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
+        run: npx tsx oracle/push-onchain.ts --from-scores
 
-      # The manifest records which listings confirmed and which failed. Kept on
-      # a failed run especially, since that is when "which prices are stale"
-      # is the question worth answering.
-      - name: Upload run manifest
+      # The published scores, kept on a failed run especially, since that is
+      # when "which prices are stale" is the question worth answering.
+      - name: Upload scores
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: oracle-run-${{ github.run_number }}
-          path: |
-            oracle/.last-onchain-run-evm.json
-            public/scores.json
+          path: public/scores.json
           if-no-files-found: ignore
           retention-days: 14

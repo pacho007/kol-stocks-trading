@@ -32,16 +32,17 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   process.exit(1);
 }
 
-/** Opening price, in wei — must match SharpsMarket's OPEN_PRICE_WEI (score 50). */
-const OPEN_PRICE_WEI = "4000000000000";
+/** Opening price in lamports — the program's open price (score 50, empty supply). */
+const OPEN_PRICE_LAMPORTS = "100000";
 
 async function main() {
   const db = createClient(SUPABASE_URL!, SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
 
   const rows = KOLS.map((k) => ({
     kol_id: k.id,
-    kol_wallet: k.wallet.toLowerCase(),
-    price_wei: OPEN_PRICE_WEI,
+    // Exactly as listed: base58 is case-sensitive.
+    kol_wallet: k.wallet,
+    price_lamports: OPEN_PRICE_LAMPORTS,
   }));
 
   // onConflict on the primary key: insert new listings, leave existing rows'

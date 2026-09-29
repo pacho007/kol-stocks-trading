@@ -2,7 +2,6 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Users, AlertTriangle, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-import type { Address } from "viem";
 import { AvatarMark } from "@/components/avatar-mark";
 import { TradeTape } from "@/components/trade-tape";
 import { HoldersPanel } from "@/components/holders-panel";
@@ -14,27 +13,19 @@ import { PriceChart } from "@/components/price-chart";
 import { ConnectWalletButton } from "@/components/site-header";
 import { getKol, fmtCompact, fmtPct, fmtUsd, shortWallet } from "@/lib/kols";
 import { useMarket, useKolStats, type ClosedTrade } from "@/lib/market-store";
-import {
-  fetchBackingPerShareWad,
-  sharesForBudget,
-  quoteSell,
-  fetchTraderEscrow,
-  claimTraderFees,
-} from "@/lib/evm/market";
-import { useEvmWallet } from "@/lib/evm/wallet-provider";
-import { getPublicClient, ethToWei, weiToEth, ACTIVE_CHAIN } from "@/lib/evm/chain";
+import { backingPerShareLamports, claimTraderFeesTx, fetchListing } from "@/lib/solana/market";
+import { quoteSell, sharesForBudget } from "@/lib/solana/curve";
+import { useSolanaWallet } from "@/lib/solana/wallet-provider";
+import { getConnection, lamportsToSol, solToLamports } from "@/lib/solana/chain";
 
-/** viem surfaces a contract revert's decoded reason on `shortMessage`;
- * anything else (a wallet rejection, a network error) falls back to its plain
- * message. */
 /**
  * Say what went wrong in the words of the thing the trader was doing.
  *
- * This forwarded viem's shortMessage, so a rejected trade surfaced as
- * `reverted with custom error "SlippageExceeded()"` — precise, and useless to
- * anyone who has not read the contract. Every message below is a real state
- * the contract can return, verified by simulating each one against a live
- * deployment, and each says what happened and what to do next.
+ * A failed Solana transaction surfaces as `custom program error: 0x1778` or a
+ * log line naming the Anchor error — precise, and useless to anyone who has
+ * not read the program. Each program error is matched by name and by its
+ * code (Anchor numbers them from 6000 in errors.rs order), and each message
+ * says what happened and what to do next.
  *
  * The raw text is still the fallback: an unmapped failure should say something
  * true rather than a friendly guess about a condition nobody anticipated.
@@ -42,32 +33,36 @@ import { getPublicClient, ethToWei, weiToEth, ACTIVE_CHAIN } from "@/lib/evm/cha
 const TRADE_ERRORS: [RegExp, string][] = [
   // The wallet, before the chain is ever reached.
   [/user rejected|user denied|rejected the request/i, "You cancelled the transaction."],
-  [/insufficient funds/i, "Not enough ETH to cover the trade and its gas."],
-  [/chain mismatch|does not match the target chain/i, "Your wallet is on the wrong network."],
-
-  // Named errors from SharpsMarket.
-  [/ZeroSharesOut/, "That amount is too small to buy a whole share. Try a larger amount."],
   [
-    /SlippageExceeded/,
+    /insufficient (funds|lamports)|no record of a prior credit/i,
+    "Not enough SOL to cover the trade and its network fee.",
+  ],
+
+  // Named errors from the sharps program (anchor/programs/sharps/src/errors.rs).
+  [/ZeroSharesOut|0x1777/, "That amount is too small to buy a whole share. Try a larger amount."],
+  [
+    /SlippageExceeded|0x1778/,
     "The price moved while you were confirming, so the trade was cancelled rather than filled at a worse price. Try again.",
   ],
-  [/InsufficientShares/, "You do not hold that many shares."],
-  [/ListingNotFound/, "This listing is not live on-chain yet."],
-  [/ZeroAmount/, "Enter an amount first."],
-  [/ListingPaused/, "Trading is paused on this listing."],
-  [/MarketPaused/, "Trading is paused across the whole market."],
-  [/TransferFailed/, "The transfer back to your wallet failed. Nothing was taken."],
-  [/Unauthorized/, "That action is not available to your wallet."],
+  [/InsufficientShares|0x1779/, "You do not hold that many shares."],
+  [/AccountNotInitialized|0xbc4/, "This listing is not live on-chain yet."],
+  [/ZeroAmount|0x1776/, "Enter an amount first."],
+  [/ListingPaused|0x1775/, "Trading is paused on this listing."],
+  [/MarketPaused|0x1774/, "Trading is paused across the whole market."],
+  [/Unauthorized|0x1770/, "That action is not available to your wallet."],
+  [
+    /block height exceeded|has expired/i,
+    "The transaction expired before it landed. Nothing was taken — try again.",
+  ],
 ];
 
 function describeTradeError(e: unknown): string {
-  const err = e as { shortMessage?: string; message?: string } | undefined;
-  const raw = [err?.shortMessage, err?.message, e instanceof Error ? e.message : ""]
+  const err = e as { message?: string; logs?: string[]; error?: { message?: string } } | undefined;
+  const raw = [err?.message, err?.error?.message, ...(err?.logs ?? []), String(e)]
     .filter(Boolean)
     .join(" ");
   for (const [pattern, friendly] of TRADE_ERRORS) if (pattern.test(raw)) return friendly;
-  if (err?.shortMessage) return err.shortMessage;
-  if (e instanceof Error) return e.message;
+  if (e instanceof Error && e.message) return e.message;
   return "Trade failed";
 }
 
@@ -102,11 +97,10 @@ function KolDetail() {
   const {
     prices,
     connected,
-    wrongChain,
-    switchChain,
     nativeBalance,
     nativePriceUsd,
     positions,
+    onChainListings,
     buyWithNative,
     sell,
   } = useMarket();
@@ -116,8 +110,8 @@ function KolDetail() {
     marketCapUsd: liveCap,
     changePct,
     winRate,
-    realizedPnlEth,
-    volumeEth,
+    realizedPnlSol,
+    volumeSol,
     trades,
     breakdown,
     topWins,
@@ -127,103 +121,43 @@ function KolDetail() {
   const position = positions.find((p) => p.id === kol.id);
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [activityTab, setActivityTab] = useState<"holders" | "trades">("holders");
-  // on BUY the amount is ETH to spend; on SELL it's shares to sell.
-  const [amount, setAmount] = useState("1");
+  // on BUY the amount is SOL to spend; on SELL it's shares to sell.
+  const [amount, setAmount] = useState("0.1");
   const [pending, setPending] = useState(false);
 
-  // Backing per share — what a sell ACTUALLY pays once a listing is
-  // undercollateralized (see SharpsMarket.sol's sell()). Shown alongside the
-  // quoted price so a haircut is never a surprise.
-  const [backingUsd, setBackingUsd] = useState<number | null>(null);
-  useEffect(() => {
-    let alive = true;
-    const client = getPublicClient();
-    const pull = async () => {
-      try {
-        const wad = await fetchBackingPerShareWad(client, kol.wallet as Address);
-        if (!alive) return;
-        // backingPerShareWad returns 0 when nothing is outstanding — that's
-        // "no backing to report yet", not "backing is zero", so show "—".
-        //
-        // Units: the contract computes (vaultBalance * 1e18) / sharesOutstanding
-        // with vaultBalance in WEI, so the result is wei-per-share scaled by
-        // 1e18 — not ether-per-share scaled by 1e18. Dividing by 1e18 once
-        // leaves wei and then multiplies by a dollar rate, which rendered
-        // "$10,000,387,095,013,552.00" for a share actually backed by about a
-        // penny.
-        //
-        // The first division is done in bigint so no precision is lost before
-        // the value is small enough for a double to hold exactly.
-        const weiPerShare = wad / 1_000_000_000_000_000_000n;
-        setBackingUsd(wad === 0n ? null : (Number(weiPerShare) / 1e18) * nativePriceUsd);
-      } catch {
-        if (alive) setBackingUsd(null);
-      }
-    };
-    pull();
-    const t = setInterval(pull, 30_000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, [kol.wallet, nativePriceUsd]);
+  const onChain = onChainListings[kol.id];
+
+  // Reserve per outstanding share. The reserve always covers a full-price
+  // sell, so this is a solvency read-out, not a haircut warning. null when
+  // nothing is outstanding: "no backing to report yet", not "backing is zero".
+  const backingUsd =
+    onChain && onChain.sharesOutstanding > 0n
+      ? lamportsToSol(backingPerShareLamports(onChain)) * nativePriceUsd
+      : null;
 
   const amt = Math.max(0, Number(amount) || 0);
   const maxSell = position?.shares ?? 0;
 
-  // Quotes come from the contract, not from price * amount: shares sit on a
-  // bonding curve, so each one costs more than the last and a flat
+  // Quotes come from the curve applied to the listing's live state, not from
+  // price * amount: each share costs more than the last, so a flat
   // multiplication is always wrong. Falls back to a rough flat estimate only
   // when the listing isn't on-chain yet and there's nothing to quote against.
-  const [quotedShares, setQuotedShares] = useState<number | null>(null);
-  const [quotedProceeds, setQuotedProceeds] = useState<number | null>(null);
-  useEffect(() => {
-    let alive = true;
-    const client = getPublicClient();
-    const run = async () => {
-      if (amt <= 0) {
-        if (alive) {
-          setQuotedShares(null);
-          setQuotedProceeds(null);
-        }
-        return;
-      }
-      try {
-        if (side === "buy") {
-          const n = await sharesForBudget(client, kol.wallet as Address, ethToWei(amt));
-          if (alive) setQuotedShares(Number(n));
-        } else {
-          const out = await quoteSell(client, kol.wallet as Address, BigInt(Math.floor(amt)));
-          if (alive) setQuotedProceeds(weiToEth(out));
-        }
-      } catch {
-        if (alive) {
-          setQuotedShares(null);
-          setQuotedProceeds(null);
-        }
-      }
-    };
-    run();
-    return () => {
-      alive = false;
-    };
-  }, [amt, side, kol.wallet]);
+  const quotedShares =
+    onChain && side === "buy" && amt > 0
+      ? Number(sharesForBudget(onChain, solToLamports(amt)))
+      : null;
+  const quotedProceeds =
+    onChain && side === "sell" && amt > 0
+      ? lamportsToSol(quoteSell(onChain, BigInt(Math.floor(amt))))
+      : null;
 
   const derivedShares =
     quotedShares ?? (price > 0 ? Math.floor((amt * nativePriceUsd) / price) : 0);
   const sellProceedsNative = quotedProceeds ?? (amt * price) / nativePriceUsd;
 
-  // No session gate: the contract accepts buy and sell at any hour, so
-  // blocking the button only stopped people using this page to do what they
-  // could do directly against the contract anyway.
-  // wrongChain belongs here, not only in the submit handler. `connected` is
-  // true on any network, so a wallet sitting on Ethereum mainnet rendered a
-  // fully enabled Buy button that threw the moment it was pressed — the
-  // control said "you can do this" and then refused, which reads as the site
-  // being broken rather than the wallet being on the wrong network.
+  // No session gate: the program accepts buy and sell at any hour.
   const canSubmit =
     connected &&
-    !wrongChain &&
     !pending &&
     amt > 0 &&
     (side === "buy" ? amt <= nativeBalance && derivedShares > 0 : amt <= maxSell + 1e-9);
@@ -234,19 +168,19 @@ function KolDetail() {
       return;
     }
     if (amt <= 0) {
-      toast.error(side === "buy" ? "Enter an amount of ETH" : "Enter a share amount");
+      toast.error(side === "buy" ? "Enter an amount of SOL" : "Enter a share amount");
       return;
     }
     setPending(true);
     try {
       if (side === "buy") {
         if (amt > nativeBalance) {
-          toast.error("Insufficient ETH balance");
+          toast.error("Insufficient SOL balance");
           return;
         }
         const result = await buyWithNative(kol.id, amt);
         toast.success(`Filled: bought ${result.shares.toLocaleString()} $${kol.ticker}`, {
-          description: `${result.nativeSpent.toFixed(4)} ETH spent`,
+          description: `${result.nativeSpent.toFixed(4)} SOL spent`,
         });
       } else {
         if (amt > maxSell) {
@@ -255,7 +189,7 @@ function KolDetail() {
         }
         const result = await sell(kol.id, amt);
         toast.success(`Filled: sold ${result.shares.toLocaleString()} $${kol.ticker}`, {
-          description: `${result.nativeOut.toFixed(4)} ETH received`,
+          description: `${result.nativeOut.toFixed(4)} SOL received`,
         });
       }
     } catch (e) {
@@ -267,9 +201,9 @@ function KolDetail() {
 
   const stats = [
     ["Win rate", winRate != null ? `${Math.round(winRate * 100)}%` : "—"],
-    ["PnL (ETH)", realizedPnlEth != null ? realizedPnlEth.toFixed(2) : "—"],
+    ["PnL (SOL)", realizedPnlSol != null ? realizedPnlSol.toFixed(2) : "—"],
     ["Trades", trades != null ? String(trades) : "—"],
-    ["Volume (ETH)", volumeEth != null ? volumeEth.toFixed(1) : "—"],
+    ["Volume (SOL)", volumeSol != null ? volumeSol.toFixed(1) : "—"],
     ["Since open", fmtPct(changePct)],
     ["Market cap", fmtCompact(liveCap)],
     ["Perf score", String(liveScore)],
@@ -409,7 +343,7 @@ function KolDetail() {
                 performance until it does.
               </p>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground/80">
-                Scores come from round trips priced in ETH. A wallet can be busy staking, minting or
+                Scores come from round trips priced in SOL. A wallet can be busy staking, minting or
                 swapping token-to-token and still read as unrated — that activity is left out rather
                 than guessed at, because a guessed number would be worse than none.
               </p>
@@ -451,7 +385,7 @@ function KolDetail() {
             </div>
 
             <label className="mt-4 block text-[10px] tracking-widest uppercase text-muted-foreground">
-              {side === "buy" ? "ETH to spend" : "Shares to sell"}
+              {side === "buy" ? "SOL to spend" : "Shares to sell"}
             </label>
             <input
               value={amount}
@@ -460,7 +394,7 @@ function KolDetail() {
               className="num mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-lg outline-none focus:border-primary/60"
             />
             <div className="mt-2 flex gap-1.5">
-              {(side === "buy" ? [0.5, 1, 5, 10] : [100, 1000, 10000, maxSell]).map((n, i) => (
+              {(side === "buy" ? [0.05, 0.1, 0.5, 1] : [100, 1000, 10000, maxSell]).map((n, i) => (
                 <button
                   key={i}
                   onClick={() => setAmount(String(Math.floor(n) === n ? n : n))}
@@ -477,11 +411,11 @@ function KolDetail() {
               {side === "buy" ? (
                 <>
                   <Row label="Shares you'll get" value={derivedShares.toLocaleString()} />
-                  <Row label="ETH balance" value={`${nativeBalance.toFixed(3)} ETH`} />
+                  <Row label="SOL balance" value={`${nativeBalance.toFixed(3)} SOL`} />
                 </>
               ) : (
                 <>
-                  <Row label="You'll receive" value={`${sellProceedsNative.toFixed(4)} ETH`} />
+                  <Row label="You'll receive" value={`${sellProceedsNative.toFixed(4)} SOL`} />
                   <Row label="Your shares" value={maxSell.toLocaleString()} />
                 </>
               )}
@@ -552,17 +486,7 @@ function KolDetail() {
               )}
             </div>
 
-            {connected && wrongChain ? (
-              // Not a disabled button: being on the wrong network is fixable
-              // right here, and the control that says so should be the one
-              // that fixes it.
-              <button
-                onClick={switchChain}
-                className="mt-4 w-full rounded-md bg-down py-3 text-[11px] font-bold tracking-widest text-background uppercase transition-all hover:brightness-110"
-              >
-                Switch to {ACTIVE_CHAIN.name}
-              </button>
-            ) : connected ? (
+            {connected ? (
               <button
                 onClick={submit}
                 disabled={!canSubmit}
@@ -654,8 +578,8 @@ function KolDetail() {
             <ol className="mt-3 space-y-2.5 text-[11px] leading-relaxed text-muted-foreground">
               <li>
                 <b className="text-foreground">1 · The score.</b> {kol.name}'s wallet is read
-                straight off Robinhood Chain — realized PnL, win rate, volume, trade count — and
-                ranked against every other listed trader. That produces the perf score of{" "}
+                straight off Solana — realized PnL, win rate, volume, trade count — and ranked
+                against every other listed trader. That produces the perf score of{" "}
                 <b className="text-foreground">{liveScore}</b> above. It's relative, so it falls
                 when they slip against the field, not just when they lose money.
               </li>
@@ -684,12 +608,6 @@ function KolDetail() {
               <b className="text-foreground">backing / share</b> in the trade panel.
             </p>
           </div>
-
-          {/* Holder count intentionally removed: `kol.holders` was hardcoded 0
-              for every listing and nothing ever updated it, so the panel
-              displayed a fake measurement. Share balances live in a Solidity
-              mapping, which isn't enumerable, so a real count needs the
-              Bought/Sold events indexed first — bring this back then. */}
         </div>
       </div>
     </div>
@@ -706,18 +624,22 @@ function KolDetail() {
  */
 function TraderEscrowPanel({ kol }: { kol: ReturnType<typeof getKol> & {} }) {
   const { nativePriceUsd } = useMarket();
-  const { address, connected, walletClient } = useEvmWallet();
-  const [owedWei, setOwedWei] = useState<bigint>(0n);
+  const { address, publicKey, connected, sendAndConfirm } = useSolanaWallet();
+  const [owedLamports, setOwedLamports] = useState<bigint>(0n);
   const [claiming, setClaiming] = useState(false);
 
-  const isTrader = connected && !!address && address.toLowerCase() === kol.wallet.toLowerCase();
+  // Exact match: base58 is case-sensitive.
+  const isTrader = connected && !!address && address === kol.wallet;
 
   useEffect(() => {
     let alive = true;
-    const client = getPublicClient();
     const pull = async () => {
-      const owed = await fetchTraderEscrow(client, kol.wallet as Address);
-      if (alive) setOwedWei(owed);
+      try {
+        const listing = await fetchListing(getConnection(), kol.wallet);
+        if (alive) setOwedLamports(listing?.traderEscrow ?? 0n);
+      } catch {
+        /* transient RPC error — next tick retries */
+      }
     };
     pull();
     const t = setInterval(pull, 30_000);
@@ -727,15 +649,17 @@ function TraderEscrowPanel({ kol }: { kol: ReturnType<typeof getKol> & {} }) {
     };
   }, [kol.wallet]);
 
-  const owedUsd = weiToEth(owedWei) * nativePriceUsd;
+  const owedUsd = lamportsToSol(owedLamports) * nativePriceUsd;
 
   async function claim() {
-    if (!walletClient || !address) return;
+    if (!publicKey) return;
     setClaiming(true);
     try {
-      await claimTraderFees(walletClient, address);
-      toast.success("Claimed", { description: `${weiToEth(owedWei).toFixed(5)} ETH sent` });
-      setOwedWei(0n);
+      await sendAndConfirm(claimTraderFeesTx(publicKey));
+      toast.success("Claimed", {
+        description: `${lamportsToSol(owedLamports).toFixed(5)} SOL sent`,
+      });
+      setOwedLamports(0n);
     } catch (e) {
       toast.error(describeTradeError(e));
     } finally {
@@ -769,17 +693,17 @@ function TraderEscrowPanel({ kol }: { kol: ReturnType<typeof getKol> & {} }) {
           </p>
           <p className="num mt-1 text-2xl font-bold">{fmtUsd(owedUsd)}</p>
           <p className="num text-[10px] text-muted-foreground">
-            {weiToEth(owedWei).toFixed(6)} ETH
+            {lamportsToSol(owedLamports).toFixed(6)} SOL
           </p>
         </div>
 
         {isTrader ? (
           <button
             onClick={claim}
-            disabled={claiming || owedWei === 0n}
+            disabled={claiming || owedLamports === 0n}
             className="rounded-md bg-primary px-4 py-2.5 text-[11px] font-bold tracking-widest uppercase text-primary-foreground transition-all disabled:opacity-40 hover:brightness-110"
           >
-            {claiming ? "Claiming…" : owedWei === 0n ? "Nothing to claim" : "Claim"}
+            {claiming ? "Claiming…" : owedLamports === 0n ? "Nothing to claim" : "Claim"}
           </button>
         ) : (
           kol.x && (
@@ -901,12 +825,12 @@ function ScoreBreakdownPanel({
   );
 }
 
-/** One slice of the fee, in ETH, for whichever side is being quoted. */
+/** One slice of the fee, in SOL, for whichever side is being quoted. */
 function feeSlice(amt: number, side: "buy" | "sell", bps: number): string {
-  // On a buy `amt` is ETH in; on a sell it's shares, so there's no meaningful
+  // On a buy `amt` is SOL in; on a sell it's shares, so there's no meaningful
   // per-slice figure until the proceeds quote resolves.
   if (side !== "buy" || amt <= 0) return "—";
-  return `${((amt * bps) / 10_000).toFixed(5)} ETH`;
+  return `${((amt * bps) / 10_000).toFixed(5)} SOL`;
 }
 
 function FeeRow({
@@ -1009,7 +933,7 @@ function TradeColumn({
               <span className="shrink-0 text-right">
                 <span className={`num block text-xs font-semibold ${up ? "text-up" : "text-down"}`}>
                   {t.pnl >= 0 ? "+" : ""}
-                  {t.pnl.toFixed(3)} ETH
+                  {t.pnl.toFixed(3)} SOL
                 </span>
                 <span className="text-[10px] text-muted-foreground">
                   {fmtUsd(Math.abs(t.pnl) * nativePriceUsd)}

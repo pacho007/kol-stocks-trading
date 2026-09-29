@@ -11,11 +11,9 @@
  * Refresh on a schedule (every REFRESH_MIN minutes):
  *   npx tsx oracle/publish.ts --watch
  *
- * HELIUS_API_KEY is not one of the inputs and has not been for a long time.
- * It was in these instructions until now, which is the sort of leftover that
- * sends somebody looking for a Solana credential to explain why the oracle is
- * not running. Wallet history comes from Blockscout on Robinhood Chain; see
- * BLOCKSCOUT_API_KEY in oracle/blockscout-provider.ts.
+ * Wallet history comes from Solana mainnet JSON-RPC; set TRADER_RPC_URL to a
+ * dedicated endpoint for anything beyond a handful of wallets (see
+ * oracle/solana-provider.ts).
  *
  * Output: writes `public/scores.json` so the frontend can fetch it at
  * `/scores.json` with no extra server. (For production you'd serve this from
@@ -26,7 +24,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runOracle, type ListingInput } from "./indexer.js";
-import { EvmPnlProvider } from "./evm-pnl-provider.js";
+import { createSolanaProvider } from "./solana-provider.js";
 import { scoreToPriceUsd, SHARES_PER_LISTING } from "./pricing.js";
 
 /**
@@ -79,54 +77,32 @@ const REFRESH_MIN = Number(process.env["REFRESH_MIN"] ?? 20); // 20 min default 
  * Listings. Full list by default; set SAMPLE=1 to test on 3 wallets first:
  *   SAMPLE=1 npx tsx oracle/publish.ts
  */
-const SAMPLE_LISTINGS: ListingInput[] = [
-  { id: "bd6b8d", wallet: "0xbd6b8d8fa94f7307840252548549b56a33c98054" }, // Cooker.hl
-  { id: "d03353", wallet: "0xd03353d8a531a7b05509f35fadef3e042188bdb5" }, // nyhrox
-  { id: "434616", wallet: "0x4346169036c8d32c422df027e5f46e55b489d2ee" }, // BBA
-];
+const SAMPLE_LISTINGS: ListingInput[] = [];
 
 let listings: ListingInput[] = SAMPLE_LISTINGS; // resolved in main()
 
 /**
- * Live native-coin (ETH) USD price for Robinhood Chain, trying several public
- * feeds before falling back. This is display-only — every trade is priced and
- * settled in wei by the contract — but a stale number here still misprices
- * every USD figure in the UI, so it's worth fetching rather than hardcoding.
+ * Live SOL/USD, trying several public feeds before falling back. Display-only
+ * — every trade is priced and settled in lamports by the program — but a
+ * stale number here still misprices every USD figure in the UI.
  */
 export async function fetchNativePriceUsd(): Promise<number> {
-  const FALLBACK = 2400;
+  const FALLBACK = 200;
   const sources: Array<() => Promise<number | null>> = [
-    // Blockscout (same explorer the PnL indexer uses — already chain-native)
     async () => {
-      const base = process.env["BLOCKSCOUT_URL"] ?? "https://robinhoodchain.blockscout.com";
-      const r = await fetch(`${base}/api/v2/stats`, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36",
-          Accept: "application/json",
-        },
-      });
-      if (!r.ok) return null;
-      const j = (await r.json()) as { coin_price?: string };
-      const p = Number(j.coin_price);
-      return p > 0 ? p : null;
-    },
-    // Coinbase spot
-    async () => {
-      const r = await fetch("https://api.coinbase.com/v2/prices/ETH-USD/spot");
+      const r = await fetch("https://api.coinbase.com/v2/prices/SOL-USD/spot");
       if (!r.ok) return null;
       const j = (await r.json()) as { data?: { amount?: string } };
       const p = Number(j.data?.amount);
       return p > 0 ? p : null;
     },
-    // Coingecko
     async () => {
       const r = await fetch(
-        "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
+        "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
       );
       if (!r.ok) return null;
-      const j = (await r.json()) as { ethereum?: { usd?: number } };
-      const p = Number(j.ethereum?.usd);
+      const j = (await r.json()) as { solana?: { usd?: number } };
+      const p = Number(j.solana?.usd);
       return p > 0 ? p : null;
     },
   ];
@@ -165,9 +141,9 @@ type PublishedRow = {
   priceUsd: number;
   marketCapUsd: number;
   metrics: {
-    realizedPnlEth: number;
+    realizedPnlSol: number;
     winRate: number;
-    volumeEth: number;
+    volumeSol: number;
     trades: number;
     topWins: PublishedClose[];
     topLosses: PublishedClose[];
@@ -185,10 +161,11 @@ export type Published = {
 
 /** carry anchors across runs so the rate-cap smooths score->price over time */
 let prevAnchors: Record<string, number> = {};
+const provider = createSolanaProvider();
 
 async function once(): Promise<void> {
   const nativePriceUsd = await fetchNativePriceUsd();
-  const rows = await runOracle(listings, EvmPnlProvider, prevAnchors);
+  const rows = await runOracle(listings, provider, prevAnchors);
   prevAnchors = Object.fromEntries(rows.map((r) => [r.id, r.targetAnchor]));
   await publishScores(rows, nativePriceUsd);
 }
@@ -217,9 +194,9 @@ export async function publishScores(
         priceUsd,
         marketCapUsd: priceUsd * SHARES_PER_LISTING,
         metrics: {
-          realizedPnlEth: r.metrics.realizedPnlEth,
+          realizedPnlSol: r.metrics.realizedPnlSol,
           winRate: r.metrics.winRate,
-          volumeEth: r.metrics.volumeEth,
+          volumeSol: r.metrics.volumeSol,
           trades: r.metrics.trades,
           // The individual closes behind those aggregates — the evidence a
           // score is asserted from, rather than just the conclusion.
@@ -248,7 +225,7 @@ export async function publishScores(
     .sort((a, b) => b.score - a.score)
     .slice(0, 8);
   console.log(
-    `\nETH $${nativePriceUsd.toFixed(2)} · wrote ${published.rows.length} scores -> ${OUT_TARGETS.join(", ")}` +
+    `\nSOL ${nativePriceUsd.toFixed(2)} · wrote ${published.rows.length} scores -> ${OUT_TARGETS.join(", ")}` +
       (top.length
         ? `\n  movers:\n` +
           top
@@ -282,8 +259,8 @@ export async function publishScores(
 export async function publishMetricsToSupabase(published: Published): Promise<void> {
   const rows = published.rows.map((r) => ({
     kol_id: r.id,
-    realized_pnl_eth: r.metrics.realizedPnlEth,
-    volume_eth: r.metrics.volumeEth,
+    realized_pnl_sol: r.metrics.realizedPnlSol,
+    volume_sol: r.metrics.volumeSol,
     win_rate: r.metrics.winRate,
     trades: r.metrics.trades,
     top_wins: r.metrics.topWins ?? [],
@@ -361,24 +338,13 @@ export async function publishMetricsToSupabase(published: Published): Promise<vo
 async function main() {
   const watch = process.argv.includes("--watch");
 
-  // Resolve which wallets to index.
-  if (process.env["SAMPLE"] === "1") {
-    listings = SAMPLE_LISTINGS;
-    console.log(`Using SAMPLE list (${listings.length} wallets).`);
-  } else {
-    const full = await loadFullListings();
-    if (full) {
-      listings = full;
-      console.log(`Using FULL list from app source (${listings.length} wallets).`);
-    } else {
-      listings = SAMPLE_LISTINGS;
-      console.log(
-        `App source (src/lib/kols) not found next to oracle/. Falling back to ` +
-          `SAMPLE (${listings.length} wallets). To index all wallets, run this ` +
-          `from inside the project so ../src/lib/kols.ts resolves, or set SAMPLE=1 to silence this.`,
-      );
-    }
+  const full = await loadFullListings();
+  if (!full || full.length === 0) {
+    throw new Error("Could not load KOLS from src/lib/kols.ts — run this from inside the project.");
   }
+  listings = full;
+  if (process.env["SAMPLE"] === "1") listings = full.slice(0, 3);
+  console.log(`Indexing ${listings.length} wallets.`);
 
   await once();
   if (watch) {
