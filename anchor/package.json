@@ -1,0 +1,16 @@
+{
+  "name": "sharps-anchor",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "tsx --test tests/sharps.test.ts"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
+    "@solana/web3.js": "^1.98.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4"
+  }
+}

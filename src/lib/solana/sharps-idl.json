@@ -1,0 +1,1595 @@
+{
+  "address": "5HVwtd2UXjn9q1v8L3zV4iidkopPUXGyXntbnQzgR1Ei",
+  "metadata": {
+    "name": "sharps",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "On-chain custody + share accounting for SHARPS listings, priced by the oracle's rate-capped performance score."
+  },
+  "instructions": [
+    {
+      "name": "accept_admin",
+      "discriminator": [
+        112,
+        42,
+        45,
+        90,
+        116,
+        181,
+        13,
+        170
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "new_admin",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "batch_update_price",
+      "docs": [
+        "Listings to update are passed as writable remaining_accounts, in the",
+        "same order as `scores`. Stale/invalid entries are skipped rather than",
+        "failing the whole batch."
+      ],
+      "discriminator": [
+        168,
+        231,
+        36,
+        226,
+        149,
+        112,
+        99,
+        178
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "scores",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "buy",
+      "discriminator": [
+        102,
+        6,
+        61,
+        18,
+        1,
+        218,
+        235,
+        234
+      ],
+      "accounts": [
+        {
+          "name": "buyer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "listing",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  115,
+                  116,
+                  105,
+                  110,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "listing.kol_wallet",
+                "account": "Listing"
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "listing"
+              },
+              {
+                "kind": "account",
+                "path": "buyer"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "lamports_in",
+          "type": "u64"
+        },
+        {
+          "name": "min_shares_out",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "claim_trader_fees",
+      "discriminator": [
+        89,
+        120,
+        220,
+        98,
+        18,
+        151,
+        218,
+        78
+      ],
+      "accounts": [
+        {
+          "name": "kol_wallet",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "listing"
+          ]
+        },
+        {
+          "name": "listing",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  115,
+                  116,
+                  105,
+                  110,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "kol_wallet"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_listing",
+      "discriminator": [
+        18,
+        168,
+        45,
+        24,
+        191,
+        31,
+        117,
+        54
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "listing",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  115,
+                  116,
+                  105,
+                  110,
+                  103
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "kol_wallet"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "kol_wallet",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "initialize_config",
+      "discriminator": [
+        208,
+        127,
+        21,
+        1,
+        194,
+        190,
+        196,
+        70
+      ],
+      "accounts": [
+        {
+          "name": "admin",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "oracle_authority",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "sell",
+      "discriminator": [
+        51,
+        230,
+        133,
+        164,
+        1,
+        127,
+        131,
+        173
+      ],
+      "accounts": [
+        {
+          "name": "seller",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "listing",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  115,
+                  116,
+                  105,
+                  110,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "listing.kol_wallet",
+                "account": "Listing"
+              }
+            ]
+          },
+          "relations": [
+            "position"
+          ]
+        },
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "listing"
+              },
+              {
+                "kind": "account",
+                "path": "seller"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "shares_in",
+          "type": "u64"
+        },
+        {
+          "name": "min_lamports_out",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "set_listing_paused",
+      "discriminator": [
+        217,
+        85,
+        101,
+        35,
+        155,
+        211,
+        37,
+        156
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "listing",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  115,
+                  116,
+                  105,
+                  110,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "listing.kol_wallet",
+                "account": "Listing"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "paused",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "set_oracle_authority",
+      "discriminator": [
+        39,
+        155,
+        66,
+        106,
+        213,
+        226,
+        114,
+        174
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_oracle_authority",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "set_paused",
+      "discriminator": [
+        91,
+        60,
+        125,
+        192,
+        176,
+        225,
+        166,
+        218
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "paused",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "transfer_admin",
+      "discriminator": [
+        42,
+        242,
+        66,
+        106,
+        228,
+        10,
+        111,
+        156
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_admin",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "transfer_shares",
+      "discriminator": [
+        23,
+        136,
+        140,
+        15,
+        181,
+        54,
+        120,
+        175
+      ],
+      "accounts": [
+        {
+          "name": "sender",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "recipient"
+        },
+        {
+          "name": "listing",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  115,
+                  116,
+                  105,
+                  110,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "listing.kol_wallet",
+                "account": "Listing"
+              }
+            ]
+          },
+          "relations": [
+            "from_position"
+          ]
+        },
+        {
+          "name": "from_position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "listing"
+              },
+              {
+                "kind": "account",
+                "path": "sender"
+              }
+            ]
+          }
+        },
+        {
+          "name": "to_position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "listing"
+              },
+              {
+                "kind": "account",
+                "path": "recipient"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "update_price",
+      "discriminator": [
+        61,
+        34,
+        117,
+        155,
+        75,
+        34,
+        123,
+        208
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "oracle_authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "listing",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  108,
+                  105,
+                  115,
+                  116,
+                  105,
+                  110,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "listing.kol_wallet",
+                "account": "Listing"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "score",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "withdraw_protocol",
+      "discriminator": [
+        92,
+        99,
+        187,
+        28,
+        24,
+        105,
+        182,
+        122
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "to",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Config",
+      "discriminator": [
+        155,
+        12,
+        170,
+        224,
+        30,
+        250,
+        204,
+        130
+      ]
+    },
+    {
+      "name": "Listing",
+      "discriminator": [
+        218,
+        32,
+        50,
+        73,
+        43,
+        134,
+        26,
+        58
+      ]
+    },
+    {
+      "name": "Position",
+      "discriminator": [
+        170,
+        188,
+        143,
+        228,
+        122,
+        64,
+        247,
+        208
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "AdminTransferStarted",
+      "discriminator": [
+        31,
+        82,
+        117,
+        177,
+        147,
+        168,
+        210,
+        177
+      ]
+    },
+    {
+      "name": "AdminTransferred",
+      "discriminator": [
+        255,
+        147,
+        182,
+        5,
+        199,
+        217,
+        38,
+        179
+      ]
+    },
+    {
+      "name": "Bought",
+      "discriminator": [
+        193,
+        56,
+        215,
+        24,
+        156,
+        76,
+        42,
+        104
+      ]
+    },
+    {
+      "name": "ListingCreated",
+      "discriminator": [
+        94,
+        164,
+        167,
+        255,
+        246,
+        186,
+        12,
+        96
+      ]
+    },
+    {
+      "name": "ListingPausedSet",
+      "discriminator": [
+        128,
+        208,
+        203,
+        94,
+        176,
+        54,
+        215,
+        47
+      ]
+    },
+    {
+      "name": "MarketPausedSet",
+      "discriminator": [
+        226,
+        125,
+        174,
+        206,
+        23,
+        215,
+        209,
+        45
+      ]
+    },
+    {
+      "name": "OracleAuthoritySet",
+      "discriminator": [
+        36,
+        235,
+        5,
+        198,
+        13,
+        136,
+        42,
+        17
+      ]
+    },
+    {
+      "name": "PriceUpdated",
+      "discriminator": [
+        154,
+        72,
+        87,
+        150,
+        246,
+        230,
+        23,
+        217
+      ]
+    },
+    {
+      "name": "ProtocolWithdrawn",
+      "discriminator": [
+        52,
+        84,
+        155,
+        184,
+        221,
+        220,
+        98,
+        166
+      ]
+    },
+    {
+      "name": "SharesTransferred",
+      "discriminator": [
+        219,
+        222,
+        239,
+        232,
+        2,
+        70,
+        64,
+        200
+      ]
+    },
+    {
+      "name": "Sold",
+      "discriminator": [
+        205,
+        203,
+        210,
+        202,
+        96,
+        11,
+        192,
+        10
+      ]
+    },
+    {
+      "name": "TraderFeesClaimed",
+      "discriminator": [
+        53,
+        237,
+        38,
+        203,
+        30,
+        204,
+        112,
+        54
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Unauthorized",
+      "msg": "Only the authorised key may perform this action"
+    },
+    {
+      "code": 6001,
+      "name": "ZeroAddress",
+      "msg": "Address must not be the default pubkey"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidScore",
+      "msg": "Score must be between 0 and 100"
+    },
+    {
+      "code": 6003,
+      "name": "UpdateTooSoon",
+      "msg": "Price update is too soon since the last update for this listing"
+    },
+    {
+      "code": 6004,
+      "name": "MarketPaused",
+      "msg": "Trading is paused market-wide"
+    },
+    {
+      "code": 6005,
+      "name": "ListingPaused",
+      "msg": "Trading is paused for this listing"
+    },
+    {
+      "code": 6006,
+      "name": "ZeroAmount",
+      "msg": "Amount must be greater than zero"
+    },
+    {
+      "code": 6007,
+      "name": "ZeroSharesOut",
+      "msg": "Computed shares out is zero at this price"
+    },
+    {
+      "code": 6008,
+      "name": "SlippageExceeded",
+      "msg": "Slippage tolerance exceeded"
+    },
+    {
+      "code": 6009,
+      "name": "InsufficientShares",
+      "msg": "Insufficient shares"
+    },
+    {
+      "code": 6010,
+      "name": "MathOverflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6011,
+      "name": "LengthMismatch",
+      "msg": "Scores and listing accounts must be the same length"
+    }
+  ],
+  "types": [
+    {
+      "name": "AdminTransferStarted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "current_admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_admin",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AdminTransferred",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "previous_admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_admin",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Bought",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "kol_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "buyer",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "type": "u64"
+          },
+          {
+            "name": "lamports_cost",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Config",
+      "docs": [
+        "Global program config. Also holds the protocol treasury's lamports: the",
+        "account's balance above rent is exactly `protocol_treasury`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_admin",
+            "docs": [
+              "Nominee for admin, pending their own accept_admin call.",
+              "Pubkey::default() means no handover is in progress."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle_authority",
+            "docs": [
+              "Separate, limited key: can only move scores/prices within the",
+              "rate-cap, never touch a reserve, escrow or treasury."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "protocol_treasury",
+            "docs": [
+              "Protocol fees awaiting withdrawal (destined for $SHARPS buy-and-burn)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Listing",
+      "docs": [
+        "One listing per KOL, keyed on their Solana wallet. The listing account",
+        "itself holds the listing's SOL: its balance above rent is exactly",
+        "`vault_balance + trader_escrow`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "kol_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "score",
+            "type": "u8"
+          },
+          {
+            "name": "price_lamports",
+            "docs": [
+              "Marginal (spot) price of the next share, scaled by score_mult."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "score_mult",
+            "docs": [
+              "Score multiplier actually IN EFFECT, MULT_ONE = 1.0x. Never rises",
+              "above what the reserve can back (see apply_score)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "target_mult",
+            "docs": [
+              "Multiplier the score says the listing DESERVES."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "shares_outstanding",
+            "type": "u64"
+          },
+          {
+            "name": "shares_cap",
+            "type": "u64"
+          },
+          {
+            "name": "vault_balance",
+            "docs": [
+              "Reserve backing outstanding shares (curve integral + fee surplus)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "trader_escrow",
+            "docs": [
+              "Fees accrued to the listed trader, claimable only by kol_wallet."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "last_update_ts",
+            "docs": [
+              "0 = never updated (see update_price)."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "created_at",
+            "type": "i64"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ListingCreated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "kol_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "open_price_lamports",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ListingPausedSet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "kol_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketPausedSet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "paused",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "OracleAuthoritySet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "new_oracle_authority",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Position",
+      "docs": [
+        "A holder's shares in one listing."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "listing",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PriceUpdated",
+      "docs": [
+        "Emitted on every oracle update AND every trade, since trades move the",
+        "curve too — the price feed indexes this one event."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "kol_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "score",
+            "type": "u8"
+          },
+          {
+            "name": "price_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ProtocolWithdrawn",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "to",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SharesTransferred",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "kol_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "from",
+            "type": "pubkey"
+          },
+          {
+            "name": "to",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Sold",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "kol_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "seller",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "type": "u64"
+          },
+          {
+            "name": "lamports_out",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TraderFeesClaimed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "kol_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ]
+}

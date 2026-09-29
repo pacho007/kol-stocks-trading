@@ -1,0 +1,21 @@
+[package]
+name = "sharps"
+version = "0.1.0"
+description = "On-chain custody + share accounting for SHARPS listings, priced by the oracle's rate-capped performance score."
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "sharps"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build"]
+default = []
+
+[dependencies]
+anchor-lang = { version = "=1.1.2", features = ["init-if-needed"] }
+
