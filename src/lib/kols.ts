@@ -70,7 +70,7 @@ const SEEDS: Seed[] = [
   },
   {
     id: "VJSDW6",
-    name: "Beanz",
+    name: "Beanz (TikTok Trend Quant)",
     ticker: "BEANZ",
     wallet: "VJSDW6S74YXR4rRR9P4xwhMvLZJQMhrUb8XMFirUsy1",
     image: "",
@@ -105,8 +105,8 @@ const SEEDS: Seed[] = [
     wallet: "6ZhJwthNyk4Qu7Cf3ymp9TSBcp8h1ZNMdfeD7LzsQmAB",
     image:
       "https://prod-fomo-profile-pics.s3.amazonaws.com/479d82dd555343b24751b77df8cc219d_small.jpg?k=272B3mL_Jk2GW2Kjyo6JUNihg",
-    x: "",
-    handle: "@tjr",
+    x: "https://x.com/_TJRTrades",
+    handle: "@_TJRTrades",
     hue: 9,
   },
   {
@@ -114,9 +114,9 @@ const SEEDS: Seed[] = [
     name: "rasmr",
     ticker: "RASMR",
     wallet: "9CNyLECt2j8tnDhqxtjYk5HUhZ2b8Nwnyb7sfYN7vND2",
-    image: "",
-    x: "",
-    handle: "",
+    image: "https://unavatar.io/x/Rasmr_eth",
+    x: "https://x.com/Rasmr_eth",
+    handle: "@Rasmr_eth",
     hue: 74,
   },
   {
@@ -206,7 +206,7 @@ const SEEDS: Seed[] = [
     wallet: "Fvkc2thk1YcAASdR2gi8uf9n67JW9Dqqr9iRd99MDhoB",
     image:
       "https://prod-fomo-profile-pics.s3.amazonaws.com/9caa5fbe9df82529474b068006cf0c94_small.jpg?k=272B3mL_Jk2GW2Kjyo6JUNihg",
-    x: "",
+    x: "https://x.com/brezscales",
     handle: "@brezscales",
     hue: 62,
   },
