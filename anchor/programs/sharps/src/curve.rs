@@ -1,7 +1,7 @@
 //! The bonding curve every SHARPS listing trades against.
 //!
-//! Direct port of evm/src/lib/Curve.sol. Discrete linear: the i-th share
-//! (0-indexed) costs `BASE + SLOPE * i`, before the score multiplier.
+//! Discrete linear: the i-th share (0-indexed) costs `BASE + SLOPE * i`,
+//! before the score multiplier.
 //!
 //! On Solana the natural unit is the lamport, which is too coarse for a
 //! per-share slope (BASE / 250_000 is a fraction of a lamport). So the curve
@@ -24,8 +24,7 @@ pub const SCALE: u128 = 10;
 pub const BASE_SUB: u128 = 1_000_000;
 
 /// Added per share already outstanding, in sub-lamports: BASE / 250_000, so
-/// the price roughly doubles across the first ~250k shares (same shape as
-/// the EVM curve).
+/// the price roughly doubles across the first ~250k shares.
 pub const SLOPE_SUB: u128 = 4;
 
 /// Base (pre-multiplier) reserve backing a supply of `s`, in lamports.

@@ -12,7 +12,7 @@ const CARDS: Card[] = [
   {
     kicker: "01 · The listing",
     title: "What a trader stock actually is",
-    body: "Every listing on SHARPS is a single verified on-chain wallet. When a trader is listed, their book becomes public: entries, exits, size, hold time and realized PnL are all read straight from the chain.",
+    body: "Every listing on SHARPS is a single verified on-chain wallet. When a trader is listed, their book becomes public: entries, exits, size and realized PnL are all read straight from Solana.",
     points: [
       ["Ticker", "A short symbol tied to one wallet, never to a coin"],
       ["Float", "Fractional shares, so a listing stays tradable at any size"],
@@ -22,7 +22,7 @@ const CARDS: Card[] = [
   {
     kicker: "02 · Pricing",
     title: "How performance becomes a price",
-    body: "A trader's session is scored on realized PnL first, then adjusted for win rate, average size and hold time. A clean, repeatable book prices higher than one lucky moonshot, and the score maps to the next session's open.",
+    body: "Each wallet is scored against every other listed trader on realized PnL first, then win rate, volume and trade count. A clean, repeatable book scores higher than one lucky moonshot, and the score sets the multiplier on that listing's price.",
     points: [
       ["Realized PnL", "The dominant input, closed trades only"],
       ["Consistency", "Win rate and drawdown smooth out single-trade noise"],

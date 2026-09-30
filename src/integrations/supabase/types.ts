@@ -21,7 +21,7 @@ export type Database = {
           side: string;
           trader: string;
           signature: string;
-          wei: number;
+          lamports: number;
         };
         Insert: {
           slot: number;
@@ -35,7 +35,7 @@ export type Database = {
           side: string;
           trader: string;
           signature: string;
-          wei: number;
+          lamports: number;
         };
         Update: {
           slot?: number;
@@ -49,7 +49,7 @@ export type Database = {
           side?: string;
           trader?: string;
           signature?: string;
-          wei?: number;
+          lamports?: number;
         };
         Relationships: [
           {

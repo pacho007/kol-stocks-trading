@@ -1,4 +1,4 @@
-// AUTO-GENERATED from evm/src/lib/ScoreLut.sol values (floor(lut[s]*MULT_ONE/lut[50])).
+// Score -> multiplier table: 1/3x at score 0, 1.0x at 50, 3x at 100.
 // score (0..=100) -> target curve multiplier, MULT_ONE (10_000) = 1.0x.
 
 pub const MULT_LUT: [u64; 101] = [

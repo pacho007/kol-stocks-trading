@@ -1,6 +1,6 @@
-//! Pricing and scoring math shared by the instructions. Port of the private
-//! helpers in evm/src/SharpsMarket.sol — kept in one place so the single and
-//! batched oracle paths, and buy/sell and their quotes, can't drift apart.
+//! Pricing and scoring math shared by the instructions — kept in one place so
+//! the single and batched oracle paths, and buy/sell and their quotes, can't
+//! drift apart.
 
 use anchor_lang::prelude::*;
 
@@ -34,7 +34,7 @@ pub fn rate_capped_score(current: u8, raw: u8) -> u8 {
 /// the reserve can back. Increases are capped at
 /// `vault_balance * MULT_ONE / reserve_at(supply)`, so only fee surplus can
 /// fund score-driven growth; decreases apply immediately (they shrink the
-/// liability). See SharpsMarket.sol::_applyScore for the full argument.
+/// liability).
 pub fn apply_score(l: &mut Listing, score: u8) -> Result<()> {
     let target = MULT_LUT[score as usize];
     l.target_mult = target;
@@ -169,7 +169,7 @@ mod tests {
     }
 
     #[test]
-    fn score_walk_matches_evm() {
+    fn score_walk_is_rate_capped() {
         assert_eq!(rate_capped_score(50, 100), 62);
         assert_eq!(rate_capped_score(50, 0), 38);
         assert_eq!(rate_capped_score(50, 52), 51);

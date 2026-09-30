@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { CLUSTER_NAME, IS_MAINNET } from "@/lib/solana/chain";
+import { CLUSTER_NAME, EXPLORER_NAME, IS_MAINNET, PROGRAM_ID } from "@/lib/solana/chain";
+import { ExplorerLink } from "@/components/explorer-link";
 import { KOLS } from "@/lib/kols";
 import {
   Accordion,
@@ -12,8 +13,6 @@ import { ArrowRight } from "lucide-react";
 /** Listings carrying a real handle, counted rather than asserted in prose. */
 const TAGGED = KOLS.filter((k) => k.handle && k.handle.length > 1).length;
 
-/** Read from the build, so the docs cannot claim a network the app is not on. */
-
 export const Route = createFileRoute("/docs")({
   head: () => ({
     meta: [
@@ -21,12 +20,12 @@ export const Route = createFileRoute("/docs")({
       {
         name: "description",
         content:
-          "How SHARPS lists on-chain traders as tradable stocks: pricing, buying and selling, market sessions, wallets, and risk.",
+          "How SHARPS lists Solana traders as tradable stocks: pricing, buying and selling on Solana, wallets, fees, and risk.",
       },
       { property: "og:title", content: "Docs · How SHARPS Works | SHARPS" },
       {
         property: "og:description",
-        content: "Pricing, trading mechanics, sessions, and risk — in plain terms.",
+        content: "How SHARPS works on Solana — pricing, trading, wallets and risk, in plain terms.",
       },
     ],
   }),
@@ -37,6 +36,7 @@ type Section = { id: string; label: string };
 
 const SECTIONS: Section[] = [
   { id: "overview", label: "Overview" },
+  { id: "solana", label: "Built on Solana" },
   { id: "listings", label: "Listings & tickers" },
   { id: "identity", label: "Trader identity" },
   { id: "scoring", label: "The scoring model" },
@@ -59,9 +59,9 @@ function Docs() {
       <p className="num text-[10px] tracking-[0.3em] uppercase text-primary">Documentation</p>
       <h1 className="mt-2 text-3xl font-bold sm:text-4xl">How SHARPS works</h1>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-        SHARPS lists on-chain crypto traders as tradable stocks. This page explains, in plain terms,
-        how a listing gets priced, what actually happens on-chain when you buy or sell, and what
-        risk you're taking on when you do.
+        SHARPS lists Solana traders as tradable stocks, and runs entirely on Solana. This page
+        explains, in plain terms, how a listing gets priced, what actually happens on-chain when you
+        buy or sell, and what risk you're taking on when you do.
       </p>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
@@ -104,7 +104,35 @@ function Docs() {
             </p>
           </DocSection>
 
-          <DocSection id="listings" kicker="02 · Listings" title="What a ticker actually is">
+          <DocSection id="solana" kicker="02 · Solana" title="Built on Solana">
+            <p>
+              Everything on SHARPS happens on <b className="text-foreground">Solana</b>: the traders
+              being priced trade there, their performance is read from there, and every share is
+              bought and sold there. Nothing is bridged, wrapped, or held off-chain.
+            </p>
+            <dl className="mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3">
+              {[
+                ["Currency", "Every price, trade, fee and payout is in SOL."],
+                ["Speed", "Trades confirm in a second or two, at any hour."],
+                ["Network fee", "About 0.000005 SOL per transaction — a fraction of a cent."],
+              ].map(([k, v]) => (
+                <div key={k} className="bg-card px-4 py-3.5">
+                  <p className="text-[10px] tracking-[0.18em] uppercase text-muted-foreground">
+                    {k}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-foreground">{v}</p>
+                </div>
+              ))}
+            </dl>
+            <p>
+              The market itself is one Solana program — the on-chain code that holds each listing's
+              SOL, sells and buys back shares, and splits fees. It is public, so you can inspect it
+              and every transaction it has processed on {EXPLORER_NAME}:{" "}
+              <ExplorerLink address={PROGRAM_ID.toBase58()} label={PROGRAM_ID.toBase58()} />.
+            </p>
+          </DocSection>
+
+          <DocSection id="listings" kicker="03 · Listings" title="What a ticker actually is">
             <p>
               Each listing has a ticker (like <span className="num text-foreground">$COOK</span>), a
               name, and a linked wallet address you can verify yourself on any Solana explorer. A
@@ -136,7 +164,7 @@ function Docs() {
             </dl>
           </DocSection>
 
-          <DocSection id="identity" kicker="03 · Identity" title="Who a listing actually is">
+          <DocSection id="identity" kicker="04 · Identity" title="Who a listing actually is">
             <p>
               A listing is a <b className="text-foreground">wallet address</b> first and a person
               second. The address is the part that's verifiable; the name, avatar, and X link
@@ -157,7 +185,7 @@ function Docs() {
             </InfoCard>
           </DocSection>
 
-          <DocSection id="scoring" kicker="04 · Scoring" title="How the score is calculated">
+          <DocSection id="scoring" kicker="05 · Scoring" title="How the score is calculated">
             <p>
               Each listed wallet is read directly from the chain and reduced to four measurements
               over a trailing window: <b className="text-foreground">realized PnL</b>,{" "}
@@ -210,7 +238,7 @@ function Docs() {
             </p>
           </DocSection>
 
-          <DocSection id="pricing" kicker="05 · Pricing" title="How a trader's stock gets priced">
+          <DocSection id="pricing" kicker="06 · Pricing" title="How a trader's stock gets priced">
             <p>
               Price comes from two things multiplied together: a{" "}
               <b className="text-foreground">bonding curve</b> that responds to supply, and a{" "}
@@ -256,7 +284,7 @@ function Docs() {
             </p>
           </DocSection>
 
-          <DocSection id="buying" kicker="06 · Buying" title="What happens when you buy">
+          <DocSection id="buying" kicker="07 · Buying" title="What happens when you buy">
             <ol className="list-decimal space-y-2 pl-5">
               <li>Connect a Solana wallet and pick how much SOL you want to spend.</li>
               <li>
@@ -286,7 +314,7 @@ function Docs() {
             </InfoCard>
           </DocSection>
 
-          <DocSection id="selling" kicker="07 · Selling" title="What happens when you sell">
+          <DocSection id="selling" kicker="08 · Selling" title="What happens when you sell">
             <p>
               Selling burns your shares and pays you SOL out of that listing's reserve, at the full
               curve price, minus the 2% sell fee. You walk back down the same curve you bought on,
@@ -312,7 +340,7 @@ function Docs() {
             </p>
           </DocSection>
 
-          <DocSection id="feed" kicker="08 · The feed" title="Why everyone sees the same numbers">
+          <DocSection id="feed" kicker="09 · The feed" title="Why everyone sees the same numbers">
             <p>
               Price, chart, and market cap are served from a single shared feed, rebuilt from the
               program's own on-chain events by an indexer, and pushed to every connected browser in
@@ -332,7 +360,7 @@ function Docs() {
             </p>
           </DocSection>
 
-          <DocSection id="architecture" kicker="09 · Architecture" title="What runs where">
+          <DocSection id="architecture" kicker="10 · Architecture" title="What runs where">
             <dl className="grid gap-px overflow-hidden rounded-lg border border-border bg-border">
               {[
                 [
@@ -360,7 +388,7 @@ function Docs() {
             </dl>
           </DocSection>
 
-          <DocSection id="security" kicker="10 · Security" title="What each key can and cannot do">
+          <DocSection id="security" kicker="11 · Security" title="What each key can and cannot do">
             <p>
               There are two privileged keys, deliberately separated so that neither is a single
               point of total failure.
@@ -393,11 +421,11 @@ function Docs() {
             </InfoCard>
           </DocSection>
 
-          <DocSection id="sessions" kicker="11 · Sessions" title="Market hours">
+          <DocSection id="sessions" kicker="12 · Sessions" title="Market hours">
             <p>
-              SHARPS runs on real-world session windows — Asia, London, and New York — rolling
-              through the day from 00:00 UTC to 21:00 UTC on weekdays. Prices keep updating whenever
-              the overall market is open, and trading is closed outside those hours and on weekends.
+              Solana never closes, and neither does SHARPS: you can buy or sell any listing at any
+              hour, every day. The Asia, London and New York session windows shown in the header are
+              context only — they tell you which trading day is awake, and never block a trade.
             </p>
             <p>
               The oracle score refreshes on its own cadence (roughly every 20 minutes) independent
@@ -406,7 +434,7 @@ function Docs() {
             </p>
           </DocSection>
 
-          <DocSection id="wallet" kicker="12 · Wallet & network" title="Connecting and networks">
+          <DocSection id="wallet" kicker="13 · Wallet & network" title="Connecting and networks">
             <p>
               SHARPS works with any Solana browser wallet (Phantom, Solflare, Backpack, and others)
               — click <span className="text-foreground">Connect Wallet</span> in the header and
@@ -422,12 +450,19 @@ function Docs() {
               header and site footer.
             </p>
             <p>
-              Your wallet must be on the same network as this build. For devnet, switch it in the
-              wallet's own settings (in Phantom: Settings → Developer Settings → Testnet Mode).
+              To trade you need SOL in that wallet — buy it on any exchange and send it to your
+              wallet's address. Keep a little extra for network fees and, on your first buy of a
+              listing, the one-off rent for your position account (about 0.0014 SOL).
             </p>
+            {!IS_MAINNET && (
+              <p>
+                Your wallet must be on the same network as this build. For devnet, switch it in the
+                wallet's own settings (in Phantom: Settings → Developer Settings → Testnet Mode).
+              </p>
+            )}
           </DocSection>
 
-          <DocSection id="risk" kicker="13 · Risk" title="Risk & disclosures">
+          <DocSection id="risk" kicker="14 · Risk" title="Risk & disclosures">
             <ul className="list-disc space-y-2 pl-5">
               <li>
                 <b className="text-foreground">Not financial advice.</b> Nothing on this site is a
@@ -457,10 +492,20 @@ function Docs() {
             </ul>
           </DocSection>
 
-          <DocSection id="glossary" kicker="14 · Glossary" title="Terms used on this site">
+          <DocSection id="glossary" kicker="15 · Glossary" title="Terms used on this site">
             <dl className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
               {[
                 ["Listing", "One tracked trader wallet, tradable as a stock with its own ticker."],
+                ["SOL", "Solana's currency. Every price and payout on SHARPS is in SOL."],
+                ["Lamport", "The smallest unit of SOL: 1 SOL = 1,000,000,000 lamports."],
+                [
+                  "Program",
+                  "The on-chain code that runs the market. It holds every listing's SOL and executes every trade.",
+                ],
+                [
+                  "Position account",
+                  "A small on-chain account that records how many shares of one listing your wallet holds.",
+                ],
                 [
                   "Share",
                   "A unit of a listing, held in your position account on the program. Whole numbers only.",
@@ -503,7 +548,7 @@ function Docs() {
             </dl>
           </DocSection>
 
-          <DocSection id="faq" kicker="15 · FAQ" title="Common questions">
+          <DocSection id="faq" kicker="16 · FAQ" title="Common questions">
             <Accordion type="single" collapsible className="w-full">
               {FAQ.map((item) => (
                 <AccordionItem key={item.q} value={item.q}>
@@ -581,6 +626,18 @@ const FAQ: { q: string; a: string }[] = [
   {
     q: "Do other people see the same prices and charts I do?",
     a: "Yes. Price, chart, and market cap all come from one shared feed rebuilt from the program's on-chain events, so everyone sees the same data at the same time rather than a per-browser view.",
+  },
+  {
+    q: "Which wallets work?",
+    a: "Any Solana wallet that runs in your browser — Phantom, Solflare, Backpack and others. SHARPS finds the ones you have installed automatically.",
+  },
+  {
+    q: "What does a trade cost in network fees?",
+    a: "About 0.000005 SOL per transaction on Solana. Your first buy of a listing also pays a one-off rent of about 0.0014 SOL for the account that records your shares.",
+  },
+  {
+    q: "Where can I check the market on-chain?",
+    a: `The SHARPS program is public on Solana at ${PROGRAM_ID.toBase58()} — look it up on ${EXPLORER_NAME} to see every trade it has processed. Each trader's wallet is linked from their listing page too.`,
   },
   {
     q: "Is this real money?",
