@@ -1,166 +1,168 @@
-/**
- * wallet-provider.tsx — Solana wallet connection.
- *
- * No explicit adapter list: modern wallets (Phantom, Solflare, Backpack, …)
- * register themselves through the Wallet Standard, so `wallets={[]}` still
- * discovers anything actually installed, without bundling every wallet's SDK.
- *
- * useSolanaWallet() wraps the adapter's own hook in the small surface the app
- * uses, so components don't each re-implement "select, then connect once the
- * selection lands" or confirmation handling.
- */
 import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { ConnectionProvider, WalletProvider, useWallet } from "@solana/wallet-adapter-react";
-import { WalletReadyState, type WalletName } from "@solana/wallet-adapter-base";
-import type { PublicKey, Transaction } from "@solana/web3.js";
-import { RPC_URL, getConnection } from "./chain";
+import { PublicKey, type Transaction } from "@solana/web3.js";
+import { getConnection } from "./chain";
 import { WalletContext, type DiscoveredWallet, type WalletCtx } from "./wallet-context";
 
-function Bridge({ children }: { children: ReactNode }) {
-  const {
-    wallets: adapters,
-    wallet,
-    publicKey,
-    connected,
-    connecting,
-    select,
-    connect: adapterConnect,
-    disconnect: adapterDisconnect,
-    sendTransaction,
-  } = useWallet();
+type InjectedProvider = {
+  publicKey?: PublicKey | { toBase58(): string } | null;
+  connect(options?: { onlyIfTrusted?: boolean }): Promise<{ publicKey?: PublicKey }>;
+  disconnect(): Promise<void>;
+  signAndSendTransaction?(transaction: Transaction): Promise<string | { signature: string }>;
+  signTransaction?(transaction: Transaction): Promise<Transaction>;
+  on?(event: "connect" | "disconnect" | "accountChanged", handler: (...args: unknown[]) => void): void;
+  off?(event: "connect" | "disconnect" | "accountChanged", handler: (...args: unknown[]) => void): void;
+};
 
-  const wallets = useMemo<DiscoveredWallet[]>(
-    () =>
-      adapters
-        .filter((w) => w.readyState !== WalletReadyState.Unsupported)
-        .map((w) => ({
-          name: w.adapter.name,
-          icon: w.adapter.icon,
-          installed:
-            w.readyState === WalletReadyState.Installed ||
-            w.readyState === WalletReadyState.Loadable,
-        })),
-    [adapters],
+type WalletWindow = Window & {
+  phantom?: { solana?: InjectedProvider };
+  solflare?: InjectedProvider;
+  backpack?: InjectedProvider;
+};
+
+type BrowserWallet = DiscoveredWallet & { provider: InjectedProvider };
+
+const WALLET_STORAGE_KEY = "sharps-solana-wallet";
+
+function discoverWallets(): BrowserWallet[] {
+  if (typeof window === "undefined") return [];
+  const walletWindow = window as WalletWindow;
+  const candidates = [
+    { name: "Phantom", provider: walletWindow.phantom?.solana },
+    { name: "Solflare", provider: walletWindow.solflare },
+    { name: "Backpack", provider: walletWindow.backpack },
+  ];
+
+  return candidates.flatMap(({ name, provider }) =>
+    provider ? [{ name, icon: "", installed: true, provider }] : [],
   );
+}
 
-  const selected = useMemo(
-    () => (wallet ? (wallets.find((w) => w.name === wallet.adapter.name) ?? null) : null),
-    [wallet, wallets],
-  );
-
-  // select() is asynchronous with respect to React state: the adapter it
-  // names only becomes `wallet` on the next render, and calling connect()
-  // before then connects the PREVIOUS selection (or throws WalletNotSelected).
-  // So connect() records the intent and this effect completes it.
-  const [pending, setPending] = useState<string | null>(null);
-  const resolvers = useRef<{ resolve: () => void; reject: (e: unknown) => void } | null>(null);
+export function SolanaWalletProvider({ children }: { children: ReactNode }) {
+  const [wallets, setWallets] = useState<BrowserWallet[]>([]);
+  const [selectedName, setSelectedName] = useState<string | null>(null);
+  const [publicKey, setPublicKey] = useState<PublicKey | null>(null);
+  const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
-    if (!pending || !wallet || wallet.adapter.name !== pending) return;
-    setPending(null);
-    adapterConnect().then(
-      () => resolvers.current?.resolve(),
-      (e) => resolvers.current?.reject(e),
-    );
-  }, [pending, wallet, adapterConnect]);
+    const discovered = discoverWallets();
+    setWallets(discovered);
+    const storedName = window.localStorage.getItem(WALLET_STORAGE_KEY);
+    const stored = discovered.find((wallet) => wallet.name === storedName);
+    if (!stored) return;
+
+    stored.provider
+      .connect({ onlyIfTrusted: true })
+      .then((result) => {
+        const key = result.publicKey ?? stored.provider.publicKey;
+        if (!key) return;
+        setSelectedName(stored.name);
+        setPublicKey(new PublicKey(key.toBase58()));
+      })
+      .catch(() => window.localStorage.removeItem(WALLET_STORAGE_KEY));
+  }, []);
+
+  const selectedWallet = useMemo(
+    () => wallets.find((wallet) => wallet.name === selectedName) ?? null,
+    [selectedName, wallets],
+  );
+
+  useEffect(() => {
+    const provider = selectedWallet?.provider;
+    if (!provider?.on) return;
+    const syncAccount = () => {
+      const key = provider.publicKey;
+      setPublicKey(key ? new PublicKey(key.toBase58()) : null);
+    };
+    const clearAccount = () => setPublicKey(null);
+    provider.on("connect", syncAccount);
+    provider.on("accountChanged", syncAccount);
+    provider.on("disconnect", clearAccount);
+    return () => {
+      provider.off?.("connect", syncAccount);
+      provider.off?.("accountChanged", syncAccount);
+      provider.off?.("disconnect", clearAccount);
+    };
+  }, [selectedWallet]);
 
   const connect = useCallback(
-    (target?: DiscoveredWallet) => {
-      const choice = target ?? selected ?? wallets.find((w) => w.installed);
-      if (!choice) {
-        return Promise.reject(
-          new Error("No Solana wallet detected — install Phantom, Solflare or Backpack."),
-        );
+    async (target?: DiscoveredWallet) => {
+      const wallet = wallets.find((candidate) => candidate.name === target?.name) ?? wallets[0];
+      if (!wallet) {
+        throw new Error("No Solana wallet detected — install Phantom, Solflare or Backpack.");
       }
-      if (!choice.installed) {
-        // Not installed: send them to the wallet's site rather than failing.
-        const adapter = adapters.find((w) => w.adapter.name === choice.name)?.adapter;
-        if (adapter?.url && typeof window !== "undefined") window.open(adapter.url, "_blank");
-        return Promise.resolve();
+      setConnecting(true);
+      try {
+        const result = await wallet.provider.connect();
+        const key = result.publicKey ?? wallet.provider.publicKey;
+        if (!key) throw new Error("The wallet did not return an account");
+        setSelectedName(wallet.name);
+        setPublicKey(new PublicKey(key.toBase58()));
+        window.localStorage.setItem(WALLET_STORAGE_KEY, wallet.name);
+      } finally {
+        setConnecting(false);
       }
-      return new Promise<void>((resolve, reject) => {
-        resolvers.current = { resolve, reject };
-        if (wallet?.adapter.name === choice.name) {
-          adapterConnect().then(resolve, reject);
-        } else {
-          select(choice.name as WalletName);
-          setPending(choice.name);
-        }
-      });
     },
-    [selected, wallets, adapters, wallet, select, adapterConnect],
+    [wallets],
   );
 
   const disconnect = useCallback(() => {
-    void adapterDisconnect().catch(() => {
-      /* already disconnected */
-    });
-  }, [adapterDisconnect]);
+    const provider = selectedWallet?.provider;
+    setSelectedName(null);
+    setPublicKey(null);
+    window.localStorage.removeItem(WALLET_STORAGE_KEY);
+    void provider?.disconnect().catch(() => undefined);
+  }, [selectedWallet]);
 
   const sendAndConfirm = useCallback(
-    async (tx: Transaction) => {
-      if (!publicKey) throw new Error("Connect a wallet first");
+    async (transaction: Transaction) => {
+      const provider = selectedWallet?.provider;
+      if (!provider || !publicKey) throw new Error("Connect a wallet first");
       const connection = getConnection();
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
-      tx.feePayer = publicKey;
-      tx.recentBlockhash = blockhash;
-      const signature = await sendTransaction(tx, connection);
-      const res = await connection.confirmTransaction(
+      transaction.feePayer = publicKey;
+      transaction.recentBlockhash = blockhash;
+
+      let signature: string;
+      if (provider.signAndSendTransaction) {
+        const result = await provider.signAndSendTransaction(transaction);
+        signature = typeof result === "string" ? result : result.signature;
+      } else if (provider.signTransaction) {
+        const signed = await provider.signTransaction(transaction);
+        signature = await connection.sendRawTransaction(signed.serialize());
+      } else {
+        throw new Error("This wallet cannot send Solana transactions");
+      }
+
+      const confirmation = await connection.confirmTransaction(
         { signature, blockhash, lastValidBlockHeight },
         "confirmed",
       );
-      if (res.value.err) {
-        throw new Error(`Transaction failed: ${JSON.stringify(res.value.err)}`);
-      }
+      if (confirmation.value.err) throw new Error("Transaction failed");
       return signature;
     },
-    [publicKey, sendTransaction],
+    [publicKey, selectedWallet],
   );
 
   const value = useMemo<WalletCtx>(
     () => ({
       wallets,
-      selected,
+      selected: selectedWallet,
       address: publicKey?.toBase58() ?? null,
       publicKey,
-      connected,
-      connecting: connecting || pending !== null,
+      connected: publicKey !== null,
+      connecting,
       connect,
       disconnect,
       sendAndConfirm,
     }),
-    [
-      wallets,
-      selected,
-      publicKey,
-      connected,
-      connecting,
-      pending,
-      connect,
-      disconnect,
-      sendAndConfirm,
-    ],
+    [wallets, selectedWallet, publicKey, connecting, connect, disconnect, sendAndConfirm],
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
-}
-
-export function SolanaWalletProvider({ children }: { children: ReactNode }) {
-  const adapters = useMemo(() => [], []);
-  return (
-    <ConnectionProvider endpoint={RPC_URL}>
-      {/* autoConnect only re-attaches a wallet the user already approved on
-          this site; it never opens a prompt on page load. */}
-      <WalletProvider wallets={adapters} autoConnect>
-        <Bridge>{children}</Bridge>
-      </WalletProvider>
-    </ConnectionProvider>
-  );
 }

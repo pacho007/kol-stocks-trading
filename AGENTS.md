@@ -9,4 +9,4 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Resolve every Solana mobile-wallet package to its browser export; its advertised workerd exports load React Native internals and crash production SSR.
+- Keep Solana wallet connections on direct browser-injected providers; wallet-adapter-react pulls React Native mobile code into production SSR and crashes startup.

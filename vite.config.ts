@@ -62,69 +62,11 @@ const RPC_WEBSOCKETS_BROWSER = fileURLToPath(
   new URL("./node_modules/rpc-websockets/dist/index.browser.mjs", import.meta.url),
 );
 
-/**
- * The Solana mobile packages advertise a `workerd` export which imports
- * React Native internals. That export crashes during production module
- * evaluation before TanStack can dispatch a request. Their browser exports
- * are SSR-safe (all DOM access is guarded) and are also the correct versions
- * for the hydrated wallet UI, so pin every affected package explicitly.
- */
-const SOLANA_MOBILE_ADAPTER_BROWSER = fileURLToPath(
-  new URL(
-    "./node_modules/@solana-mobile/wallet-adapter-mobile/lib/esm/index.browser.js",
-    import.meta.url,
-  ),
-);
-const SOLANA_MOBILE_STANDARD_BROWSER = fileURLToPath(
-  new URL(
-    "./node_modules/@solana-mobile/wallet-standard-mobile/lib/esm/index.browser.js",
-    import.meta.url,
-  ),
-);
-const SOLANA_MOBILE_PROTOCOL_BROWSER = fileURLToPath(
-  new URL(
-    "./node_modules/@solana-mobile/mobile-wallet-adapter-protocol/lib/esm/index.browser.js",
-    import.meta.url,
-  ),
-);
-const SOLANA_MOBILE_PROTOCOL_ENCODING_BROWSER = fileURLToPath(
-  new URL(
-    "./node_modules/@solana-mobile/mobile-wallet-adapter-protocol/lib/esm/encoding.browser.js",
-    import.meta.url,
-  ),
-);
-const SOLANA_MOBILE_PROTOCOL_WEB3_BROWSER = fileURLToPath(
-  new URL(
-    "./node_modules/@solana-mobile/mobile-wallet-adapter-protocol-web3js/lib/esm/index.browser.js",
-    import.meta.url,
-  ),
-);
-
 export default defineConfig({
   vite: {
     plugins: [networkConsistency()],
     resolve: {
       alias: [
-        {
-          find: /^@solana-mobile\/mobile-wallet-adapter-protocol\/encoding$/,
-          replacement: SOLANA_MOBILE_PROTOCOL_ENCODING_BROWSER,
-        },
-        {
-          find: /^@solana-mobile\/mobile-wallet-adapter-protocol-web3js$/,
-          replacement: SOLANA_MOBILE_PROTOCOL_WEB3_BROWSER,
-        },
-        {
-          find: /^@solana-mobile\/mobile-wallet-adapter-protocol$/,
-          replacement: SOLANA_MOBILE_PROTOCOL_BROWSER,
-        },
-        {
-          find: /^@solana-mobile\/wallet-standard-mobile$/,
-          replacement: SOLANA_MOBILE_STANDARD_BROWSER,
-        },
-        {
-          find: /^@solana-mobile\/wallet-adapter-mobile$/,
-          replacement: SOLANA_MOBILE_ADAPTER_BROWSER,
-        },
         { find: /^rpc-websockets$/, replacement: RPC_WEBSOCKETS_BROWSER },
       ],
     },
