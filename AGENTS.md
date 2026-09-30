@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Keep Solana wallet connections on direct browser-injected providers; wallet-adapter-react pulls React Native mobile code into production SSR and crashes startup.
+- Resolve `buffer` to its browser implementation; the production Worker shim is empty in client chunks and breaks Solana web3 initialization.
