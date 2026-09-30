@@ -7,18 +7,6 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { fileURLToPath } from "node:url";
 import { loadEnv, type Plugin } from "vite";
-import { nodePolyfills } from "vite-plugin-node-polyfills";
-
-function browserNodePolyfills(): Plugin[] {
-  return nodePolyfills({
-    include: ["buffer"],
-    globals: { Buffer: true },
-    protocolImports: false,
-  }).map((plugin) => ({
-    ...plugin,
-    applyToEnvironment: (environment) => environment.name === "client",
-  }));
-}
 
 /**
  * Refuse to build a bundle whose cluster settings disagree with each other.
@@ -73,15 +61,18 @@ function networkConsistency(): Plugin {
 const RPC_WEBSOCKETS_BROWSER = fileURLToPath(
   new URL("./node_modules/rpc-websockets/dist/index.browser.mjs", import.meta.url),
 );
+const BUFFER_BROWSER = fileURLToPath(
+  new URL("./node_modules/buffer/index.js", import.meta.url),
+);
 export default defineConfig({
   vite: {
-    plugins: [
-      networkConsistency(),
-      ...browserNodePolyfills(),
-    ],
+    plugins: [networkConsistency()],
     resolve: {
       alias: [
         { find: /^rpc-websockets$/, replacement: RPC_WEBSOCKETS_BROWSER },
+        // Match only the browser package import. Never rewrite `node:buffer`:
+        // Nitro and crossws need the Worker's native implementation.
+        { find: /^buffer$/, replacement: BUFFER_BROWSER },
       ],
     },
   },
