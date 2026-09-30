@@ -9,6 +9,17 @@ import { fileURLToPath } from "node:url";
 import { loadEnv, type Plugin } from "vite";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 
+function browserNodePolyfills(): Plugin[] {
+  return nodePolyfills({
+    include: ["buffer"],
+    globals: { Buffer: true },
+    protocolImports: false,
+  }).map((plugin) => ({
+    ...plugin,
+    applyToEnvironment: (environment) => environment.name === "client",
+  }));
+}
+
 /**
  * Refuse to build a bundle whose cluster settings disagree with each other.
  *
@@ -66,10 +77,7 @@ export default defineConfig({
   vite: {
     plugins: [
       networkConsistency(),
-      nodePolyfills({
-        include: ["buffer"],
-        globals: { Buffer: true },
-      }),
+      ...browserNodePolyfills(),
     ],
     resolve: {
       alias: [
