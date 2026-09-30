@@ -104,7 +104,7 @@ export function SolanaWalletProvider({ children }: { children: ReactNode }) {
       setWallets(fresh);
       const installed = fresh.filter((w) => w.installed);
       const wallet =
-        installed.find((candidate) => candidate.name === target?.name) ?? installed[0];
+        target ? installed.find((candidate) => candidate.name === target.name) : installed[0];
       if (!wallet) {
         const urls: Record<string, string> = {
           Phantom: "https://phantom.app/download",
