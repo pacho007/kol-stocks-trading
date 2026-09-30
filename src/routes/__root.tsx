@@ -105,6 +105,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:image:height", content: "630" },
       { property: "og:image:alt", content: "The SHARPS mark: a rising bar chart on neon pink." },
       { name: "twitter:image", content: "/og-image.png" },
+      { name: "twitter:site", content: "@TradeSharps" },
+      { name: "twitter:creator", content: "@TradeSharps" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

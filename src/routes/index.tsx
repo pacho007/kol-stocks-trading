@@ -6,6 +6,7 @@ import { TraderBubbles } from "@/components/trader-bubbles";
 import bgVideo from "@/assets/sharps-dunes.mp4.asset.json";
 import heroPoster from "@/assets/sharps-dunes-poster.jpg.asset.json";
 import sharpsGlassLogo from "@/assets/sharps-glass-badge.png.asset.json";
+import { FollowOnX } from "@/components/brand";
 
 /**
  * Starts false so the server and the first client render agree — reading
@@ -41,6 +42,7 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:site", content: "@TradeSharps" },
     ],
   }),
   component: Splash,
@@ -103,9 +105,7 @@ function Splash() {
         <span className="num hidden text-center text-[10px] tracking-[0.3em] uppercase text-[#3d1024]/60 md:block">
           ON-CHAIN PERFORMANCE PRICED.
         </span>
-        <span className="num text-right text-[10px] tracking-[0.3em] uppercase text-[#3d1024]/60">
-          Est. 2026
-        </span>
+        <FollowOnX className="num inline-flex items-center justify-self-end gap-2 rounded-full border border-[#3d1024]/15 bg-white/50 px-3.5 py-2 text-[10px] font-bold tracking-[0.2em] text-[#3d1024] backdrop-blur transition-colors hover:bg-white/80" />
       </header>
 
       {/* hero */}
@@ -171,6 +171,14 @@ function Splash() {
             How it works
           </Link>
         </div>
+
+        <p
+          className="fade-up num mt-6 text-[10px] tracking-[0.24em] uppercase text-[color:var(--logo-ink)]/70"
+          style={{ animationDelay: "0.8s" }}
+        >
+          Official updates only from{" "}
+          <FollowOnX className="inline-flex items-center gap-1.5 font-bold text-[color:var(--logo-ink)] underline decoration-dotted underline-offset-4 hover:decoration-solid" />
+        </p>
       </main>
 
       {/* marquee tape */}

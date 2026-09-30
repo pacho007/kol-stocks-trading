@@ -1,5 +1,5 @@
 import { ThemeToggle } from "@/components/theme-toggle";
-import { SharpsMark } from "@/components/brand";
+import { FollowOnX, SharpsMark, XIcon, SHARPS_X_URL } from "@/components/brand";
 import { ExplorerLink } from "@/components/explorer-link";
 import { Link } from "@tanstack/react-router";
 import { Wallet, Menu, ChevronDown } from "lucide-react";
@@ -235,6 +235,10 @@ export function SiteHeader() {
                   : "Between sessions"}
               </span>
             </div>
+            <FollowOnX
+              variant="icon"
+              className="grid size-9 place-items-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-gold-light"
+            />
             <ThemeToggle />
             <span data-tour="wallet" className="inline-flex">
               <ConnectWalletButton />
@@ -283,16 +287,14 @@ export function SiteFooter() {
             rather than only from a post. Same reasoning as the CA box on
             /sharps: this page is the thing people can check against. */}
         <a
-          href="https://x.com/TradeSharps"
+          href={SHARPS_X_URL}
           target="_blank"
           rel="noreferrer noopener"
           aria-label="SHARPS on X (opens in a new tab)"
-          className="num inline-flex items-center gap-2 tracking-wide transition-colors hover:text-foreground"
+          className="num inline-flex items-center gap-2 rounded-full border border-border px-3 py-1.5 tracking-wide transition-colors hover:border-primary/40 hover:text-foreground"
         >
-          <svg viewBox="0 0 24 24" aria-hidden className="size-3.5 fill-current">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-          </svg>
-          @TradeSharps
+          <XIcon />
+          Follow @TradeSharps
         </a>
         {/* The program holding everyone's money, one click away: it is the one
             address a visitor most wants to check before connecting a wallet. */}

@@ -69,3 +69,41 @@ export function SharpsLogo({
     </span>
   );
 }
+
+/** The official SHARPS account — the one place announcements and the $SHARPS address come from. */
+export const SHARPS_X_HANDLE = "TradeSharps";
+export const SHARPS_X_URL = `https://x.com/${SHARPS_X_HANDLE}`;
+
+export function XIcon({ className = "size-3.5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className={`fill-current ${className}`}>
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
+/**
+ * "Follow @TradeSharps" link. `variant="icon"` is the compact square used in
+ * the app header; `variant="pill"` carries the handle for places with room.
+ */
+export function FollowOnX({
+  variant = "pill",
+  className = "",
+}: {
+  variant?: "icon" | "pill";
+  className?: string;
+}) {
+  return (
+    <a
+      href={SHARPS_X_URL}
+      target="_blank"
+      rel="noreferrer noopener"
+      aria-label={`Follow @${SHARPS_X_HANDLE} on X (opens in a new tab)`}
+      title={`@${SHARPS_X_HANDLE} — the official SHARPS account`}
+      className={className}
+    >
+      <XIcon className={variant === "icon" ? "size-3.5" : "size-3"} />
+      {variant === "pill" && <span>@{SHARPS_X_HANDLE}</span>}
+    </a>
+  );
+}

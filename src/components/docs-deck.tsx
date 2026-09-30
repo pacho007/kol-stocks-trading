@@ -42,7 +42,7 @@ const CARDS: Card[] = [
   {
     kicker: "04 · Trading",
     title: "Buying and selling a trader",
-    body: "You buy shares in the operator, not the coin they are farming. Orders execute against the contract the moment you confirm — there is no queue and no settlement window — and you can exit at any hour.",
+    body: "You buy shares in the operator, not the coin they are farming. Orders execute on-chain the moment you confirm — there is no queue and no settlement window — and you can exit at any hour.",
     points: [
       ["Buy", "Fills immediately at the quoted curve price"],
       ["Hold", "Shares reprice as the score and the curve move"],

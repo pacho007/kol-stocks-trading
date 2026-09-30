@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Coins, Flame, Users, Wallet } from "lucide-react";
-import { SharpsMark } from "@/components/brand";
+import { FollowOnX, SharpsMark } from "@/components/brand";
 import { ExplorerLink } from "@/components/explorer-link";
 import { TokenAddress } from "@/components/token-address";
 import { PROGRAM_ID } from "@/lib/solana/chain";
@@ -21,6 +21,7 @@ export const Route = createFileRoute("/sharps")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:site", content: "@TradeSharps" },
     ],
   }),
   component: SharpsToken,
@@ -57,6 +58,11 @@ function SharpsToken() {
           SHARPS is a platform where on-chain traders are listed like stocks and priced by their
           measured performance. Every trade on it already pays a protocol fee, on-chain, today.
           $SHARPS is what that fee is for.
+        </p>
+        <p className="mt-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          The launch will be announced only by
+          <FollowOnX className="num inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-bold text-primary transition-colors hover:bg-primary/20" />
+          — and the address will appear on this page.
         </p>
       </div>
 

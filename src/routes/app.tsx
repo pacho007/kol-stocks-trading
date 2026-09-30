@@ -55,7 +55,7 @@ const STEPS = [
   {
     n: "03",
     title: "You trade, any hour",
-    body: "Buy fractional shares of the operator, not the coin they are farming. Orders execute against the contract the moment you confirm, at any hour — nothing queues.",
+    body: "Buy shares of the operator, not the coin they are farming. Orders execute on-chain the moment you confirm, at any hour — nothing queues.",
   },
 ];
 
