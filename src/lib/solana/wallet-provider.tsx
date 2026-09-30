@@ -38,9 +38,12 @@ function discoverWallets(): BrowserWallet[] {
     { name: "Backpack", provider: walletWindow.backpack },
   ];
 
-  return candidates.flatMap(({ name, provider }) =>
-    provider ? [{ name, icon: "", installed: true, provider }] : [],
-  );
+  return candidates.map(({ name, provider }) => ({
+    name,
+    icon: "",
+    installed: Boolean(provider),
+    provider: provider as InjectedProvider,
+  }));
 }
 
 export function SolanaWalletProvider({ children }: { children: ReactNode }) {
@@ -52,9 +55,13 @@ export function SolanaWalletProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const discovered = discoverWallets();
     setWallets(discovered);
+    // Extensions can inject after page load — re-check a few times.
+    const timers = [300, 1000, 2500].map((ms) =>
+      window.setTimeout(() => setWallets(discoverWallets()), ms),
+    );
     const storedName = window.localStorage.getItem(WALLET_STORAGE_KEY);
-    const stored = discovered.find((wallet) => wallet.name === storedName);
-    if (!stored) return;
+    const stored = discovered.find((wallet) => wallet.name === storedName && wallet.installed);
+    if (!stored) return () => timers.forEach(clearTimeout);
 
     stored.provider
       .connect({ onlyIfTrusted: true })
@@ -65,6 +72,7 @@ export function SolanaWalletProvider({ children }: { children: ReactNode }) {
         setPublicKey(new PublicKey(key.toBase58()));
       })
       .catch(() => window.localStorage.removeItem(WALLET_STORAGE_KEY));
+    return () => timers.forEach(clearTimeout);
   }, []);
 
   const selectedWallet = useMemo(
@@ -92,8 +100,20 @@ export function SolanaWalletProvider({ children }: { children: ReactNode }) {
 
   const connect = useCallback(
     async (target?: DiscoveredWallet) => {
-      const wallet = wallets.find((candidate) => candidate.name === target?.name) ?? wallets[0];
+      const fresh = discoverWallets();
+      setWallets(fresh);
+      const installed = fresh.filter((w) => w.installed);
+      const wallet =
+        target ? installed.find((candidate) => candidate.name === target.name) : installed[0];
       if (!wallet) {
+        const urls: Record<string, string> = {
+          Phantom: "https://phantom.app/download",
+          Solflare: "https://solflare.com/download",
+          Backpack: "https://backpack.app/download",
+        };
+        if (target && !target.installed && urls[target.name]) {
+          window.open(urls[target.name], "_blank", "noopener");
+        }
         throw new Error("No Solana wallet detected — install Phantom, Solflare or Backpack.");
       }
       setConnecting(true);
@@ -108,7 +128,7 @@ export function SolanaWalletProvider({ children }: { children: ReactNode }) {
         setConnecting(false);
       }
     },
-    [wallets],
+    [],
   );
 
   const disconnect = useCallback(() => {
