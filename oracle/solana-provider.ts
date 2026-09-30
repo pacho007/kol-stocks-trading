@@ -177,7 +177,7 @@ async function readWallet(wallet: string, cache: WalletCache): Promise<Movement[
       rpc(
         () =>
           connection().getParsedTransaction(s.signature, {
-            maxSupportedTransactionVersion: 0,
+            maxSupportedTransactionVersion: 1,
             commitment: "confirmed",
           }),
         "getParsedTransaction",

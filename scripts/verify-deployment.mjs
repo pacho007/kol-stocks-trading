@@ -103,7 +103,7 @@ if (SUPABASE_URL && SUPABASE_KEY) {
   else {
     const tx = await rpc("getTransaction", [
       rows[0].signature,
-      { encoding: "json", maxSupportedTransactionVersion: 0 },
+      { encoding: "json", maxSupportedTransactionVersion: 1 },
     ]);
     const keys = tx?.transaction?.message?.accountKeys ?? [];
     if (keys.includes(programId)) ok("newest indexed price event came from this program");

@@ -180,7 +180,7 @@ Deno.serve(async () => {
         ? Promise.resolve(null)
         : rpc<Tx | null>("getTransaction", [
             s.signature,
-            { encoding: "json", maxSupportedTransactionVersion: 0, commitment: "confirmed" },
+            { encoding: "json", maxSupportedTransactionVersion: 1, commitment: "confirmed" },
           ]),
     );
 
