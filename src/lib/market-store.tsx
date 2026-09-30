@@ -14,7 +14,7 @@ import { supabase, isSupabaseConfigured } from "./supabase";
 import { OPEN_PRICE_USD, scoreToPriceUsd } from "./pricing";
 import { sessionState } from "./sessions";
 import { getConnection, lamportsToSol, solToLamports } from "./solana/chain";
-import { useSolanaWallet } from "./solana/wallet-provider";
+import { useSolanaWallet } from "./solana/wallet-context";
 import {
   fetchListing,
   fetchListings,

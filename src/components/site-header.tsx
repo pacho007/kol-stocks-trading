@@ -8,7 +8,7 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useMarket } from "@/lib/market-store";
 import { useSession } from "@/hooks/use-session";
-import { useSolanaWallet } from "@/lib/solana/wallet-provider";
+import { useSolanaWallet } from "@/lib/solana/wallet-context";
 import { CLUSTER_NAME, PROGRAM_ID } from "@/lib/solana/chain";
 
 const NAV = [

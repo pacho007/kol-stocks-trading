@@ -7,17 +7,24 @@ import {
   useRouterState,
   HeadContent,
   Scripts,
+  useHydrated,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { MarketProvider } from "@/lib/market-store";
 import { MarketFeedProvider } from "@/lib/market-feed";
 import { THEME_INIT_SCRIPT } from "@/components/theme-toggle";
-import { SolanaWalletProvider } from "@/lib/solana/wallet-provider";
+import { WalletFallbackProvider } from "@/lib/solana/wallet-context";
 import { SiteHeader, SiteFooter } from "@/components/site-header";
 import { Toaster } from "@/components/ui/sonner";
+
+const SolanaWalletProvider = lazy(() =>
+  import("@/lib/solana/wallet-provider").then((module) => ({
+    default: module.SolanaWalletProvider,
+  })),
+);
 
 function NotFoundComponent() {
   return (
@@ -150,13 +157,30 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const hydrated = useHydrated();
   // The splash route is a full-bleed landing page: it renders its own chrome,
   // so the app header/footer/brand wash must not appear behind it.
   const isSplash = useRouterState({ select: (s) => s.location.pathname === "/" });
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SolanaWalletProvider>
+      {hydrated ? (
+        <Suspense fallback={<WalletFallbackProvider><AppFrame isSplash={isSplash} /></WalletFallbackProvider>}>
+          <SolanaWalletProvider>
+            <AppFrame isSplash={isSplash} />
+          </SolanaWalletProvider>
+        </Suspense>
+      ) : (
+        <WalletFallbackProvider>
+          <AppFrame isSplash={isSplash} />
+        </WalletFallbackProvider>
+      )}
+    </QueryClientProvider>
+  );
+}
+
+function AppFrame({ isSplash }: { isSplash: boolean }) {
+  return (
         {/* Shared, real-time market feed (Supabase) — must wrap MarketProvider,
             which reads price history from it so every client charts the same
             data instead of each browser recording its own. */}
@@ -193,7 +217,5 @@ function RootComponent() {
             <Toaster position="bottom-right" />
           </MarketProvider>
         </MarketFeedProvider>
-      </SolanaWalletProvider>
-    </QueryClientProvider>
   );
 }
