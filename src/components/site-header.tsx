@@ -115,9 +115,7 @@ export function ConnectWalletButton({
         onClick={() => {
           const only = wallets.filter((w) => w.installed);
           if (readyCount === 1 && only[0]) {
-            connect(only[0]).catch(() => {
-              /* user rejected the wallet prompt */
-            });
+            connect(only[0]).catch((e) => toast.error(e instanceof Error ? e.message : "Wallet connection failed"));
           } else {
             setPickerOpen((v) => !v);
           }
@@ -153,8 +151,8 @@ export function ConnectWalletButton({
                 <button
                   key={w.name}
                   onClick={() => {
-                    connect(w).catch(() => {
-                      /* user rejected the wallet prompt */
+                    connect(w).catch((e) => {
+                      if (w.installed) toast.error(e instanceof Error ? e.message : "Wallet connection failed");
                     });
                     setPickerOpen(false);
                   }}
