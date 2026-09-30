@@ -181,6 +181,7 @@ function RootComponent() {
 
 function AppFrame({ isSplash }: { isSplash: boolean }) {
   return (
+    <>
         {/* Shared, real-time market feed (Supabase) — must wrap MarketProvider,
             which reads price history from it so every client charts the same
             data instead of each browser recording its own. */}
@@ -217,5 +218,6 @@ function AppFrame({ isSplash }: { isSplash: boolean }) {
             <Toaster position="bottom-right" />
           </MarketProvider>
         </MarketFeedProvider>
+    </>
   );
 }
