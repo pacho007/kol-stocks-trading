@@ -9,18 +9,28 @@ import { TIMEFRAMES, useKolHistory, type TimeframeKey } from "@/lib/market-store
  *
  * On a fresh load, longer timeframes (1h/1d) will be sparse until the app has
  * been running that long — a chart can only show elapsed, recorded time.
+ * With fewer than two readings it draws a flat green line at the current
+ * price rather than an empty frame.
  */
-export function PriceChart({ id, up }: { id: string; up: boolean }) {
+export function PriceChart({ id, up, price }: { id: string; up: boolean; price?: number }) {
   const [tf, setTf] = useState<TimeframeKey>("1m");
   const tfMs = TIMEFRAMES.find((t) => t.key === tf)!.ms;
   const points = useKolHistory(id, tfMs);
 
-  const rows = points.map((pt) => ({ t: pt.t, v: pt.p }));
+  const flat = points.length < 2;
+  const now = Date.now();
+  const level = points[points.length - 1]?.p ?? price ?? 0;
+  const rows = flat
+    ? [
+        { t: now - tfMs, v: level },
+        { t: now, v: level },
+      ]
+    : points.map((pt) => ({ t: pt.t, v: pt.p }));
   const vals = rows.map((r) => r.v);
   const min = vals.length ? Math.min(...vals) : 0;
   const max = vals.length ? Math.max(...vals) : 1;
   const pad = (max - min) * 0.1 || max * 0.05 || 0.0001;
-  const color = up ? "var(--up)" : "var(--down)";
+  const color = flat || up ? "var(--up)" : "var(--down)";
 
   return (
     <div className="w-full">

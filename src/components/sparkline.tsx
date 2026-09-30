@@ -11,12 +11,8 @@ type Props = {
 /**
  * A price series drawn small.
  *
- * Returns null below two points rather than inventing a line. The old
- * behaviour was to divide by `data.length - 1`, which is zero for a single
- * point and Infinity for none — both produced NaN coordinates and an SVG that
- * silently drew nothing anyway. Making the empty case explicit lets the caller
- * say "no readings yet" instead of showing a flat line that looks like a
- * price which hasn't moved.
+ * Below two points there is nothing to plot, so it draws a flat green line —
+ * a listing that hasn't moved yet, which is exactly the state of a new one.
  */
 export function Sparkline({ data, up, width = 160, height = 44, className }: Props) {
   // Gradient ids are document-global. Deriving one from the data (as this used
@@ -24,7 +20,27 @@ export function Sparkline({ data, up, width = 160, height = 44, className }: Pro
   // whichever definition paints last wins for all of them.
   const uid = useId();
 
-  if (data.length < 2) return null;
+  if (data.length < 2) {
+    return (
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className={className}
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <line
+          x1={0}
+          y1={height / 2}
+          x2={width}
+          y2={height / 2}
+          stroke="var(--up)"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+    );
+  }
 
   const min = Math.min(...data);
   const max = Math.max(...data);

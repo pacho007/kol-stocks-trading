@@ -283,7 +283,7 @@ function KolDetail() {
             </div>
           </div>
           <div className="p-2">
-            <PriceChart id={kol.id} up={up} />
+            <PriceChart id={kol.id} up={up} price={price} />
           </div>
           <div className="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-4">
             {stats.map(([label, value]) => (

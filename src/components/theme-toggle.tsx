@@ -11,7 +11,7 @@ const STORAGE_KEY = "sharps.theme";
  * sync: if they disagree the icon flips on hydration.
  */
 function currentTheme(): Theme {
-  if (typeof document === "undefined") return "light";
+  if (typeof document === "undefined") return "dark";
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
@@ -25,9 +25,9 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeToggle({ className = "" }: { className?: string }) {
-  // Start light on the server and correct on mount. Reading the DOM during
-  // render would desync SSR markup from the client and trip hydration.
-  const [theme, setTheme] = useState<Theme>("light");
+  // Start dark (the default) on the server and correct on mount. Reading the
+  // DOM during render would desync SSR markup from the client.
+  const [theme, setTheme] = useState<Theme>("dark");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -45,9 +45,7 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
       } catch {
         /* ignore */
       }
-      // Only a stored choice changes the theme now. Following the OS here
-      // would undo the light default above the moment the OS reported dark,
-      // which is the same jarring hand-off from the landing page.
+      // Only a stored choice changes the theme; the OS setting never does.
       if (!stored) return;
     };
     mq.addEventListener("change", onChange);
@@ -78,30 +76,17 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
 }
 
 /**
- * Runs before first paint, inlined in the document head. Without this the
- * page renders light and then snaps to dark on hydration — the classic
- * theme flash. Kept as a string so it can go in a <script> tag verbatim.
+ * Pre-paint theme, inlined in <head> — see src/routes/__root.tsx. Runs before
+ * first paint so the page never flashes light and then snaps to dark.
  *
- * Mirrors currentTheme()/applyTheme() above: stored choice wins, otherwise
- * follow the OS.
- */
-/**
- * Pre-paint theme, inlined in <head> — see src/routes/__root.tsx.
- *
- * Light is the default for a first visit, deliberately, rather than following
- * the OS. Visitors arrive from the landing page, which is a light page, and
- * following prefers-color-scheme meant anyone on a dark OS crossed from a
- * white hero into a black app in one click. That reads as two different
- * products rather than one.
- *
- * A stored choice still wins in both directions, and the toggle is untouched —
- * this only decides what someone sees before they have expressed a preference.
+ * Dark is the default for a first visit. A stored choice still wins, so
+ * anyone who switches to light with the toggle stays on light.
  */
 export const THEME_INIT_SCRIPT = `
 (function () {
   try {
     var stored = localStorage.getItem(${JSON.stringify(STORAGE_KEY)});
-    if (stored === "dark") document.documentElement.classList.add("dark");
+    document.documentElement.classList.toggle("dark", stored !== "light");
   } catch (e) {}
 })();
 `.trim();

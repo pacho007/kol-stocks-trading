@@ -53,19 +53,7 @@ export function KolCard({ kol, price, index = 0 }: { kol: Kol; price: number; in
         </span>
       </div>
 
-      {series.length >= 2 ? (
-        <Sparkline data={series} up={up} className="h-12 w-full" />
-      ) : (
-        // A flat line here would read as "the price hasn't moved". It hasn't
-        // been measured yet, which is a different claim.
-        <div className="flex h-12 items-center gap-3">
-          <span className="h-px flex-1 border-t border-dashed border-border" />
-          <span className="text-[10px] tracking-widest uppercase text-muted-foreground">
-            Awaiting first reading
-          </span>
-          <span className="h-px flex-1 border-t border-dashed border-border" />
-        </div>
-      )}
+      <Sparkline data={series} up={up} className="h-12 w-full" />
 
       <div className="flex items-end justify-between border-t border-border/70 pt-3">
         <div>

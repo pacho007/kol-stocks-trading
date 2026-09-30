@@ -133,7 +133,7 @@ function RootShell({ children }: { children: ReactNode }) {
     // client tree legitimately differs from the server HTML. Without this,
     // React treats it as a mismatch and bails out of hydrating the entire
     // tree — every event handler in the app silently stops working.
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         {/* Must run before first paint, or the page renders light and snaps
             to dark on hydration. Kept inline for that reason — an external
