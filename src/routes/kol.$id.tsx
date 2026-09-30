@@ -15,7 +15,7 @@ import { getKol, fmtPct, fmtUsd, shortWallet } from "@/lib/kols";
 import { useMarket, useKolStats, type ClosedTrade } from "@/lib/market-store";
 import { backingPerShareLamports, claimTraderFeesTx, fetchListing } from "@/lib/solana/market";
 import { quoteSell, sharesForBudget } from "@/lib/solana/curve";
-import { useSolanaWallet } from "@/lib/solana/wallet-provider";
+import { useSolanaWallet } from "@/lib/solana/wallet-context";
 import { getConnection, lamportsToSol, solToLamports } from "@/lib/solana/chain";
 
 /**

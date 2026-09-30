@@ -10,9 +10,7 @@
  * selection lands" or confirmation handling.
  */
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -23,27 +21,7 @@ import { ConnectionProvider, WalletProvider, useWallet } from "@solana/wallet-ad
 import { WalletReadyState, type WalletName } from "@solana/wallet-adapter-base";
 import type { PublicKey, Transaction } from "@solana/web3.js";
 import { RPC_URL, getConnection } from "./chain";
-
-export type DiscoveredWallet = {
-  name: string;
-  icon: string;
-  installed: boolean;
-};
-
-type WalletCtx = {
-  wallets: DiscoveredWallet[];
-  selected: DiscoveredWallet | null;
-  address: string | null;
-  publicKey: PublicKey | null;
-  connected: boolean;
-  connecting: boolean;
-  connect: (wallet?: DiscoveredWallet) => Promise<void>;
-  disconnect: () => void;
-  /** Sign, send and wait for confirmation. Resolves to the signature. */
-  sendAndConfirm: (tx: Transaction) => Promise<string>;
-};
-
-const Ctx = createContext<WalletCtx | null>(null);
+import { WalletContext, type DiscoveredWallet, type WalletCtx } from "./wallet-context";
 
 function Bridge({ children }: { children: ReactNode }) {
   const {
@@ -171,7 +149,7 @@ function Bridge({ children }: { children: ReactNode }) {
     ],
   );
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }
 
 export function SolanaWalletProvider({ children }: { children: ReactNode }) {
@@ -185,10 +163,4 @@ export function SolanaWalletProvider({ children }: { children: ReactNode }) {
       </WalletProvider>
     </ConnectionProvider>
   );
-}
-
-export function useSolanaWallet(): WalletCtx {
-  const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useSolanaWallet must be used inside SolanaWalletProvider");
-  return ctx;
 }
