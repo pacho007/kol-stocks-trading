@@ -47,8 +47,6 @@
     "@radix-ui/react-toggle": "^1.1.10",
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
-    "@solana/wallet-adapter-base": "^0.9.28",
-    "@solana/wallet-adapter-react": "^0.15.40",
     "@solana/web3.js": "^1.99.0",
     "@supabase/supabase-js": "^2.112.4",
     "@tailwindcss/vite": "^4.2.1",
