@@ -7,6 +7,7 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { fileURLToPath } from "node:url";
 import { loadEnv, type Plugin } from "vite";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
 
 /**
  * Refuse to build a bundle whose cluster settings disagree with each other.
@@ -61,11 +62,20 @@ function networkConsistency(): Plugin {
 const RPC_WEBSOCKETS_BROWSER = fileURLToPath(
   new URL("./node_modules/rpc-websockets/dist/index.browser.mjs", import.meta.url),
 );
-
 export default defineConfig({
   vite: {
-    plugins: [networkConsistency()],
-    resolve: { alias: [{ find: /^rpc-websockets$/, replacement: RPC_WEBSOCKETS_BROWSER }] },
+    plugins: [
+      networkConsistency(),
+      nodePolyfills({
+        include: ["buffer"],
+        globals: { Buffer: true },
+      }),
+    ],
+    resolve: {
+      alias: [
+        { find: /^rpc-websockets$/, replacement: RPC_WEBSOCKETS_BROWSER },
+      ],
+    },
   },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
