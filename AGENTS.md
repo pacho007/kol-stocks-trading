@@ -10,4 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Keep Solana wallet connections on direct browser-injected providers; wallet-adapter-react pulls React Native mobile code into production SSR and crashes startup.
-- Polyfill `buffer` only in Vite's client environment; rewriting server-side `node:buffer` imports breaks Nitro while the client polyfill is required by Solana web3.
+- Alias only bare `buffer` to the ESM browser shim; never rewrite `node:buffer`, which Nitro needs natively, while Solana web3 needs the bare import polyfilled.

@@ -62,7 +62,10 @@ const RPC_WEBSOCKETS_BROWSER = fileURLToPath(
   new URL("./node_modules/rpc-websockets/dist/index.browser.mjs", import.meta.url),
 );
 const BUFFER_BROWSER = fileURLToPath(
-  new URL("./node_modules/buffer/index.js", import.meta.url),
+  new URL(
+    "./node_modules/vite-plugin-node-polyfills/shims/buffer/dist/index.js",
+    import.meta.url,
+  ),
 );
 export default defineConfig({
   vite: {
