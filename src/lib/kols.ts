@@ -70,12 +70,12 @@ const SEEDS: Seed[] = [
   },
   {
     id: "VJSDW6",
-    name: "Beanz (TikTok Trend Quant)",
+    name: "Beanz",
     ticker: "BEANZ",
     wallet: "VJSDW6S74YXR4rRR9P4xwhMvLZJQMhrUb8XMFirUsy1",
-    image: "",
-    x: "",
-    handle: "",
+    image: "https://unavatar.io/x/BeanzzSOL",
+    x: "https://x.com/BeanzzSOL",
+    handle: "@BeanzzSOL",
     hue: 277,
   },
   {
