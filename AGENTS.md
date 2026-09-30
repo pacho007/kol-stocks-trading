@@ -9,4 +9,4 @@
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
-- Load Solana wallet-adapter React only after browser hydration; its mobile adapter crashes the production server runtime during module initialization.
+- Resolve every Solana mobile-wallet package to its browser export; its advertised workerd exports load React Native internals and crash production SSR.
