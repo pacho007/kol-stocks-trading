@@ -11,7 +11,7 @@ import { ExplorerLink } from "@/components/explorer-link";
 import { LivePrice } from "@/components/live-price";
 import { PriceChart } from "@/components/price-chart";
 import { ConnectWalletButton } from "@/components/site-header";
-import { getKol, fmtCompact, fmtPct, fmtUsd, shortWallet } from "@/lib/kols";
+import { getKol, fmtPct, fmtUsd, shortWallet } from "@/lib/kols";
 import { useMarket, useKolStats, type ClosedTrade } from "@/lib/market-store";
 import { backingPerShareLamports, claimTraderFeesTx, fetchListing } from "@/lib/solana/market";
 import { quoteSell, sharesForBudget } from "@/lib/solana/curve";
@@ -107,7 +107,6 @@ function KolDetail() {
   const price = prices[kol.id] ?? kol.price;
   const {
     score: liveScore,
-    marketCapUsd: liveCap,
     changePct,
     winRate,
     realizedPnlSol,
@@ -200,12 +199,12 @@ function KolDetail() {
   }
 
   const stats = [
+    ["Price", fmtUsd(price)],
     ["Win rate", winRate != null ? `${Math.round(winRate * 100)}%` : "—"],
     ["PnL (SOL)", realizedPnlSol != null ? realizedPnlSol.toFixed(2) : "—"],
     ["Trades", trades != null ? String(trades) : "—"],
     ["Volume (SOL)", volumeSol != null ? volumeSol.toFixed(1) : "—"],
     ["Since open", fmtPct(changePct)],
-    ["Market cap", fmtCompact(liveCap)],
     ["Perf score", String(liveScore)],
     ["Chain", kol.chain],
   ] as const;
@@ -602,11 +601,6 @@ function KolDetail() {
                 real, and shown rather than hidden.
               </li>
             </ol>
-            <p className="mt-3 border-t border-border pt-2.5 text-[10px] text-muted-foreground">
-              Market cap is price × the 10,000,000 share cap, so it moves in lockstep with price —
-              it isn't a measure of money actually in the listing. That's{" "}
-              <b className="text-foreground">backing / share</b> in the trade panel.
-            </p>
           </div>
         </div>
       </div>
