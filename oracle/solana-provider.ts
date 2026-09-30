@@ -1,7 +1,9 @@
 /**
  * solana-provider.ts — reads a trader wallet's Solana history into Movement[].
  *
- * Source: plain Solana JSON-RPC (getSignaturesForAddress + getTransaction),
+ * Source: Helius's swap-only Enhanced Transactions API when TRADER_RPC_URL is a
+ * Helius URL (see below); otherwise plain Solana JSON-RPC
+ * (getSignaturesForAddress + getTransaction),
  * so any RPC works. The public endpoint is heavily rate-limited; set
  * TRADER_RPC_URL to a dedicated one (Helius, Triton, QuickNode…) for a cohort
  * of any size.
@@ -169,7 +171,111 @@ function toMovement(tx: ParsedTransactionWithMeta, wallet: string): Movement | n
 
 type WalletCache = { newest?: string; movements: Movement[] };
 
+// ------------------------------------------------------ Helius swap history
+//
+// Big KOL wallets receive thousands of unsolicited token transfers a day
+// (people airdrop memecoins at them for attention). Reading every signature
+// means fetching all of that spam one transaction at a time — measured at
+// 20,000+ a day on some wallets. When TRADER_RPC_URL is a Helius endpoint,
+// its Enhanced Transactions API returns only SWAP transactions, already
+// parsed, so the spam never has to be downloaded.
+
+const HELIUS_KEY = /helius/i.test(RPC_URL) ? new URL(RPC_URL).searchParams.get("api-key") : null;
+const HELIUS_API = "https://api.helius.xyz/v0";
+/** Pages of up to 100 swaps per wallet per read; exceeding it fails the wallet. */
+const HELIUS_MAX_PAGES = Number(process.env["TRADER_MAX_PAGES"] ?? 300);
+
+type HeliusTx = {
+  signature: string;
+  timestamp: number;
+  fee: number;
+  feePayer: string;
+  transactionError: unknown;
+  accountData: {
+    account: string;
+    nativeBalanceChange: number;
+    tokenBalanceChanges: {
+      userAccount: string;
+      mint: string;
+      rawTokenAmount: { tokenAmount: string; decimals: number };
+    }[];
+  }[];
+};
+
+function heliusMovement(tx: HeliusTx, wallet: string): Movement | null {
+  if (tx.transactionError) return null;
+  let lamports = tx.accountData.find((a) => a.account === wallet)?.nativeBalanceChange ?? 0;
+  if (tx.feePayer === wallet) lamports += tx.fee; // a fee is not a trade
+  let nativeDelta = lamports / 1e9;
+
+  const byMint = new Map<string, number>();
+  for (const a of tx.accountData) {
+    for (const c of a.tokenBalanceChanges) {
+      if (c.userAccount !== wallet) continue;
+      const v = Number(c.rawTokenAmount.tokenAmount) / 10 ** c.rawTokenAmount.decimals;
+      byMint.set(c.mint, (byMint.get(c.mint) ?? 0) + v);
+    }
+  }
+  nativeDelta += byMint.get(WSOL_MINT) ?? 0;
+  byMint.delete(WSOL_MINT);
+
+  let best: { token: string; amount: number } | null = null;
+  for (const [token, amount] of byMint) {
+    if (amount !== 0 && (!best || Math.abs(amount) > Math.abs(best.amount)))
+      best = { token, amount };
+  }
+  return best ? { ts: tx.timestamp, token: best.token, amount: best.amount, nativeDelta } : null;
+}
+
+/** Swaps for `wallet` newer than `until` and not before launch, newest first. */
+async function heliusSwaps(wallet: string, until?: string): Promise<HeliusTx[]> {
+  const out: HeliusTx[] = [];
+  let before: string | undefined;
+  for (let page = 0; ; page++) {
+    if (page >= HELIUS_MAX_PAGES) {
+      throw new Error(
+        `more than ${HELIUS_MAX_PAGES} pages of swaps — refusing a truncated history`,
+      );
+    }
+    const url =
+      `${HELIUS_API}/addresses/${wallet}/transactions?api-key=${HELIUS_KEY}&type=SWAP&limit=100` +
+      (before ? `&before=${before}` : "") +
+      (until ? `&until=${until}` : "");
+    const body = await rpc(async () => {
+      const res = await fetch(url);
+      if (res.status === 429 || res.status >= 500) throw new Error(`${res.status}`);
+      return (await res.json()) as HeliusTx[] | { error?: string };
+    }, "helius transactions");
+
+    if (!Array.isArray(body)) {
+      // A window of plain transfers with no swap in it: Helius names the
+      // signature to resume from rather than returning an empty page.
+      const resume = body.error?.match(/before-signature` parameter set to (\w+)/)?.[1];
+      if (!resume) throw new Error(`helius: ${body.error ?? "unexpected response"}`);
+      before = resume;
+      continue;
+    }
+    if (body.length === 0) return out;
+    for (const tx of body) {
+      if (tx.timestamp < LAUNCH_TS) return out;
+      out.push(tx);
+    }
+    before = body[body.length - 1]!.signature;
+  }
+}
+
+async function readWalletHelius(wallet: string, cache: WalletCache): Promise<Movement[]> {
+  const swaps = await heliusSwaps(wallet, cache.newest);
+  for (const tx of swaps) {
+    const m = heliusMovement(tx, wallet);
+    if (m) cache.movements.push(m);
+  }
+  if (swaps[0]) cache.newest = swaps[0].signature;
+  return cache.movements;
+}
+
 async function readWallet(wallet: string, cache: WalletCache): Promise<Movement[]> {
+  if (HELIUS_KEY) return readWalletHelius(wallet, cache);
   const pk = new PublicKey(wallet);
   const sigs = (await newSignatures(pk, cache.newest)).filter((s) => !s.err);
   const txs = await Promise.all(
