@@ -16,46 +16,46 @@ export type Database = {
     Tables: {
       fills: {
         Row: {
-          block_number: number
-          block_timestamp: string
+          block_time: string
           created_at: string
+          event_index: number
           id: number
           kol_id: string
           kol_wallet: string
-          log_index: number
+          lamports: number
           shares: number
           side: string
+          signature: string
+          slot: number
           trader: string
-          tx_hash: string
-          wei: number
         }
         Insert: {
-          block_number: number
-          block_timestamp: string
+          block_time: string
           created_at?: string
+          event_index: number
           id?: number
           kol_id: string
           kol_wallet: string
-          log_index: number
+          lamports: number
           shares: number
           side: string
+          signature: string
+          slot: number
           trader: string
-          tx_hash: string
-          wei: number
         }
         Update: {
-          block_number?: number
-          block_timestamp?: string
+          block_time?: string
           created_at?: string
+          event_index?: number
           id?: number
           kol_id?: string
           kol_wallet?: string
-          log_index?: number
+          lamports?: number
           shares?: number
           side?: string
+          signature?: string
+          slot?: number
           trader?: string
-          tx_hash?: string
-          wei?: number
         }
         Relationships: [
           {
@@ -77,17 +77,20 @@ export type Database = {
       indexer_state: {
         Row: {
           id: number
-          last_indexed_block: number
+          last_signature: string | null
+          last_slot: number
           updated_at: string
         }
         Insert: {
           id?: number
-          last_indexed_block?: number
+          last_signature?: string | null
+          last_slot?: number
           updated_at?: string
         }
         Update: {
           id?: number
-          last_indexed_block?: number
+          last_signature?: string | null
+          last_slot?: number
           updated_at?: string
         }
         Relationships: []
@@ -97,36 +100,36 @@ export type Database = {
           breakdown: Json
           confidence: number
           kol_id: string
-          realized_pnl_eth: number
+          realized_pnl_sol: number
           top_losses: Json
           top_wins: Json
           trades: number
           updated_at: string
-          volume_eth: number
+          volume_sol: number
           win_rate: number
         }
         Insert: {
           breakdown?: Json
           confidence?: number
           kol_id: string
-          realized_pnl_eth?: number
+          realized_pnl_sol?: number
           top_losses?: Json
           top_wins?: Json
           trades?: number
           updated_at?: string
-          volume_eth?: number
+          volume_sol?: number
           win_rate?: number
         }
         Update: {
           breakdown?: Json
           confidence?: number
           kol_id?: string
-          realized_pnl_eth?: number
+          realized_pnl_sol?: number
           top_losses?: Json
           top_wins?: Json
           trades?: number
           updated_at?: string
-          volume_eth?: number
+          volume_sol?: number
           win_rate?: number
         }
         Relationships: [
@@ -152,72 +155,72 @@ export type Database = {
           kol_wallet: string
           last_update_ts: string | null
           paused: boolean
-          price_wei: number
+          price_lamports: number
           score: number
           shares_outstanding: number
           updated_at: string
-          vault_balance_wei: number
+          vault_balance_lamports: number
         }
         Insert: {
           kol_id: string
           kol_wallet: string
           last_update_ts?: string | null
           paused?: boolean
-          price_wei: number
+          price_lamports: number
           score?: number
           shares_outstanding?: number
           updated_at?: string
-          vault_balance_wei?: number
+          vault_balance_lamports?: number
         }
         Update: {
           kol_id?: string
           kol_wallet?: string
           last_update_ts?: string | null
           paused?: boolean
-          price_wei?: number
+          price_lamports?: number
           score?: number
           shares_outstanding?: number
           updated_at?: string
-          vault_balance_wei?: number
+          vault_balance_lamports?: number
         }
         Relationships: []
       }
       price_history: {
         Row: {
-          block_number: number
-          block_timestamp: string
+          block_time: string
           created_at: string
+          event_index: number
           id: number
           kol_id: string
           kol_wallet: string
-          log_index: number
-          price_wei: number
+          price_lamports: number
           score: number
-          tx_hash: string
+          signature: string
+          slot: number
         }
         Insert: {
-          block_number: number
-          block_timestamp: string
+          block_time: string
           created_at?: string
+          event_index: number
           id?: number
           kol_id: string
           kol_wallet: string
-          log_index: number
-          price_wei: number
+          price_lamports: number
           score: number
-          tx_hash: string
+          signature: string
+          slot: number
         }
         Update: {
-          block_number?: number
-          block_timestamp?: string
+          block_time?: string
           created_at?: string
+          event_index?: number
           id?: number
           kol_id?: string
           kol_wallet?: string
-          log_index?: number
-          price_wei?: number
+          price_lamports?: number
           score?: number
-          tx_hash?: string
+          signature?: string
+          slot?: number
         }
         Relationships: [
           {
@@ -238,24 +241,24 @@ export type Database = {
       }
       token_launch: {
         Row: {
-          contract_address: string | null
           id: number
           launched_at: string | null
-          pons_url: string | null
+          launchpad_url: string | null
+          mint_address: string | null
           updated_at: string
         }
         Insert: {
-          contract_address?: string | null
           id?: number
           launched_at?: string | null
-          pons_url?: string | null
+          launchpad_url?: string | null
+          mint_address?: string | null
           updated_at?: string
         }
         Update: {
-          contract_address?: string | null
           id?: number
           launched_at?: string | null
-          pons_url?: string | null
+          launchpad_url?: string | null
+          mint_address?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -267,7 +270,7 @@ export type Database = {
           fill_count: number | null
           kol_id: string | null
           trader_count: number | null
-          volume_wei: number | null
+          volume_lamports: number | null
         }
         Relationships: []
       }
